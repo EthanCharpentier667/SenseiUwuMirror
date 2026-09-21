@@ -1,5 +1,5 @@
 [project]
-name = "sensei-uwu-mirror"
+name = "sensai"
 version = "0.1.0"
 description = "LLM chatbot with unlimited functionalities !"
 readme = "README.md"
@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
-sensei-uwu-mirror = "sensei_uwu_mirror:main"
+sensai = "sensai:main"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]

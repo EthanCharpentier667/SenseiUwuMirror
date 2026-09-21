@@ -48,7 +48,7 @@ This command creates the `.venv` virtual environment, installs the project, and 
 ## Run the project
 
 ```bash
-uv run sensei-uwu-mirror
+uv run sensai
 ```
 
 To add a Python dependency to the project:
