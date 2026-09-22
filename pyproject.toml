@@ -28,6 +28,12 @@ dev = [
     "ruff>=0.16.8",
 ]
 
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.28.0",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
