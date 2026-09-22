@@ -62,6 +62,12 @@ ignore = [
     "PLR2004", # magic-value-comparison: fine in test assertions
     "ANN001",
     "ANN201",  # test functions rarely need full annotations
+    "ANN202",  # same, for nested mock helpers
+    "ANN204",  # same, for mock __init__ methods
+    "ARG001",  # mock functions must match the signature they replace, even if unused
+    "ARG005",  # same, for monkeypatched lambdas
+    "TRY002",  # generic Exception is fine to simulate an arbitrary HTTP error
+    "PT011",   # pytest.raises(ValueError) is fine here, message already asserted separately
 ]
 "__init__.py" = ["D104"] # package docstring optional at the root
 
@@ -99,6 +105,7 @@ pretty = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+disallow_untyped_calls = false
 
 # ---------------------------------------------------------------------------
 # pytest
