@@ -28,7 +28,7 @@ def make_request(
         payload (dict): The data to send in the request body.
         headers (dict, optional): Additional headers to include in the request. Default is None.
         stream (bool): Whether to stream the response. Default is False.
-        timeout (float): The maximum time to wait for a response, in seconds. Default is
+        timeout (float): The maximum time to wait for a response, in seconds. Default is 30s.
 
     Returns:
         dict: The JSON response from the server.
