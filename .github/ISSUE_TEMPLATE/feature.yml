@@ -1,0 +1,41 @@
+---
+name: Feature Implementation
+description: Plan and implement a feature from the Sensai catalog or a custom one.
+labels: enhancement
+title: "[FEATURE] <Feature Name>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out this template to define a feature implementation.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: Which category from the Sensai catalog does this feature belong to?
+      options:
+        - Base
+        - Memory & Context
+        - Tools
+        - RAG
+        - Orchestration & Reasoning
+        - Evaluation
+        - UX & Lifecycle
+        - Custom Feature
+    validations:
+      required: true
+  - type: input
+    id: feature_id
+    attributes:
+      label: Feature ID
+      description: The ID of the feature from the catalog (e.g., [M1], [T2]). Leave blank if it's a custom feature.
+      placeholder: "[M1]"
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: Description & Technical Tradeoffs
+      description: What is the description of the feature? Explain your technical choices, what you considered, and why you chose this path.
+    validations:
+      required: true
