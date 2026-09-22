@@ -1,6 +1,5 @@
 """Tests for the ``sensai.requester`` module."""
 
-import dotenv
 import pytest
 import requests
 
@@ -162,6 +161,7 @@ def test_get_sensei_response_returns_expected_response(monkeypatch: pytest.Monke
         return {"response": "This is a mock response."}
 
     monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test_token")
 
     prompt = "Hello, Sensei! Can you tell me a joke?"
     model = "llama3.2"
@@ -175,8 +175,8 @@ def test_get_sensei_response_returns_expected_response(monkeypatch: pytest.Monke
 def test_get_sensei_response_raises_value_error_when_token_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Mock the dotenv.get_key function to return None (simulating missing token)
-    monkeypatch.setattr(dotenv, "get_key", lambda *args, **kwargs: None)
+    # Simulate a missing token in the environment
+    monkeypatch.delenv("TOKEN", raising=False)
 
     prompt = "Hello, Sensei! Can you tell me a joke?"
     model = "llama3.2"
@@ -205,7 +205,7 @@ def test_get_sensei_response_calls_make_request_without_header(
         return {"response": "This is a mock response."}
 
     monkeypatch.setattr(requester, "make_request", mock_make_request)
-    monkeypatch.setattr(dotenv, "get_key", lambda *args, **kwargs: "test_token")
+    monkeypatch.setenv("TOKEN", "test_token")
 
     prompt = "Hello, Sensei! Can you tell me a joke?"
     model = "llama3.2"

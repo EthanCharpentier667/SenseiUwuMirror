@@ -7,7 +7,10 @@ import pytest
 from sensai import main
 
 
-def test_main_prints_greeting(capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_prints_greeting(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("sensai.get_sensei_response", lambda *args, **kwargs: {})
     main()
     captured = capsys.readouterr()
     assert "Hello from sensei-uwu-mirror!" in captured.out

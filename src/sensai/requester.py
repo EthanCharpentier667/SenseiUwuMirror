@@ -1,6 +1,7 @@
 """A module for making requests to the Ollama Sensei API."""
 
 import json
+import os
 import time
 from typing import Any, cast
 
@@ -102,7 +103,7 @@ def get_sensei_response(
         requests.exceptions.RequestException: If an error occurs during the request.
     """
     url = "https://ollama.tanouminou.com/api/generate"
-    token = dotenv.get_key(dotenv.find_dotenv(), "TOKEN")
+    token = os.getenv("TOKEN")
     if not token:
         raise ValueError("API token not found in environment variables.")
     headers = {"Authorization": f"Bearer {token}"}
