@@ -7,6 +7,7 @@ import time
 
 dotenv.load_dotenv()
 
+
 def make_request(url, payload, headers=None, stream=False):
     """Make a POST request to the specified URL with the given payload.
 
@@ -21,7 +22,7 @@ def make_request(url, payload, headers=None, stream=False):
         requests.exceptions.RequestException: If an error occurs during the request.
     """
     request_time = time.time()
-    request_headers = {'Content-Type': 'application/json'}
+    request_headers = {"Content-Type": "application/json"}
     if headers is not None:
         request_headers.update(headers)
     response = requests.post(url, headers=request_headers, data=json.dumps(payload), stream=stream)
@@ -51,20 +52,22 @@ def make_request(url, payload, headers=None, stream=False):
             total_duration = chunk.get("total_duration", 0)
             break
     print()
-    return {"response": full_response,
-            "respond_time": time.time() - request_time,
-            "request_time": request_time,
-            "total_duration" : total_duration,
-            "model": payload.get("model", ""),
-            "tools": payload.get("tools", []),
-            "prompt": payload.get("prompt", ""),
-            "prompt_eval_count": prompt_eval_count,
-            "eval_count": eval_count,
-            "token_used": eval_count + prompt_eval_count,
-            "status_code": response.status_code,
-            "context": context,
-            "stop_reason": done_reason
-            }
+    return {
+        "response": full_response,
+        "respond_time": time.time() - request_time,
+        "request_time": request_time,
+        "total_duration": total_duration,
+        "model": payload.get("model", ""),
+        "tools": payload.get("tools", []),
+        "prompt": payload.get("prompt", ""),
+        "prompt_eval_count": prompt_eval_count,
+        "eval_count": eval_count,
+        "token_used": eval_count + prompt_eval_count,
+        "status_code": response.status_code,
+        "context": context,
+        "stop_reason": done_reason,
+    }
+
 
 def get_sensei_response(prompt, model="llama3.2", tools=None, stream=True):
     """Get a response from the Sensei API based on the provided prompt and model.
@@ -73,7 +76,7 @@ def get_sensei_response(prompt, model="llama3.2", tools=None, stream=True):
         prompt (str): The input prompt for the Sensei model.
         model (str): The model to use for generating the response. Default is "llama3.2".
         tools (list, optional): A list of tools to use with the model. Default is None.
-    
+
     Returns:
         dict: The JSON response from the Sensei API.
 
@@ -84,11 +87,11 @@ def get_sensei_response(prompt, model="llama3.2", tools=None, stream=True):
     token = dotenv.get_key(dotenv.find_dotenv(), "TOKEN")
     if not token:
         raise ValueError("API token not found in environment variables.")
-    headers = {'Authorization': f'Bearer {token}'}
+    headers = {"Authorization": f"Bearer {token}"}
     payload = {
         "prompt": prompt,
         "model": model,
         "tools": tools if tools is not None else [],
-        "stream": stream
+        "stream": stream,
     }
     return make_request(url, payload, headers=headers, stream=stream)

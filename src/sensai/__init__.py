@@ -2,6 +2,7 @@
 
 from .requester import get_sensei_response  # noqa: F401
 
+
 def main() -> None:
     """Entry point for the ``sensai`` console script."""
     print("Hello from sensei-uwu-mirror!")  # noqa: T201
