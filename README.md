@@ -97,3 +97,23 @@ uv run pre-commit run --all-files
   short, documented ignore list for rules that conflict with the formatter
   or don't fit this project. When in doubt, prefer fixing the code over
   adding a new ignore.
+
+## Documentation
+
+The project documentation is built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) and automatically deployed to GitHub Pages via [.github/workflows/docs.yml](.github/workflows/docs.yml).
+
+### Local preview
+
+To serve the documentation locally with live-reload:
+
+```bash
+uv run --group docs mkdocs serve
+```
+
+Then visit [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+To build the static site locally:
+
+```bash
+uv run --group docs mkdocs build
+```
