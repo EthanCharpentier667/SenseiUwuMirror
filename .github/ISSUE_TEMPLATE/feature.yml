@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please fill out this template to define a feature implementation.
+        Please fill out this template to define a feature implementation. Remember that **User stories are not a formality**—they are the contract between technical choices and the problem you claim to solve.
   - type: dropdown
     id: category
     attributes:
@@ -37,5 +37,26 @@ body:
     attributes:
       label: Description & Technical Tradeoffs
       description: What is the description of the feature? Explain your technical choices, what you considered, and why you chose this path.
+    validations:
+      required: true
+  - type: textarea
+    id: user_stories
+    attributes:
+      label: User Stories
+      description: |
+        You must write **at least two user stories** demonstrating real use cases for this feature.
+        Format: As a [type of user], I want to [action], so that [outcome].
+      placeholder: |
+        **User Story 1:**
+        As a developer, I want to ..., so that ...
+        Acceptance criteria:
+        - Observable behavior 1
+        - Observable behavior 2
+
+        **User Story 2:**
+        As a data scientist, I want to ..., so that ...
+        Acceptance criteria:
+        - Observable behavior 1
+        - Observable behavior 2
     validations:
       required: true
