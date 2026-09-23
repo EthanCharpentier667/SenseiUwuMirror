@@ -3,10 +3,12 @@
 from typing import Any
 
 from sensai.data.database.database import Database
-from sensai.requester import Response
+from sensai.requester import Response, get_sensei_response
 
-from .message import create_message
-from .session import Session, add_session_usage, create_session, get_session
+from .message import Message, create_message
+from .session import Session, add_session_usage, create_session, get_session, set_session_summary
+
+DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 
 
 class SessionManager:
@@ -54,13 +56,38 @@ def create_new_session(db: Database, profile_id: int, name: str | None = None) -
     return session
 
 
+def _sendable_messages(session: Session) -> list[Message]:
+    """A session's messages that still need to be sent verbatim to the API.
+
+    Messages folded into ``session.summary`` (their id is at or below
+    ``summarized_message_id``) are represented by the summary instead, so they're excluded.
+    """
+    if session.summarized_message_id is None:
+        return session.messages
+    return [
+        message
+        for message in session.messages
+        if message.id is not None and message.id > session.summarized_message_id
+    ]
+
+
+def _history_prefix_length(session: Session) -> int:
+    """The number of leading entries a ``build_messages()`` payload spends on known state.
+
+    That's the optional summary line plus the still-unsummarized history messages —
+    everything before the new prompt for this turn.
+    """
+    return len(_sendable_messages(session)) + (1 if session.summary else 0)
+
+
 def update_session(db: Database, session: Session, response: Response) -> Session | None:
     """Persist a response's new messages and usage onto an existing session.
 
     ``response.messages`` echoes everything sent to the API for this exchange, which
-    includes the session's already-persisted history when the request was built with
-    ``build_messages``. Only the messages past that history are new to this turn, so
-    only those are persisted here to avoid re-inserting duplicates of past messages.
+    includes the session's known state (summary plus unsummarized history) when the
+    request was built with ``build_messages``. Only the messages past that prefix are
+    new to this turn, so only those are persisted here to avoid re-inserting duplicates
+    of past messages or turning the summary line into a stored message.
 
     Args:
         db (Database): The database to write to.
@@ -72,7 +99,7 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
     """
     if session.id is None:
         return None
-    new_messages = response.messages[len(session.messages) :]
+    new_messages = response.messages[_history_prefix_length(session) :]
     for message in new_messages:
         add_message_to_current_session(db, message.content, message.role, message.response_time)
     add_session_usage(
@@ -84,16 +111,92 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
 def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     """Build the API-ready message list for a new prompt, prefixed with a session's history.
 
+    Messages already folded into ``session.summary`` are replaced by a single system
+    message carrying that summary, followed by whatever history hasn't been folded in yet.
+
     Args:
-        session (Session): The session whose persisted messages provide the context.
+        session (Session): The session whose summary and persisted messages provide context.
         prompt (str): The new user prompt to append after the session's history.
 
     Returns:
         list[dict[str, Any]]: The conversation history followed by the new prompt, in the
             raw ``{"role": ..., "content": ...}`` shape the Sensei API expects.
     """
-    history = [{"role": message.role, "content": message.content} for message in session.messages]
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in _sendable_messages(session)
+    ]
+    if session.summary:
+        history = [
+            {"role": "system", "content": f"Conversation summary so far: {session.summary}"},
+            *history,
+        ]
     return [*history, {"role": "user", "content": prompt}]
+
+
+def compress_session(db: Database, session: Session) -> Session:
+    """Fold a session's unsummarized history into its running summary via the LLM.
+
+    Args:
+        db (Database): The database to write to.
+        session (Session): The session to compress.
+
+    Returns:
+        Session: The session refreshed from the database, or unchanged if there was no
+            unsummarized history to fold in.
+
+    Raises:
+        ValueError: If the session, or its unsummarized messages, have no ID.
+    """
+    if session.id is None:
+        raise ValueError("Session does not have a valid ID.")
+    to_fold = _sendable_messages(session)
+    if not to_fold:
+        return session
+
+    transcript = "\n".join(f"{message.role}: {message.content}" for message in to_fold)
+    print(f"Compressing session {session.id} with {len(to_fold)}")  # noqa: T201
+    prompt = (
+        f"Previous summary:\n{session.summary or '(none yet)'}\n\n"
+        f"New conversation to fold in:\n{transcript}\n\n"
+        "Rewrite this as a single, concise, updated summary of the whole conversation, "
+        "preserving important facts, decisions and context needed to continue it."
+    )
+    response = get_sensei_response(prompt=prompt, stream=False)
+
+    last_folded_id = to_fold[-1].id
+    if last_folded_id is None:
+        raise ValueError("Cannot compress a session whose messages have no ID.")
+    set_session_summary(db, session.id, response.response, last_folded_id)
+    compressed = get_session(db, session.id)
+    if compressed is None:
+        raise ValueError(f"Failed to reload session {session.id} after compression.")
+    return compressed
+
+
+def maybe_compress_session(
+    db: Database,
+    session: Session,
+    response: Response,
+    threshold: int = DEFAULT_COMPRESSION_TOKEN_THRESHOLD,
+) -> Session:
+    """Compress a session's history once its last prompt exceeded a token threshold.
+
+    Args:
+        db (Database): The database to write to.
+        session (Session): The session to potentially compress.
+        response (Response): The response of the turn just completed; its
+            ``prompt_eval_count`` reflects the size of the prompt that was just sent,
+            history and all.
+        threshold (int): The prompt token count above which compression triggers.
+            Default is 3000.
+
+    Returns:
+        Session: The session, compressed if the threshold was exceeded.
+    """
+    if response.prompt_eval_count <= threshold:
+        return session
+    return compress_session(db, session)
 
 
 def get_session_by_id(db: Database, session_id: int) -> Session | None:

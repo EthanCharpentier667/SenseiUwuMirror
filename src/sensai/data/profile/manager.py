@@ -1,11 +1,47 @@
 """Profile Manager for handling user profiles."""
 
-import crypt
+import hashlib
+import hmac
+import os
 
 from sensai.data.database.database import Database
 
 from .profile import Profile
 from .profile import create_profile as _create_profile
+
+_HASH_ALGORITHM = "sha256"
+_HASH_ITERATIONS = 600_000
+_SALT_BYTES = 16
+
+
+def _hash_password(password: str) -> str:
+    """Hash a password for storage, embedding a fresh random salt.
+
+    Args:
+        password (str): The plaintext password to hash.
+
+    Returns:
+        str: The hash, formatted as ``iterations$salt_hex$digest_hex``.
+    """
+    salt = os.urandom(_SALT_BYTES)
+    digest = hashlib.pbkdf2_hmac(_HASH_ALGORITHM, password.encode(), salt, _HASH_ITERATIONS)
+    return f"{_HASH_ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    """Check a plaintext password against a hash produced by ``_hash_password``.
+
+    Args:
+        password (str): The plaintext password to check.
+        stored_hash (str): The stored ``iterations$salt_hex$digest_hex`` hash.
+
+    Returns:
+        bool: True if the password matches, otherwise False.
+    """
+    iterations, salt_hex, digest_hex = stored_hash.split("$")
+    salt = bytes.fromhex(salt_hex)
+    digest = hashlib.pbkdf2_hmac(_HASH_ALGORITHM, password.encode(), salt, int(iterations))
+    return hmac.compare_digest(digest.hex(), digest_hex)
 
 
 class ProfileManager:
@@ -55,7 +91,7 @@ def login(name: str, password: str, db: Database) -> Profile:
         raise ValueError(f"Profile with name '{name}' does not exist.")
 
     stored_password = row["password"]
-    if crypt.crypt(password, crypt.mksalt(crypt.METHOD_SHA512)) != stored_password:
+    if not _verify_password(password, stored_password):
         raise ValueError("Incorrect password.")
 
     profile = Profile(
@@ -86,7 +122,7 @@ def create_profile(db: Database, name: str, password: str) -> Profile:
     Returns:
         Profile: The newly created profile, including its assigned ID.
     """
-    hashed_password = crypt.crypt(password, crypt.mksalt(crypt.METHOD_SHA512))
+    hashed_password = _hash_password(password)
     profile = _create_profile(db, name, hashed_password)
     ProfileManager.current_profile = profile
     return profile

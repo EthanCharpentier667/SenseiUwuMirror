@@ -19,6 +19,8 @@ class Session:
     prompt_eval_count: int = 0
     eval_count: int = 0
     token_used: int = 0
+    summary: str | None = None
+    summarized_message_id: int | None = None
     messages: list[Message] = field(default_factory=list)
 
 
@@ -31,6 +33,8 @@ def _row_to_session(db: Database, row: Row) -> Session:
         prompt_eval_count=row["prompt_eval_count"],
         eval_count=row["eval_count"],
         token_used=row["token_used"],
+        summary=row["summary"],
+        summarized_message_id=row["summarized_message_id"],
         messages=get_messages_by_session(db, row["id"]),
     )
 
@@ -71,7 +75,8 @@ def get_session(db: Database, session_id: int) -> Session | None:
         Session | None: The session if found, otherwise None.
     """
     cursor = db.execute(
-        "SELECT id, name, profile_id, created_at, prompt_eval_count, eval_count, token_used "
+        "SELECT id, name, profile_id, created_at, prompt_eval_count, eval_count, token_used, "
+        "summary, summarized_message_id "
         "FROM session WHERE id = ?",
         (session_id,),
     )
@@ -92,6 +97,24 @@ def update_session(db: Database, session_id: int, name: str) -> None:
     db.execute(
         "UPDATE session SET name = ? WHERE id = ?",
         (name, session_id),
+    )
+
+
+def set_session_summary(
+    db: Database, session_id: int, summary: str, summarized_message_id: int
+) -> None:
+    """Persist a session's rolling summary and how much history it covers.
+
+    Args:
+        db (Database): The database to write to.
+        session_id (int): The unique identifier for the session.
+        summary (str): The updated summary text, replacing any previous one.
+        summarized_message_id (int): The ID of the latest message folded into the summary;
+            messages with a lower or equal ID are omitted from future prompts.
+    """
+    db.execute(
+        "UPDATE session SET summary = ?, summarized_message_id = ? WHERE id = ?",
+        (summary, summarized_message_id, session_id),
     )
 
 

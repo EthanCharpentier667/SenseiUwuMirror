@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS session(
   prompt_eval_count INTEGER NOT NULL DEFAULT 0,
   eval_count INTEGER NOT NULL DEFAULT 0,
   token_used INTEGER NOT NULL DEFAULT 0,
+  summary TEXT,
+  summarized_message_id INTEGER REFERENCES message(id) ON DELETE SET NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

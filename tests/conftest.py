@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from sensai.data.database.database import Database
+from sensai.data.profile.manager import ProfileManager
 from sensai.data.session.manager import SessionManager
 
 SCHEMA_PATH = (
@@ -41,3 +42,11 @@ def _reset_current_session() -> Iterator[None]:
     SessionManager.current_session = None
     yield
     SessionManager.current_session = None
+
+
+@pytest.fixture(autouse=True)
+def _reset_current_profile() -> Iterator[None]:
+    """Prevent ProfileManager's shared class-level state from leaking between tests."""
+    ProfileManager.current_profile = None
+    yield
+    ProfileManager.current_profile = None

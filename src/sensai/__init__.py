@@ -5,7 +5,12 @@ from typing import TYPE_CHECKING
 
 from .data.database.database import Database
 from .data.profile.manager import add_instruction, add_preference, create_profile
-from .data.session.manager import build_messages, create_new_session, update_session
+from .data.session.manager import (
+    build_messages,
+    create_new_session,
+    maybe_compress_session,
+    update_session,
+)
 from .requester import get_sensei_response
 from .tools.registry import get_all_tools
 
@@ -41,6 +46,7 @@ def main() -> None:
     session = update_session(database, session, response)
     if session is None:
         raise ValueError("Failed to update the session after the first response.")
+    session = maybe_compress_session(database, session, response)
 
     # Second request to Sensei, using the session's history
     print("\n---------------\n")  # noqa: T201
@@ -54,4 +60,5 @@ def main() -> None:
     session = update_session(database, session, response2)
     if session is None:
         raise ValueError("Failed to update the session after the second response.")
+    session = maybe_compress_session(database, session, response2)
     print("\n---------------\n")  # noqa: T201
