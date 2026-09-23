@@ -81,3 +81,52 @@ def get_profile(db: Database, profile_id: int) -> Profile | None:
     if row is None:
         return None
     return _row_to_profile(row)
+
+
+def get_profile_by_name(db: Database, name: str) -> Profile | None:
+    """Retrieve a profile by its display name.
+
+    Args:
+        db (Database): The database to read from.
+        name (str): The profile's display name.
+
+    Returns:
+        Profile | None: The profile if found, otherwise None.
+    """
+    cursor = db.execute(
+        "SELECT id, name, password, preferences, instructions, created_at "
+        "FROM profile WHERE name = ?",
+        (name,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return _row_to_profile(row)
+
+
+def update_profile_preferences(db: Database, profile_id: int, preferences: str) -> None:
+    """Overwrite a profile's preferences.
+
+    Args:
+        db (Database): The database to write to.
+        profile_id (int): The unique identifier for the profile.
+        preferences (str): The new preferences text.
+    """
+    db.execute(
+        "UPDATE profile SET preferences = ? WHERE id = ?",
+        (preferences, profile_id),
+    )
+
+
+def update_profile_instructions(db: Database, profile_id: int, instructions: str) -> None:
+    """Overwrite a profile's instructions.
+
+    Args:
+        db (Database): The database to write to.
+        profile_id (int): The unique identifier for the profile.
+        instructions (str): The new instructions text.
+    """
+    db.execute(
+        "UPDATE profile SET instructions = ? WHERE id = ?",
+        (instructions, profile_id),
+    )

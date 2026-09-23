@@ -6,7 +6,13 @@ import os
 
 from sensai.data.database.database import Database
 
-from .profile import Profile, create_profile, get_profile
+from .profile import (
+    Profile,
+    create_profile,
+    get_profile_by_name,
+    update_profile_instructions,
+    update_profile_preferences,
+)
 
 _HASH_ALGORITHM = "sha256"
 _HASH_ITERATIONS = 600_000
@@ -81,20 +87,13 @@ def login(name: str, password: str, db: Database) -> Profile:
     Raises:
         ValueError: If the profile does not exist or the password is incorrect.
     """
-    cursor = db.execute(
-        "SELECT id, password FROM profile WHERE name = ?",
-        (name,),
-    )
-    row = cursor.fetchone()
-    if row is None:
+    profile = get_profile_by_name(db, name)
+    if profile is None:
         raise ValueError(f"Profile with name '{name}' does not exist.")
 
-    if not _verify_password(password, row["password"]):
+    if not _verify_password(password, profile.password):
         raise ValueError("Incorrect password.")
 
-    profile = get_profile(db, row["id"])
-    if profile is None:
-        raise ValueError(f"Failed to retrieve profile with ID {row['id']}.")
     ProfileManager.current_profile = profile
     return profile
 
@@ -133,14 +132,14 @@ def add_preference(db: Database, preference: str) -> None:
     """
     if ProfileManager.current_profile is None:
         raise ValueError("No current profile set.")
+    current_profile_id = ProfileManager.current_profile.id
+    if current_profile_id is None:
+        raise ValueError("Current profile does not have a valid ID.")
 
     current_preferences = ProfileManager.current_profile.preferences or ""
     updated_preferences = f"{current_preferences}\n{preference}".strip()
 
-    db.execute(
-        "UPDATE profile SET preferences = ? WHERE id = ?",
-        (updated_preferences, ProfileManager.current_profile.id),
-    )
+    update_profile_preferences(db, current_profile_id, updated_preferences)
 
     ProfileManager.current_profile.preferences = updated_preferences
 
@@ -157,13 +156,13 @@ def add_instruction(db: Database, instruction: str) -> None:
     """
     if ProfileManager.current_profile is None:
         raise ValueError("No current profile set.")
+    current_profile_id = ProfileManager.current_profile.id
+    if current_profile_id is None:
+        raise ValueError("Current profile does not have a valid ID.")
 
     current_instructions = ProfileManager.current_profile.instructions or ""
     updated_instructions = f"{current_instructions}\n{instruction}".strip()
 
-    db.execute(
-        "UPDATE profile SET instructions = ? WHERE id = ?",
-        (updated_instructions, ProfileManager.current_profile.id),
-    )
+    update_profile_instructions(db, current_profile_id, updated_instructions)
 
     ProfileManager.current_profile.instructions = updated_instructions
