@@ -8,6 +8,8 @@ from typing import Any, cast
 import dotenv
 import requests
 
+from sensai.require_approval import require_approval
+
 dotenv.load_dotenv()
 
 DEFAULT_TIMEOUT = 300
@@ -106,6 +108,8 @@ def call_tool(
     response: dict[str, Any],
     messages: list[dict[str, Any]],
     tools: list[Any] | None = None,
+    *,
+    human_in_the_loop: bool = False,
 ) -> dict[str, Any]:
     """Call the appropriate tool based on the provided tool calls.
 
@@ -114,6 +118,7 @@ def call_tool(
         response (dict): The response dictionary from the Sensei API.
         messages (list): The list of messages in the conversation.
         tools (list, optional): A list of available tools. Default is None.
+        human_in_the_loop (bool): If True, ask the user to approve each tool call. Default is False.
 
     Returns:
         dict: The updated response dictionary after executing the tool calls.
@@ -127,18 +132,26 @@ def call_tool(
     ]
     for tool_call in toolcalls:
         function = tool_call.get("function", {})
+        fn_name = function.get("name", "")
+        fn_args = function.get("arguments", {})
+
+        if human_in_the_loop and not require_approval(fn_name, fn_args):
+            conversation.append({"role": "tool", "content": "Action cancelled by user."})
+            continue
+
         for tool in tools:
-            if tool.name == function.get("name"):
-                tool_response = tool.execute(**function.get("arguments", {}))
+            if tool.name == fn_name:
+                tool_response = tool.execute(**fn_args)
                 content = (
                     tool_response if isinstance(tool_response, str) else json.dumps(tool_response)
                 )
                 conversation.append({"role": "tool", "content": content})
+                break
     return get_sensei_response(
         messages=conversation,
         model=response.get("model", "llama3.2"),
         tools=tools,
-        stream=True,
+        human_in_the_loop=human_in_the_loop,
     )
 
 
@@ -148,7 +161,7 @@ def get_sensei_response(
     tools: list[Any] | None = None,
     *,
     messages: list[dict[str, Any]] | None = None,
-    stream: bool = True,
+    human_in_the_loop: bool = False,
 ) -> dict[str, Any]:
     """Get a response from the Sensei API based on the provided prompt and model.
 
@@ -159,7 +172,7 @@ def get_sensei_response(
         tools (list, optional): A list of tools to use with the model. Default is None.
         messages (list, optional): The full conversation history to send.
             Overrides ``prompt`` when given.
-        stream (bool): Whether to stream the response. Default is True.
+        human_in_the_loop (bool): If True, ask the user to approve each tool call. Default is False.
 
     Returns:
         dict: The JSON response from the Sensei API.
@@ -182,7 +195,13 @@ def get_sensei_response(
         "messages": messages,
         "model": model,
         "tools": formatedtools,
-        "stream": stream,
+        "stream": True,
     }
-    reponse = make_request(url, payload, headers=headers, stream=stream)
-    return call_tool(reponse.get("tool_calls", []), reponse, messages, tools)
+    reponse = make_request(url, payload, headers=headers, stream=True)
+    return call_tool(
+        reponse.get("tool_calls", []),
+        reponse,
+        messages,
+        tools,
+        human_in_the_loop=human_in_the_loop,
+    )
