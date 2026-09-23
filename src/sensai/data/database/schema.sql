@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS profile(
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  preferences TEXT,
+  instructions TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS session(
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  profile_id INTEGER NOT NULL REFERENCES profile(id) ON DELETE CASCADE,
+  prompt_eval_count INTEGER NOT NULL DEFAULT 0,
+  eval_count INTEGER NOT NULL DEFAULT 0,
+  token_used INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_profile_id ON session(profile_id);
+
+CREATE TABLE IF NOT EXISTS message(
+  id INTEGER PRIMARY KEY,
+  content TEXT NOT NULL,
+  role TEXT NOT NULL,
+  response_time REAL NOT NULL,
+  session_id INTEGER NOT NULL REFERENCES session(id) ON DELETE CASCADE,
+  timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_session_id ON message(session_id);
+
+CREATE TABLE IF NOT EXISTS document(
+  id INTEGER PRIMARY KEY,
+  content BLOB,
+  message_id INTEGER NOT NULL REFERENCES message(id) ON DELETE CASCADE,
+  timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_message_id ON document(message_id);
