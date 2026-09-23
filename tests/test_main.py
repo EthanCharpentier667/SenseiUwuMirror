@@ -8,6 +8,8 @@ from sensai import main
 from sensai.data.profile_manager import Profile
 from sensai.data.session.session import Session
 from sensai.requester import Response
+from sensai.tools.temperature_example import TempToolExample
+from sensai.tools.web_search import WebSearch
 
 
 def _make_response(text: str = "This is a mock response.") -> Response:
@@ -73,7 +75,10 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
         calls.append({"prompt": prompt, "messages": messages})
         assert model == "llama3.2"
         assert stream is True
-        assert tools is None
+        assert tools is not None
+        assert len(tools) == 2
+        assert isinstance(tools[0], WebSearch)
+        assert isinstance(tools[1], TempToolExample)
         return _make_response()
 
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
@@ -84,7 +89,7 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
     main()
 
     assert calls[0] == {
-        "prompt": "Hello, Sensei! How are you doing today?",
+        "prompt": "Hello, Sensei! How are you doing today? Who is sweetie fox?",
         "messages": None,
     }
     assert calls[1] == {

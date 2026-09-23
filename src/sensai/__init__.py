@@ -7,6 +7,7 @@ from .data.database.database import Database
 from .data.profile_manager import create_profile
 from .data.session.manager import build_messages, create_new_session, update_session
 from .requester import get_sensei_response
+from .tools.registry import get_all_tools
 
 if TYPE_CHECKING:
     from .data.session.session import Session
@@ -30,7 +31,11 @@ def main() -> None:
     session: Session | None = create_new_session(database, profile.id, "test_session")
     if session is None:
         raise ValueError("Failed to create the default session.")
-    response = get_sensei_response(prompt="Hello, Sensei! How are you doing today?", stream=True)
+    response = get_sensei_response(
+        prompt="Hello, Sensei! How are you doing today? Who is sweetie fox?",
+        stream=True,
+        tools=get_all_tools(),
+    )
     session = update_session(database, session, response)
     if session is None:
         raise ValueError("Failed to update the session after the first response.")
@@ -40,6 +45,7 @@ def main() -> None:
             session, "Can you summarize the previous response and demands in one sentence?"
         ),
         stream=True,
+        tools=get_all_tools(),
     )
     session = update_session(database, session, response2)
     if session is None:

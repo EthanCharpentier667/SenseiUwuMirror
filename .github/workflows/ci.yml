@@ -16,6 +16,7 @@ concurrency:
 env:
   UV_LOCKED: "1"
   TOKEN: ${{ secrets.TOKEN }}
+  API_TOKEN: ${{ secrets.API_TOKEN }}
 
 jobs:
   lint:
