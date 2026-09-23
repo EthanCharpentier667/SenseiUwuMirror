@@ -222,3 +222,6 @@ __marimo__/
 .streamlit/secrets.toml
 features_catalog.pdf
 Sensai_project.pdf
+
+# Db
+*.db
