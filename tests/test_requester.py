@@ -1,12 +1,34 @@
 """Tests for the ``sensai.requester`` module."""
 
 import json
+import time
 from typing import Any
 
 import pytest
 import requests
 
 from sensai import requester
+from sensai.requester import Message, Response
+
+
+def _make_response(**overrides: Any) -> Response:
+    defaults: dict[str, Any] = {
+        "response": "hi",
+        "respond_time": 2.0,
+        "request_time": 1.0,
+        "total_duration": 0,
+        "model": "llama3.2",
+        "tools": [],
+        "messages": [],
+        "prompt_eval_count": 0,
+        "eval_count": 0,
+        "token_used": 0,
+        "status_code": 200,
+        "tool_calls": [],
+        "stop_reason": "stop",
+    }
+    defaults.update(overrides)
+    return Response(**defaults)
 
 
 def test_get_buffered_response_joins_and_clears_buffer() -> None:
@@ -16,6 +38,22 @@ def test_get_buffered_response_joins_and_clears_buffer() -> None:
 
     assert result == "Hello world"
     assert requester.streaming_response_buffer == []
+
+
+def test_message_to_dict_returns_its_fields() -> None:
+    message = Message(role="user", content="hi", response_time=1.0)
+
+    assert message.to_dict() == {"role": "user", "content": "hi", "response_time": 1.0}
+
+
+def test_response_row_returns_its_fields() -> None:
+    response = _make_response(response="hi there")
+
+    row = response.row()
+
+    assert row["response"] == "hi there"
+    assert row["model"] == "llama3.2"
+    assert row["status_code"] == 200
 
 
 class MockResponse:
@@ -43,7 +81,7 @@ class MockResponse:
         return iter(self._lines)
 
 
-def test_make_request_returns_json_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_make_request_returns_a_response_object(monkeypatch: pytest.MonkeyPatch) -> None:
     def mock_post(url, headers, data, stream, timeout):
         return MockResponse({"message": {"content": "This is a mock response."}})
 
@@ -55,7 +93,96 @@ def test_make_request_returns_json_response(monkeypatch: pytest.MonkeyPatch) -> 
         {"Authorization": "Bearer test_token"},
     )
 
-    assert response == {"message": {"content": "This is a mock response."}}
+    assert isinstance(response, Response)
+    assert response.response == "This is a mock response."
+    assert response.status_code == 200
+
+
+def test_make_request_builds_message_history_with_role_based_timestamps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    times = iter([100.0, 200.0])
+    monkeypatch.setattr(time, "time", lambda: next(times))
+
+    def mock_post(url, headers, data, stream, timeout):
+        return MockResponse({"message": {"content": "hi there"}})
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    response = requester.make_request(
+        "https://api.example.com/sensei",
+        {
+            "messages": [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi there"},
+            ]
+        },
+    )
+
+    assert response.request_time == 100.0
+    assert response.respond_time == 200.0
+    user_message, echoed_assistant_message, reply_message = response.messages
+    assert user_message.role == "user"
+    assert user_message.response_time == 100.0
+    assert echoed_assistant_message.role == "assistant"
+    assert echoed_assistant_message.response_time == 200.0
+    assert reply_message.role == "assistant"
+    assert reply_message.content == "hi there"
+    assert reply_message.response_time == 200.0
+
+
+def test_make_request_appends_the_reply_as_a_final_assistant_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def mock_post(url, headers, data, stream, timeout):
+        return MockResponse({"message": {"content": "Hi! I'm doing well."}})
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    response = requester.make_request(
+        "https://api.example.com/sensei",
+        {"messages": [{"role": "user", "content": "How are you?"}]},
+    )
+
+    assert [m.role for m in response.messages] == ["user", "assistant"]
+    assert response.messages[-1].content == "Hi! I'm doing well."
+
+
+def test_make_request_does_not_append_an_empty_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mock_post(url, headers, data, stream, timeout):
+        return MockResponse({"message": {"content": "", "tool_calls": [{"function": {}}]}})
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    response = requester.make_request(
+        "https://api.example.com/sensei",
+        {"messages": [{"role": "user", "content": "What's the weather?"}]},
+    )
+
+    assert [m.role for m in response.messages] == ["user"]
+
+
+def test_make_request_streaming_appends_the_full_reply_as_a_final_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def mock_post(url, headers, data, stream, timeout):
+        return MockResponse(
+            lines=[
+                json_line({"message": {"content": "Hello"}}),
+                json_line({"message": {"content": " world"}, "done": True}),
+            ]
+        )
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    response = requester.make_request(
+        "https://api.example.com/sensei",
+        {"messages": [{"role": "user", "content": "hi"}]},
+        stream=True,
+    )
+
+    assert [m.role for m in response.messages] == ["user", "assistant"]
+    assert response.messages[-1].content == "Hello world"
 
 
 def test_make_request_raises_exception_on_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,7 +212,7 @@ def test_make_request_without_headers_skips_header_merge(
 
     response = requester.make_request("https://api.example.com/sensei", {"messages": []})
 
-    assert response == {"message": {"content": "ok"}}
+    assert response.response == "ok"
     assert captured_headers == {"Content-Type": "application/json"}
 
 
@@ -101,13 +228,13 @@ def test_make_request_streaming_returns_defaults_when_no_lines(
         "https://api.example.com/sensei", {"messages": []}, stream=True
     )
 
-    assert response["response"] == ""
-    assert response["stop_reason"] == ""
-    assert response["eval_count"] == 0
-    assert response["prompt_eval_count"] == 0
-    assert response["token_used"] == 0
-    assert response["tool_calls"] == []
-    assert response["status_code"] == 200
+    assert response.response == ""
+    assert response.stop_reason == ""
+    assert response.eval_count == 0
+    assert response.prompt_eval_count == 0
+    assert response.token_used == 0
+    assert response.tool_calls == []
+    assert response.status_code == 200
 
 
 def test_make_request_streaming_skips_empty_lines_and_aggregates_content(
@@ -121,7 +248,7 @@ def test_make_request_streaming_skips_empty_lines_and_aggregates_content(
                 (
                     b'{"message": {"content": " world"}, "done": true, '
                     b'"done_reason": "stop", "eval_count": 5, "prompt_eval_count": 3, '
-                    b'"total_duration": 42}'
+                    b'"total_duration": 42, "token_used": 8}'
                 ),
             ]
         )
@@ -132,12 +259,12 @@ def test_make_request_streaming_skips_empty_lines_and_aggregates_content(
         "https://api.example.com/sensei", {"messages": []}, stream=True
     )
 
-    assert response["response"] == "Hello world"
-    assert response["stop_reason"] == "stop"
-    assert response["eval_count"] == 5
-    assert response["prompt_eval_count"] == 3
-    assert response["token_used"] == 8
-    assert response["total_duration"] == 42
+    assert response.response == "Hello world"
+    assert response.stop_reason == "stop"
+    assert response.eval_count == 5
+    assert response.prompt_eval_count == 3
+    assert response.token_used == 8
+    assert response.total_duration == 42
 
 
 def test_make_request_streaming_collects_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -160,7 +287,7 @@ def test_make_request_streaming_collects_tool_calls(monkeypatch: pytest.MonkeyPa
         "https://api.example.com/sensei", {"messages": []}, stream=True
     )
 
-    assert response["tool_calls"] == [tool_call]
+    assert response.tool_calls == [tool_call]
 
 
 def json_line(payload: dict[str, Any]) -> bytes:
@@ -196,7 +323,7 @@ def test_get_sensei_response_builds_messages_from_prompt(monkeypatch: pytest.Mon
         captured["url"] = url
         captured["payload"] = payload
         captured["headers"] = headers
-        return {"response": "hi", "tool_calls": [], "messages": payload["messages"]}
+        return _make_response(response="hi", tool_calls=[])
 
     monkeypatch.setattr(requester, "make_request", mock_make_request)
     monkeypatch.setenv("TOKEN", "test_token")
@@ -211,7 +338,7 @@ def test_get_sensei_response_builds_messages_from_prompt(monkeypatch: pytest.Mon
     assert captured["payload"]["tools"] == []
     assert captured["payload"]["stream"] is True
     assert captured["headers"] == {"Authorization": "Bearer test_token"}
-    assert response["response"] == "hi"
+    assert response.response == "hi"
 
 
 def test_get_sensei_response_uses_messages_when_given(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -219,7 +346,7 @@ def test_get_sensei_response_uses_messages_when_given(monkeypatch: pytest.Monkey
 
     def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
         captured["payload"] = payload
-        return {"response": "hi", "tool_calls": [], "messages": payload["messages"]}
+        return _make_response(response="hi", tool_calls=[])
 
     monkeypatch.setattr(requester, "make_request", mock_make_request)
     monkeypatch.setenv("TOKEN", "test_token")
@@ -242,7 +369,7 @@ def test_get_sensei_response_formats_tools(monkeypatch: pytest.MonkeyPatch) -> N
 
     def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
         captured["payload"] = payload
-        return {"response": "hi", "tool_calls": [], "messages": payload["messages"]}
+        return _make_response(response="hi", tool_calls=[])
 
     monkeypatch.setattr(requester, "make_request", mock_make_request)
     monkeypatch.setenv("TOKEN", "test_token")
@@ -253,7 +380,7 @@ def test_get_sensei_response_formats_tools(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_call_tool_returns_response_unchanged_without_tools() -> None:
-    response = {"response": "hi"}
+    response = _make_response()
 
     result = requester.call_tool([{"function": {"name": "x"}}], response, [], tools=None)
 
@@ -261,7 +388,7 @@ def test_call_tool_returns_response_unchanged_without_tools() -> None:
 
 
 def test_call_tool_returns_response_unchanged_without_toolcalls() -> None:
-    response = {"response": "hi"}
+    response = _make_response()
 
     result = requester.call_tool([], response, [], tools=[object()])
 
@@ -279,20 +406,21 @@ def test_call_tool_executes_matching_tool_and_recurses(monkeypatch: pytest.Monke
         "id": "call_1",
         "function": {"name": "get_temperature", "arguments": {"city": "Paris"}},
     }
-    response = {"response": "", "model": "llama3.2"}
+    response = _make_response(response="", model="llama3.2")
     messages = [{"role": "user", "content": "What's the temperature in Paris?"}]
 
     captured: dict[str, Any] = {}
 
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
+    def mock_get_sensei_response(**kwargs: Any) -> Response:
         captured.update(kwargs)
-        return {"response": "It is 20°C in Paris.", "tool_calls": []}
+        return _make_response(response="It is 20°C in Paris.", tool_calls=[])
 
     monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
 
     result = requester.call_tool([tool_call], response, messages, tools=[FakeTool()])
 
-    assert result == {"response": "It is 20°C in Paris.", "tool_calls": []}
+    assert result.response == "It is 20°C in Paris."
+    assert result.tool_calls == []
     assert captured["model"] == "llama3.2"
     assert captured["tools"][0].name == "get_temperature"
     assert captured["stream"] is True
@@ -313,13 +441,13 @@ def test_call_tool_serializes_non_string_tool_results(monkeypatch: pytest.Monkey
         "id": "call_1",
         "function": {"name": "get_temperature", "arguments": {"city": "Paris"}},
     }
-    response = {"response": "", "model": "llama3.2"}
+    response = _make_response(response="", model="llama3.2")
 
     captured: dict[str, Any] = {}
 
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
+    def mock_get_sensei_response(**kwargs: Any) -> Response:
         captured.update(kwargs)
-        return {}
+        return _make_response()
 
     monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
 
@@ -339,13 +467,13 @@ def test_call_tool_skips_unmatched_tool_calls(monkeypatch: pytest.MonkeyPatch) -
             return "unused"
 
     tool_call = {"id": "call_1", "function": {"name": "unknown_tool", "arguments": {}}}
-    response = {"response": "", "model": "llama3.2"}
+    response = _make_response(response="", model="llama3.2")
 
     captured: dict[str, Any] = {}
 
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
+    def mock_get_sensei_response(**kwargs: Any) -> Response:
         captured.update(kwargs)
-        return {}
+        return _make_response()
 
     monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
 
@@ -376,12 +504,8 @@ def test_get_sensei_response_end_to_end_with_tool_round_trip(
     def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
         calls.append(payload)
         if len(calls) == 1:
-            return {"response": "", "tool_calls": [tool_call], "messages": payload["messages"]}
-        return {
-            "response": "It is 20°C in Paris.",
-            "tool_calls": [],
-            "messages": payload["messages"],
-        }
+            return _make_response(response="", tool_calls=[tool_call])
+        return _make_response(response="It is 20°C in Paris.", tool_calls=[])
 
     monkeypatch.setattr(requester, "make_request", mock_make_request)
     monkeypatch.setenv("TOKEN", "test_token")
@@ -389,6 +513,6 @@ def test_get_sensei_response_end_to_end_with_tool_round_trip(
     response = requester.get_sensei_response("What's the temperature in Paris?", tools=[FakeTool()])
 
     assert len(calls) == 2
-    assert response["response"] == "It is 20°C in Paris."
+    assert response.response == "It is 20°C in Paris."
     second_call_messages = calls[1]["messages"]
     assert second_call_messages[-1] == {"role": "tool", "content": "It is 20°C in Paris."}
