@@ -10,6 +10,7 @@ from sensai.data.session.session import (
     add_session_usage,
     create_session,
     get_session,
+    set_session_summary,
     update_session,
 )
 
@@ -36,6 +37,8 @@ def test_create_session_starts_with_zeroed_usage_and_no_messages(
     assert session.prompt_eval_count == 0
     assert session.eval_count == 0
     assert session.token_used == 0
+    assert session.summary is None
+    assert session.summarized_message_id is None
     assert session.messages == []
 
 
@@ -95,6 +98,37 @@ def test_add_session_usage_accumulates_across_calls(db: Database, profile_id: in
     assert updated.prompt_eval_count == 13
     assert updated.eval_count == 7
     assert updated.token_used == 20
+
+
+def test_set_session_summary_persists_summary_and_cutoff(db: Database, profile_id: int) -> None:
+    session = create_session(db, profile_id)
+    assert session.id is not None
+    message = create_message(db, session.id, "hi", "user", 1.0)
+    assert message.id is not None
+
+    set_session_summary(db, session.id, "the user said hi", message.id)
+
+    updated = get_session(db, session.id)
+    assert updated is not None
+    assert updated.summary == "the user said hi"
+    assert updated.summarized_message_id == message.id
+
+
+def test_set_session_summary_overwrites_a_previous_summary(db: Database, profile_id: int) -> None:
+    session = create_session(db, profile_id)
+    assert session.id is not None
+    first_message = create_message(db, session.id, "hi", "user", 1.0)
+    second_message = create_message(db, session.id, "how are you?", "user", 2.0)
+    assert first_message.id is not None
+    assert second_message.id is not None
+    set_session_summary(db, session.id, "the user said hi", first_message.id)
+
+    set_session_summary(db, session.id, "the user greeted and asked how I am", second_message.id)
+
+    updated = get_session(db, session.id)
+    assert updated is not None
+    assert updated.summary == "the user greeted and asked how I am"
+    assert updated.summarized_message_id == second_message.id
 
 
 def test_sessions_are_isolated_by_profile(db: Database) -> None:

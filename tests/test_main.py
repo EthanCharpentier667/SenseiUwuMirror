@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from sensai import main
+from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
 from sensai.requester import Response
@@ -35,7 +36,9 @@ def _make_session() -> Session:
 
 
 def _make_profile(*_args: Any, **_kwargs: Any) -> Profile:
-    return Profile(name="Default Profile", password="hashed", id=1)  # noqa: S106
+    profile = Profile(name="Default Profile", password="hashed", id=1)  # noqa: S106
+    ProfileManager.current_profile = profile
+    return profile
 
 
 class _FakeDatabase:
@@ -53,6 +56,8 @@ def test_main_prints_separators(
 ) -> None:
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
     monkeypatch.setattr("sensai.create_profile", _make_profile)
+    monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
+    monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.get_sensei_response", lambda *args, **kwargs: _make_response())
@@ -83,6 +88,8 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
     monkeypatch.setattr("sensai.create_profile", _make_profile)
+    monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
+    monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.get_sensei_response", mock_get_sensei_response)
