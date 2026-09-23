@@ -331,6 +331,5 @@ def get_sensei_response(
         "tools": formatedtools,
         "stream": stream,
     }
-    print(f"Sending request to {url} with payload: {json.dumps(payload)}")  # noqa: T201
     reponse = make_request(url, payload, headers=headers, stream=stream)
     return call_tool(reponse.tool_calls, reponse, messages, tools)
