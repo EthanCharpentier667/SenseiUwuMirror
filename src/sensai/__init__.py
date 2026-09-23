@@ -14,6 +14,6 @@ def main() -> None:
     print("Temp Tool Definition:", json.dumps(temp_tool.define(), indent=2))  # noqa: T201
     get_sensei_response(
         "Hello, Sensei! What are the current weather conditions and temperature in New York?",
-        stream=True,
         tools=[temp_tool],
+        human_in_the_loop=True,
     )
