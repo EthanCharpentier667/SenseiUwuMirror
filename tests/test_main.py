@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from sensai import main
-from sensai.data.profile_manager import Profile
+from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
 from sensai.requester import Response
 from sensai.tools.temperature_example import TempToolExample
@@ -35,7 +35,7 @@ def _make_session() -> Session:
 
 
 def _make_profile(*_args: Any, **_kwargs: Any) -> Profile:
-    return Profile(name="Default Profile", id=1)
+    return Profile(name="Default Profile", password="hashed", id=1)  # noqa: S106
 
 
 class _FakeDatabase:

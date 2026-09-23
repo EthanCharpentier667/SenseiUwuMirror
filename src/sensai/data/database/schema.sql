@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS profile(
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
+  password TEXT NOT NULL,
   preferences TEXT,
   instructions TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

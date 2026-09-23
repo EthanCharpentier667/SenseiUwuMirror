@@ -28,7 +28,9 @@ def profile_id(db: Database) -> int:
 
     There is no profile_manager module yet, so this inserts directly.
     """
-    cursor = db.execute("INSERT INTO profile (name) VALUES (?)", ("Test Profile",))
+    cursor = db.execute(
+        "INSERT INTO profile (name, password) VALUES (?, ?)", ("Test Profile", "secret")
+    )
     assert cursor.lastrowid is not None
     return cursor.lastrowid
 

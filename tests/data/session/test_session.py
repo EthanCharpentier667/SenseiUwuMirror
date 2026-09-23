@@ -98,8 +98,12 @@ def test_add_session_usage_accumulates_across_calls(db: Database, profile_id: in
 
 
 def test_sessions_are_isolated_by_profile(db: Database) -> None:
-    profile_a = db.execute("INSERT INTO profile (name) VALUES (?)", ("A",)).lastrowid
-    profile_b = db.execute("INSERT INTO profile (name) VALUES (?)", ("B",)).lastrowid
+    profile_a = db.execute(
+        "INSERT INTO profile (name, password) VALUES (?, ?)", ("A", "secret")
+    ).lastrowid
+    profile_b = db.execute(
+        "INSERT INTO profile (name, password) VALUES (?, ?)", ("B", "secret")
+    ).lastrowid
     assert profile_a is not None
     assert profile_b is not None
 
