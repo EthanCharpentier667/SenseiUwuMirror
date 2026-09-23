@@ -10,8 +10,8 @@ from sensai.data.session.session import (
     add_session_usage,
     create_session,
     get_session,
+    rename_session,
     set_session_summary,
-    update_session,
 )
 
 
@@ -75,11 +75,11 @@ def test_get_session_includes_its_messages(db: Database, profile_id: int) -> Non
     assert [m.content for m in fetched.messages] == ["hi", "hello!"]
 
 
-def test_update_session_changes_the_name(db: Database, profile_id: int) -> None:
+def test_rename_session_changes_the_name(db: Database, profile_id: int) -> None:
     session = create_session(db, profile_id, name="old name")
     assert session.id is not None
 
-    update_session(db, session.id, "new name")
+    rename_session(db, session.id, "new name")
 
     updated = get_session(db, session.id)
     assert updated is not None

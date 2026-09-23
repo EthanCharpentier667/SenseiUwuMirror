@@ -14,7 +14,6 @@ from sensai.data.session.manager import (
     create_new_session,
     get_current_session,
     get_current_session_id,
-    get_session_by_id,
     is_current_session,
     maybe_compress_session,
     set_current_session,
@@ -22,7 +21,7 @@ from sensai.data.session.manager import (
 )
 from sensai.data.session.message import Message as SessionMessage
 from sensai.data.session.message import create_message
-from sensai.data.session.session import Session, create_session, set_session_summary
+from sensai.data.session.session import Session, create_session, get_session, set_session_summary
 from sensai.requester import Message, Response
 
 
@@ -164,23 +163,13 @@ def test_is_current_session_false_without_a_current_session() -> None:
     assert is_current_session(1) is False
 
 
-def test_get_session_by_id_delegates_to_get_session(db: Database, profile_id: int) -> None:
-    session = create_session(db, profile_id)
-    assert session.id is not None
-
-    fetched = get_session_by_id(db, session.id)
-
-    assert fetched is not None
-    assert fetched.id == session.id
-
-
 def test_add_message_to_current_session_persists_it(db: Database, profile_id: int) -> None:
     session = create_new_session(db, profile_id)
     assert session.id is not None
 
     add_message_to_current_session(db, "hello", "user", 1.0)
 
-    fetched = get_session_by_id(db, session.id)
+    fetched = get_session(db, session.id)
     assert fetched is not None
     assert [m.content for m in fetched.messages] == ["hello"]
 
@@ -261,7 +250,7 @@ def test_update_session_skips_the_summary_line_when_persisting(
     last_summarized = create_message(db, session.id, "hello!", "assistant", 2.0)
     assert last_summarized.id is not None
     set_session_summary(db, session.id, "the user said hi and got a greeting", last_summarized.id)
-    session = get_session_by_id(db, session.id)
+    session = get_session(db, session.id)
     assert session is not None
 
     # build_messages() would have sent [summary system message, new prompt] for this turn,
@@ -327,7 +316,7 @@ def test_compress_session_folds_history_into_a_summary(
     create_message(db, session.id, "hi", "user", 1.0)
     last_message = create_message(db, session.id, "hello!", "assistant", 2.0)
     assert last_message.id is not None
-    session = get_session_by_id(db, session.id)
+    session = get_session(db, session.id)
     assert session is not None
 
     captured_prompts: list[str] = []
@@ -358,7 +347,7 @@ def test_compress_session_only_folds_in_history_not_already_summarized(
     set_session_summary(db, session.id, "the user said hi", first_message.id)
     second_message = create_message(db, session.id, "how are you?", "user", 2.0)
     assert second_message.id is not None
-    session = get_session_by_id(db, session.id)
+    session = get_session(db, session.id)
     assert session is not None
 
     captured_prompts: list[str] = []
@@ -396,7 +385,7 @@ def test_maybe_compress_session_compresses_when_over_threshold(
     assert session.id is not None
     last_message = create_message(db, session.id, "hi", "user", 1.0)
     assert last_message.id is not None
-    session = get_session_by_id(db, session.id)
+    session = get_session(db, session.id)
     assert session is not None
     response = _make_response(prompt_eval_count=5000)
 

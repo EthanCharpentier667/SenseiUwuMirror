@@ -155,7 +155,6 @@ def compress_session(db: Database, session: Session) -> Session:
         return session
 
     transcript = "\n".join(f"{message.role}: {message.content}" for message in to_fold)
-    print(f"Compressing session {session.id} with {len(to_fold)}")  # noqa: T201
     prompt = (
         f"Previous summary:\n{session.summary or '(none yet)'}\n\n"
         f"New conversation to fold in:\n{transcript}\n\n"
@@ -197,19 +196,6 @@ def maybe_compress_session(
     if response.prompt_eval_count <= threshold:
         return session
     return compress_session(db, session)
-
-
-def get_session_by_id(db: Database, session_id: int) -> Session | None:
-    """Retrieve a session by its ID.
-
-    Args:
-        db (Database): The database to read from.
-        session_id (int): The unique identifier for the session.
-
-    Returns:
-        Session | None: The session if found, otherwise None.
-    """
-    return get_session(db, session_id)
 
 
 def get_current_session_id() -> int | None:

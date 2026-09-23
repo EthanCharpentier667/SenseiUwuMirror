@@ -55,7 +55,7 @@ def test_main_prints_separators(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
-    monkeypatch.setattr("sensai.create_profile", _make_profile)
+    monkeypatch.setattr("sensai.create_new_profile", _make_profile)
     monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
@@ -87,7 +87,7 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
         return _make_response()
 
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
-    monkeypatch.setattr("sensai.create_profile", _make_profile)
+    monkeypatch.setattr("sensai.create_new_profile", _make_profile)
     monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())

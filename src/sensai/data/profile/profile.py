@@ -1,10 +1,9 @@
 """Profile Manager for handling user profiles."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from sqlite3 import Row
 
 from sensai.data.database.database import Database
-from sensai.data.session.session import Session
 
 
 @dataclass
@@ -17,7 +16,6 @@ class Profile:
     instructions: str | None = None
     id: int | None = None
     created_at: str | None = None
-    sessions: list[Session] = field(default_factory=list)
 
 
 def _row_to_profile(row: Row) -> Profile:
@@ -28,7 +26,6 @@ def _row_to_profile(row: Row) -> Profile:
         preferences=row["preferences"],
         instructions=row["instructions"],
         created_at=row["created_at"],
-        sessions=row["sessions"] if "sessions" in row.keys() else [],  # noqa: SIM118
     )
 
 
@@ -84,52 +81,3 @@ def get_profile(db: Database, profile_id: int) -> Profile | None:
     if row is None:
         return None
     return _row_to_profile(row)
-
-
-def _row_to_session(row: Row) -> Session:
-    return Session(
-        id=row["id"],
-        name=row["name"],
-        profile_id=row["profile_id"],
-        created_at=row["created_at"],
-        prompt_eval_count=row["prompt_eval_count"],
-        eval_count=row["eval_count"],
-        token_used=row["token_used"],
-    )
-
-
-def get_row_profile_sessions(db: Database, profile_id: int) -> list[Row]:
-    """Retrieve all session rows associated with a profile.
-
-    Args:
-        db (Database): The database to read from.
-        profile_id (int): The unique identifier for the profile.
-
-    Returns:
-        list[Row]: A list of session rows associated with the profile.
-    """
-    cursor = db.execute(
-        "SELECT id, name, profile_id, created_at, prompt_eval_count, eval_count, token_used "
-        "FROM session WHERE profile_id = ?",
-        (profile_id,),
-    )
-    return cursor.fetchall()
-
-
-def get_profile_sessions(db: Database, profile_id: int) -> list[Session]:
-    """Retrieve all sessions associated with a profile.
-
-    Args:
-        db (Database): The database to read from.
-        profile_id (int): The unique identifier for the profile.
-
-    Returns:
-        list[Session]: A list of sessions associated with the profile.
-    """
-    cursor = db.execute(
-        "SELECT id, name, profile_id, created_at, prompt_eval_count, eval_count, token_used "
-        "FROM session WHERE profile_id = ?",
-        (profile_id,),
-    )
-    rows = cursor.fetchall()
-    return [_row_to_session(row) for row in rows]

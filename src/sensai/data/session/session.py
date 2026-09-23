@@ -86,7 +86,7 @@ def get_session(db: Database, session_id: int) -> Session | None:
     return _row_to_session(db, row)
 
 
-def update_session(db: Database, session_id: int, name: str) -> None:
+def rename_session(db: Database, session_id: int, name: str) -> None:
     """Update a session's name.
 
     Args:

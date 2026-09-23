@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .data.database.database import Database
-from .data.profile.manager import add_instruction, add_preference, create_profile
+from .data.profile.manager import add_instruction, add_preference, create_new_profile
 from .data.session.manager import (
     build_messages,
     create_new_session,
@@ -26,7 +26,7 @@ def main() -> None:
     database.initialize()
 
     # Creating a profile
-    profile = create_profile(database, "Ethan", "667")
+    profile = create_new_profile(database, "Ethan", "667")
     add_preference(database, "User prefer French language.")
     add_instruction(database, 'replace all the "the" (or traduction) by uwu')
     if profile.id is None:

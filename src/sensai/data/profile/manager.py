@@ -6,8 +6,7 @@ import os
 
 from sensai.data.database.database import Database
 
-from .profile import Profile
-from .profile import create_profile as _create_profile
+from .profile import Profile, create_profile, get_profile
 
 _HASH_ALGORITHM = "sha256"
 _HASH_ITERATIONS = 600_000
@@ -83,25 +82,19 @@ def login(name: str, password: str, db: Database) -> Profile:
         ValueError: If the profile does not exist or the password is incorrect.
     """
     cursor = db.execute(
-        "SELECT * FROM profile WHERE name = ?",
+        "SELECT id, password FROM profile WHERE name = ?",
         (name,),
     )
     row = cursor.fetchone()
     if row is None:
         raise ValueError(f"Profile with name '{name}' does not exist.")
 
-    stored_password = row["password"]
-    if not _verify_password(password, stored_password):
+    if not _verify_password(password, row["password"]):
         raise ValueError("Incorrect password.")
 
-    profile = Profile(
-        id=row["id"],
-        name=row["name"],
-        password=stored_password,
-        preferences=row["preferences"],
-        instructions=row["instructions"],
-        created_at=row["created_at"],
-    )
+    profile = get_profile(db, row["id"])
+    if profile is None:
+        raise ValueError(f"Failed to retrieve profile with ID {row['id']}.")
     ProfileManager.current_profile = profile
     return profile
 
@@ -111,7 +104,7 @@ def logout() -> None:
     ProfileManager.current_profile = None
 
 
-def create_profile(db: Database, name: str, password: str) -> Profile:
+def create_new_profile(db: Database, name: str, password: str) -> Profile:
     """Create a new profile and set it as the current profile.
 
     Args:
@@ -123,7 +116,7 @@ def create_profile(db: Database, name: str, password: str) -> Profile:
         Profile: The newly created profile, including its assigned ID.
     """
     hashed_password = _hash_password(password)
-    profile = _create_profile(db, name, hashed_password)
+    profile = create_profile(db, name, hashed_password)
     ProfileManager.current_profile = profile
     return profile
 
