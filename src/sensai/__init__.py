@@ -1,19 +1,47 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
-import json
+from pathlib import Path
+from typing import TYPE_CHECKING
 
+from .data.database.database import Database
+from .data.profile_manager import create_profile
+from .data.session.manager import build_messages, create_new_session, update_session
 from .requester import get_sensei_response
-from .tool.temperature_example import TempToolExample
+
+if TYPE_CHECKING:
+    from .data.session.session import Session
+
+SCHEMA_PATH = Path(__file__).parent / "data" / "database" / "schema.sql"
 
 
 def main() -> None:
     """Entry point for the ``sensai`` console script."""
-    print("Hello from sensei-uwu-mirror!")  # noqa: T201
+    database = Database("./", SCHEMA_PATH.read_text(), "sensai.db")
+    database.initialize()
 
-    temp_tool = TempToolExample()
-    print("Temp Tool Definition:", json.dumps(temp_tool.define(), indent=2))  # noqa: T201
-    get_sensei_response(
-        "Hello, Sensei! What are the current weather conditions and temperature in New York?",
-        stream=True,
-        tools=[temp_tool],
+    profile = create_profile(
+        database,
+        "Default Profile",
+        "User prefer French language.",
+        'replace all the "the" (or traduction) by uwu',
     )
+    if profile.id is None:
+        raise ValueError("Failed to create the default profile; no ID was returned.")
+    session: Session | None = create_new_session(database, profile.id, "test_session")
+    if session is None:
+        raise ValueError("Failed to create the default session.")
+    response = get_sensei_response(prompt="Hello, Sensei! How are you doing today?", stream=True)
+    session = update_session(database, session, response)
+    if session is None:
+        raise ValueError("Failed to update the session after the first response.")
+    print("\n---------------\n")  # noqa: T201
+    response2 = get_sensei_response(
+        messages=build_messages(
+            session, "Can you summarize the previous response and demands in one sentence?"
+        ),
+        stream=True,
+    )
+    session = update_session(database, session, response2)
+    if session is None:
+        raise ValueError("Failed to update the session after the second response.")
+    print("\n---------------\n")  # noqa: T201
