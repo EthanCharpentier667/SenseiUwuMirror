@@ -1,11 +1,11 @@
-"""Tests for the ``sensai.tool.temperature_example`` module."""
+"""Tests for the ``sensai.tools.temperature_example`` module."""
 
 from typing import Any
 
 import pytest
 import requests
 
-from sensai.tool.temperature_example import TempToolExample
+from sensai.tools.temperature_example import TempToolExample
 
 WTTR_PAYLOAD = {
     "current_condition": [
