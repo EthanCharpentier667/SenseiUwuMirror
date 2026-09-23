@@ -28,7 +28,7 @@ def main() -> None:
     # Creating a profile
     profile = create_new_profile(database, "Ethan", "667")
     add_preference(database, "User prefer French language.")
-    add_instruction(database, 'replace all the "the" (or traduction) by uwu')
+    add_instruction(database, 'replace all the ponctuation by "uwu"')
     if profile.id is None:
         raise ValueError("Failed to create the default profile; no ID was returned.")
 
@@ -39,7 +39,9 @@ def main() -> None:
 
     # First request to Sensei
     response = get_sensei_response(
-        prompt="Hello, Sensei! How are you doing today? Who is sweetie fox?",
+        messages=build_messages(
+            session, "Hello, Sensei! How are you doing today? Who is sweetie fox?"
+        ),
         stream=True,
         tools=get_all_tools(),
     )

@@ -91,8 +91,13 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr("sensai.get_sensei_response", mock_get_sensei_response)
     main()
 
-    assert calls[0]["prompt"] == "Hello, Sensei! How are you doing today? Who is sweetie fox?"
-    assert calls[0]["messages"] is None
+    assert calls[0]["prompt"] is None
+    assert calls[0]["messages"] == [
+        {
+            "role": "user",
+            "content": "Hello, Sensei! How are you doing today? Who is sweetie fox?",
+        }
+    ]
     first_turn_tools = calls[0]["tools"]
     assert first_turn_tools is not None
     assert len(first_turn_tools) == 2

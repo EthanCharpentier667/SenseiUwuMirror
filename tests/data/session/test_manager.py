@@ -103,7 +103,7 @@ def test_build_messages_prefixes_the_current_profiles_preferences_and_instructio
     assert messages == [
         {
             "role": "system",
-            "content": "User preferences: dark mode\nInstructions: be concise",
+            "content": "User preferences: dark mode\nInstructions (YOU MUST FOLLOW): be concise",
         },
         {"role": "user", "content": "hello"},
     ]
@@ -323,6 +323,44 @@ def test_update_session_skips_the_summary_line_when_persisting(
     assert result is not None
     assert [m.content for m in result.messages] == ["hi", "hello!", "still there?", "yep!"]
     assert [m.role for m in result.messages] == ["user", "assistant", "user", "assistant"]
+
+
+def test_update_session_skips_the_profile_context_line_when_persisting(
+    db: Database, profile_id: int
+) -> None:
+    session = create_new_session(db, profile_id)
+    ProfileManager.current_profile = Profile(
+        name="Ada",
+        password="hashed",  # noqa: S106
+        id=profile_id,
+        preferences="dark mode",
+    )
+
+    # build_messages() would have sent [profile context system message, new prompt] for this
+    # first turn, since there's no history yet.
+    response = _make_response(
+        messages=[
+            Message(role="system", content="User preferences: dark mode", response_time=1.0),
+            Message(role="user", content="hi", response_time=1.0),
+            Message(role="assistant", content="hello!", response_time=2.0),
+        ]
+    )
+
+    result = update_session(db, session, response)
+
+    assert result is not None
+    assert [m.content for m in result.messages] == ["hi", "hello!"]
+    assert [m.role for m in result.messages] == ["user", "assistant"]
+
+    # Calling build_messages() again for a second turn must not see the profile line as
+    # part of the persisted history either, so it can't compound into further duplicates.
+    second_messages = build_messages(result, "still there?")
+    assert second_messages == [
+        {"role": "system", "content": "User preferences: dark mode"},
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello!"},
+        {"role": "user", "content": "still there?"},
+    ]
 
 
 def test_update_session_accumulates_token_usage(db: Database, profile_id: int) -> None:

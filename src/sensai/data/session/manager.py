@@ -72,13 +72,53 @@ def _sendable_messages(session: Session) -> list[Message]:
     ]
 
 
+def _profile_context_message(session: Session) -> dict[str, Any] | None:
+    """A system message carrying the current profile's preferences and instructions.
+
+    Only produced when the currently active profile (``ProfileManager.current_profile``)
+    is the one the session belongs to, so a stale or mismatched current profile can't leak
+    another user's preferences into this session.
+    """
+    profile = get_current_profile()
+    if profile is None or profile.id != session.profile_id:
+        return None
+
+    lines = []
+    if profile.preferences:
+        lines.append(f"User preferences: {profile.preferences}")
+    if profile.instructions:
+        lines.append(f"Instructions (YOU MUST FOLLOW): {profile.instructions}")
+    if not lines:
+        return None
+    return {"role": "system", "content": "\n".join(lines)}
+
+
+def _context_prefix(session: Session) -> list[dict[str, Any]]:
+    """Synthetic framing messages a ``build_messages()`` payload prepends ahead of history.
+
+    These reflect live state (the owning profile's preferences/instructions, the session's
+    running summary) recomputed fresh on every call. They're never persisted as messages in
+    their own right — doing so would freeze a snapshot that goes stale the moment that state
+    changes (e.g. via ``add_preference``), and would duplicate on every turn.
+    """
+    prefix: list[dict[str, Any]] = []
+    profile_message = _profile_context_message(session)
+    if profile_message is not None:
+        prefix.append(profile_message)
+    if session.summary:
+        prefix.append(
+            {"role": "system", "content": f"Conversation summary so far: {session.summary}"}
+        )
+    return prefix
+
+
 def _history_prefix_length(session: Session) -> int:
     """The number of leading entries a ``build_messages()`` payload spends on known state.
 
-    That's the optional summary line plus the still-unsummarized history messages —
+    That's the synthetic context prefix plus the still-unsummarized history messages —
     everything before the new prompt for this turn.
     """
-    return len(_sendable_messages(session)) + (1 if session.summary else 0)
+    return len(_context_prefix(session)) + len(_sendable_messages(session))
 
 
 def update_session(db: Database, session: Session, response: Response) -> Session | None:
@@ -109,27 +149,6 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
     return get_session(db, session.id)
 
 
-def _profile_context_message(session: Session) -> dict[str, Any] | None:
-    """A system message carrying the current profile's preferences and instructions.
-
-    Only produced when the currently active profile (``ProfileManager.current_profile``)
-    is the one the session belongs to, so a stale or mismatched current profile can't leak
-    another user's preferences into this session.
-    """
-    profile = get_current_profile()
-    if profile is None or profile.id != session.profile_id:
-        return None
-
-    lines = []
-    if profile.preferences:
-        lines.append(f"User preferences: {profile.preferences}")
-    if profile.instructions:
-        lines.append(f"Instructions (YOU MUST FOLLOW): {profile.instructions}")
-    if not lines:
-        return None
-    return {"role": "system", "content": "\n".join(lines)}
-
-
 def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     """Build the API-ready message list for a new prompt, prefixed with a session's history.
 
@@ -149,15 +168,7 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
         {"role": message.role, "content": message.content}
         for message in _sendable_messages(session)
     ]
-    if session.summary:
-        history = [
-            {"role": "system", "content": f"Conversation summary so far: {session.summary}"},
-            *history,
-        ]
-    profile_message = _profile_context_message(session)
-    if profile_message is not None:
-        history = [profile_message, *history]
-    return [*history, {"role": "user", "content": prompt}]
+    return [*_context_prefix(session), *history, {"role": "user", "content": prompt}]
 
 
 def compress_session(db: Database, session: Session) -> Session:
