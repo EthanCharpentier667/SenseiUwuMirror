@@ -7,10 +7,7 @@ authors = [
     { name = "EthanCharpentier667", email = "ethan.charpentier@epitech.eu" },
 ]
 requires-python = ">=3.11"
-dependencies = [
-    "dotenv>=0.9.9",
-    "requests>=2.34.2",
-]
+dependencies = ["dotenv>=0.9.9", "requests>=2.34.2"]
 
 [project.scripts]
 sensai = "sensai:main"
@@ -30,7 +27,10 @@ dev = [
 
 docs = [
     "mkdocs>=1.6.0",
+    "mkdocs-gen-files>=0.6.1",
+    "mkdocs-literate-nav>=0.6.3",
     "mkdocs-material>=9.5.0",
+    "mkdocs-section-index>=0.3.12",
     "mkdocstrings[python]>=0.28.0",
 ]
 
@@ -76,6 +76,7 @@ ignore = [
     "PT011",   # pytest.raises(ValueError) is fine here, message already asserted separately
 ]
 "__init__.py" = ["D104"] # package docstring optional at the root
+"docs/gen_ref_pages.py" = ["INP001"] # build-time script, not part of a package
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

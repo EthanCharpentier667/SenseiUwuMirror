@@ -29,7 +29,7 @@ class TempToolExample(Tool):
         This method should be overridden to implement specific web tool behavior.
 
         Args:
-            *args: Positional arguments for the tool's execution.
+            *_args: Unused positional arguments.
             **kwargs: Keyword arguments for the tool's execution.
 
         Returns:
