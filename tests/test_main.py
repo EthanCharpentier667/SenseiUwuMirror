@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from sensai import main
+from sensai.tool.temperature_example import TempToolExample
 
 
 def test_main_prints_greeting(
@@ -24,13 +25,19 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
         model: str = "llama3.2",
         tools: list[Any] | None = None,
         *,
+        messages: list[dict[str, Any]] | None = None,
         stream: bool = True,
     ) -> dict[str, Any]:
         called["called"] = True
-        assert prompt == "Hello, Sensei! Can you tell me a joke?"
+        assert prompt == (
+            "Hello, Sensei! What are the current weather conditions and temperature in New York?"
+        )
         assert model == "llama3.2"
-        assert tools is None
+        assert messages is None
         assert stream is True
+        assert tools is not None
+        assert len(tools) == 1
+        assert isinstance(tools[0], TempToolExample)
         return {"response": "This is a mock response."}
 
     monkeypatch.setattr("sensai.get_sensei_response", mock_get_sensei_response)
