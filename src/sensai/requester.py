@@ -272,6 +272,7 @@ def call_tool(
         {"role": "assistant", "content": response.response, "tool_calls": toolcalls},
     ]
     for tool_call in toolcalls:
+        print(f"Calling tool: {tool_call.get('function', {}).get('name', 'unknown')}")  # noqa: T201
         function = tool_call.get("function", {})
         for tool in tools:
             if tool.name == function.get("name"):
@@ -330,5 +331,6 @@ def get_sensei_response(
         "tools": formatedtools,
         "stream": stream,
     }
+    print(f"Sending request to {url} with payload: {json.dumps(payload)}")  # noqa: T201
     reponse = make_request(url, payload, headers=headers, stream=stream)
     return call_tool(reponse.tool_calls, reponse, messages, tools)

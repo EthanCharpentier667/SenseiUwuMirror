@@ -3,6 +3,7 @@
 from typing import Any
 
 from sensai.data.database.database import Database
+from sensai.data.profile.manager import get_current_profile
 from sensai.requester import Response, get_sensei_response
 
 from .message import Message, create_message
@@ -108,11 +109,33 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
     return get_session(db, session.id)
 
 
+def _profile_context_message(session: Session) -> dict[str, Any] | None:
+    """A system message carrying the current profile's preferences and instructions.
+
+    Only produced when the currently active profile (``ProfileManager.current_profile``)
+    is the one the session belongs to, so a stale or mismatched current profile can't leak
+    another user's preferences into this session.
+    """
+    profile = get_current_profile()
+    if profile is None or profile.id != session.profile_id:
+        return None
+
+    lines = []
+    if profile.preferences:
+        lines.append(f"User preferences: {profile.preferences}")
+    if profile.instructions:
+        lines.append(f"Instructions (YOU MUST FOLLOW): {profile.instructions}")
+    if not lines:
+        return None
+    return {"role": "system", "content": "\n".join(lines)}
+
+
 def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     """Build the API-ready message list for a new prompt, prefixed with a session's history.
 
     Messages already folded into ``session.summary`` are replaced by a single system
     message carrying that summary, followed by whatever history hasn't been folded in yet.
+    The owning profile's preferences and instructions, if any, are prefixed before all of that.
 
     Args:
         session (Session): The session whose summary and persisted messages provide context.
@@ -131,6 +154,9 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
             {"role": "system", "content": f"Conversation summary so far: {session.summary}"},
             *history,
         ]
+    profile_message = _profile_context_message(session)
+    if profile_message is not None:
+        history = [profile_message, *history]
     return [*history, {"role": "user", "content": prompt}]
 
 

@@ -51,11 +51,8 @@ def main() -> None:
     # Second request to Sensei, using the session's history
     print("\n---------------\n")  # noqa: T201
     response2 = get_sensei_response(
-        messages=build_messages(
-            session, "Can you summarize the previous response and demands in one sentence?"
-        ),
+        messages=build_messages(session, "So what do you think about her ?"),
         stream=True,
-        tools=get_all_tools(),
     )
     session = update_session(database, session, response2)
     if session is None:

@@ -77,13 +77,9 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
         messages: list[dict[str, Any]] | None = None,
         stream: bool = True,
     ) -> Response:
-        calls.append({"prompt": prompt, "messages": messages})
+        calls.append({"prompt": prompt, "messages": messages, "tools": tools})
         assert model == "llama3.2"
         assert stream is True
-        assert tools is not None
-        assert len(tools) == 2
-        assert isinstance(tools[0], WebSearch)
-        assert isinstance(tools[1], TempToolExample)
         return _make_response()
 
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
@@ -95,16 +91,16 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr("sensai.get_sensei_response", mock_get_sensei_response)
     main()
 
-    assert calls[0] == {
-        "prompt": "Hello, Sensei! How are you doing today? Who is sweetie fox?",
-        "messages": None,
-    }
+    assert calls[0]["prompt"] == "Hello, Sensei! How are you doing today? Who is sweetie fox?"
+    assert calls[0]["messages"] is None
+    first_turn_tools = calls[0]["tools"]
+    assert first_turn_tools is not None
+    assert len(first_turn_tools) == 2
+    assert isinstance(first_turn_tools[0], WebSearch)
+    assert isinstance(first_turn_tools[1], TempToolExample)
+
     assert calls[1] == {
         "prompt": None,
-        "messages": [
-            {
-                "role": "user",
-                "content": ("Can you summarize the previous response and demands in one sentence?"),
-            }
-        ],
+        "messages": [{"role": "user", "content": "So what do you think about her ?"}],
+        "tools": None,
     }

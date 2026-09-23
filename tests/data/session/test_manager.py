@@ -5,6 +5,8 @@ import re
 import pytest
 
 from sensai.data.database.database import Database
+from sensai.data.profile.manager import ProfileManager
+from sensai.data.profile.profile import Profile
 from sensai.data.session.manager import (
     SessionManager,
     add_message_to_current_session,
@@ -84,6 +86,59 @@ def test_build_messages_omits_messages_already_folded_into_the_summary() -> None
         {"role": "user", "content": "how are you?"},
         {"role": "user", "content": "still there?"},
     ]
+
+
+def test_build_messages_prefixes_the_current_profiles_preferences_and_instructions() -> None:
+    session = Session(profile_id=1, id=1)
+    ProfileManager.current_profile = Profile(
+        name="Ada",
+        password="hashed",  # noqa: S106
+        id=1,
+        preferences="dark mode",
+        instructions="be concise",
+    )
+
+    messages = build_messages(session, "hello")
+
+    assert messages == [
+        {
+            "role": "system",
+            "content": "User preferences: dark mode\nInstructions: be concise",
+        },
+        {"role": "user", "content": "hello"},
+    ]
+
+
+def test_build_messages_omits_profile_context_without_a_current_profile() -> None:
+    session = Session(profile_id=1, id=1)
+    ProfileManager.current_profile = None
+
+    messages = build_messages(session, "hello")
+
+    assert messages == [{"role": "user", "content": "hello"}]
+
+
+def test_build_messages_omits_profile_context_when_it_does_not_own_the_session() -> None:
+    session = Session(profile_id=1, id=1)
+    ProfileManager.current_profile = Profile(
+        name="Ada",
+        password="hashed",  # noqa: S106
+        id=2,
+        preferences="dark mode",
+    )
+
+    messages = build_messages(session, "hello")
+
+    assert messages == [{"role": "user", "content": "hello"}]
+
+
+def test_build_messages_omits_profile_context_when_profile_has_neither_field_set() -> None:
+    session = Session(profile_id=1, id=1)
+    ProfileManager.current_profile = Profile(name="Ada", password="hashed", id=1)  # noqa: S106
+
+    messages = build_messages(session, "hello")
+
+    assert messages == [{"role": "user", "content": "hello"}]
 
 
 def _make_response(
