@@ -17,6 +17,7 @@ import requests
 from .tool import Tool
 
 DEFAULT_TIMEOUT = 300
+DEFAULT_CODE = 200
 
 
 class WebSearch(Tool):
@@ -78,5 +79,6 @@ def web_search(query: str) -> dict[str, Any]:
         data=json.dumps(payload),
         timeout=DEFAULT_TIMEOUT,
     )
-    response.raise_for_status()
+    if response.status_code != DEFAULT_CODE:
+        return {"message": "Web search failed."}
     return cast("dict[str, Any]", response.json())
