@@ -1,45 +1,54 @@
 """Session for handling chat sessions data, including messages and documents."""
 
-from dataclasses import dataclass, field
-from sqlite3 import Row
+from typing import TYPE_CHECKING, cast
 
-from sensai.data.database.database import Database
+from peewee import SQL, CharField, DateTimeField, ForeignKeyField, IntegerField, TextField
+
+from sensai.data.database.base_model import BaseModel
+from sensai.data.profile.profile import Profile
 
 from .message import Message, get_messages_by_session
 
+if TYPE_CHECKING:
+    from sensai.data.database.database import Database
 
-@dataclass(frozen=True, slots=True)
-class Session:
+
+class Session(BaseModel):
     """A chat session, mirroring the `session` table, with its messages."""
 
+    profile = ForeignKeyField(Profile, on_delete="CASCADE")
     profile_id: int
-    name: str | None = None
-    id: int | None = None
-    created_at: str | None = None
-    prompt_eval_count: int = 0
-    eval_count: int = 0
-    token_used: int = 0
-    summary: str | None = None
-    summarized_message_id: int | None = None
-    messages: list[Message] = field(default_factory=list)
+    name = CharField(null=True)
+    prompt_eval_count = IntegerField(default=0)
+    eval_count = IntegerField(default=0)
+    token_used = IntegerField(default=0)
+    summary = TextField(null=True)
+    summarized_message = ForeignKeyField(Message, null=True, on_delete="SET NULL")
+    summarized_message_id: int | None
+    created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+
+    messages: list[Message]
+
+    def __init__(
+        self, *args: object, messages: list[Message] | None = None, **kwargs: object
+    ) -> None:
+        """Initialize a session, defaulting `messages` to an empty list like the fetch helpers do.
+
+        Args:
+            *args: Positional arguments to pass to the parent constructor.
+            messages (list[Message] | None): The list of messages for the session. Default is None.
+            **kwargs: Keyword arguments to pass to the parent constructor.
+        """
+        super().__init__(*args, **kwargs)
+        self.messages = messages if messages is not None else []
 
 
-def _row_to_session(db: Database, row: Row) -> Session:
-    return Session(
-        id=row["id"],
-        name=row["name"],
-        profile_id=row["profile_id"],
-        created_at=row["created_at"],
-        prompt_eval_count=row["prompt_eval_count"],
-        eval_count=row["eval_count"],
-        token_used=row["token_used"],
-        summary=row["summary"],
-        summarized_message_id=row["summarized_message_id"],
-        messages=get_messages_by_session(db, row["id"]),
-    )
+def _with_messages(db: "Database", session: Session) -> Session:
+    session.messages = get_messages_by_session(db, cast("int", session.id))
+    return session
 
 
-def create_session(db: Database, profile_id: int, name: str | None = None) -> Session:
+def create_session(db: "Database", profile_id: int, name: str | None = None) -> Session:
     """Create a new session for the given profile.
 
     Args:
@@ -50,21 +59,12 @@ def create_session(db: Database, profile_id: int, name: str | None = None) -> Se
     Returns:
         Session: The newly created session, including its assigned ID.
     """
-    cursor = db.execute(
-        "INSERT INTO session (name, profile_id) VALUES (?, ?)",
-        (name, profile_id),
-    )
-    if cursor.lastrowid is None:
-        raise ValueError("Failed to create a new session; no ID was returned.")
-    session = get_session(db, cursor.lastrowid)
-    if session is None:
-        raise ValueError(
-            f"Failed to retrieve the newly created session with ID {cursor.lastrowid}."
-        )
-    return session
+    with db.database.bind_ctx([Session]):
+        session = Session.create(profile=profile_id, name=name)
+    return _with_messages(db, session)
 
 
-def get_session(db: Database, session_id: int) -> Session | None:
+def get_session(db: "Database", session_id: int) -> Session | None:
     """Retrieve a session by its ID.
 
     Args:
@@ -74,19 +74,12 @@ def get_session(db: Database, session_id: int) -> Session | None:
     Returns:
         Session | None: The session if found, otherwise None.
     """
-    cursor = db.execute(
-        "SELECT id, name, profile_id, created_at, prompt_eval_count, eval_count, token_used, "
-        "summary, summarized_message_id "
-        "FROM session WHERE id = ?",
-        (session_id,),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    return _row_to_session(db, row)
+    with db.database.bind_ctx([Session]):
+        session = Session.get_or_none(Session.id == session_id)
+    return _with_messages(db, session) if session is not None else None
 
 
-def rename_session(db: Database, session_id: int, name: str) -> None:
+def rename_session(db: "Database", session_id: int, name: str) -> None:
     """Update a session's name.
 
     Args:
@@ -94,14 +87,12 @@ def rename_session(db: Database, session_id: int, name: str) -> None:
         session_id (int): The unique identifier for the session.
         name (str): The new name for the session.
     """
-    db.execute(
-        "UPDATE session SET name = ? WHERE id = ?",
-        (name, session_id),
-    )
+    with db.database.bind_ctx([Session]):
+        Session.update(name=name).where(Session.id == session_id).execute()
 
 
 def set_session_summary(
-    db: Database, session_id: int, summary: str, summarized_message_id: int
+    db: "Database", session_id: int, summary: str, summarized_message_id: int
 ) -> None:
     """Persist a session's rolling summary and how much history it covers.
 
@@ -112,14 +103,14 @@ def set_session_summary(
         summarized_message_id (int): The ID of the latest message folded into the summary;
             messages with a lower or equal ID are omitted from future prompts.
     """
-    db.execute(
-        "UPDATE session SET summary = ?, summarized_message_id = ? WHERE id = ?",
-        (summary, summarized_message_id, session_id),
-    )
+    with db.database.bind_ctx([Session]):
+        Session.update(summary=summary, summarized_message=summarized_message_id).where(
+            Session.id == session_id
+        ).execute()
 
 
 def add_session_usage(
-    db: Database, session_id: int, prompt_eval_count: int, eval_count: int, token_used: int
+    db: "Database", session_id: int, prompt_eval_count: int, eval_count: int, token_used: int
 ) -> None:
     """Accumulate token usage onto a session's running totals.
 
@@ -130,11 +121,9 @@ def add_session_usage(
         eval_count (int): The evaluation count to add.
         token_used (int): The number of tokens used to add.
     """
-    db.execute(
-        "UPDATE session "
-        "SET prompt_eval_count = prompt_eval_count + ?, "
-        "eval_count = eval_count + ?, "
-        "token_used = token_used + ? "
-        "WHERE id = ?",
-        (prompt_eval_count, eval_count, token_used, session_id),
-    )
+    with db.database.bind_ctx([Session]):
+        Session.update(
+            prompt_eval_count=Session.prompt_eval_count + prompt_eval_count,
+            eval_count=Session.eval_count + eval_count,
+            token_used=Session.token_used + token_used,
+        ).where(Session.id == session_id).execute()

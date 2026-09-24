@@ -1,36 +1,27 @@
 """Profile Manager for handling user profiles."""
 
-from dataclasses import dataclass
-from sqlite3 import Row
+from typing import TYPE_CHECKING
 
-from sensai.data.database.database import Database
+from peewee import SQL, CharField, DateTimeField, TextField
+
+from sensai.data.database.base_model import BaseModel
+
+if TYPE_CHECKING:
+    from sensai.data.database.database import Database
 
 
-@dataclass(slots=True)
-class Profile:
+class Profile(BaseModel):
     """A user profile, mirroring the `profile` table."""
 
-    name: str
-    password: str
-    preferences: str | None = None
-    instructions: str | None = None
-    id: int | None = None
-    created_at: str | None = None
-
-
-def _row_to_profile(row: Row) -> Profile:
-    return Profile(
-        id=row["id"],
-        password=row["password"],
-        name=row["name"],
-        preferences=row["preferences"],
-        instructions=row["instructions"],
-        created_at=row["created_at"],
-    )
+    name = CharField()
+    password = CharField()
+    preferences = TextField(null=True)
+    instructions = TextField(null=True)
+    created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
 
 def create_profile(
-    db: Database,
+    db: "Database",
     name: str,
     password: str,
     preferences: str | None = None,
@@ -48,21 +39,13 @@ def create_profile(
     Returns:
         Profile: The newly created profile, including its assigned ID.
     """
-    cursor = db.execute(
-        "INSERT INTO profile (name, password, preferences, instructions) VALUES (?, ?, ?, ?)",
-        (name, password, preferences, instructions),
-    )
-    if cursor.lastrowid is None:
-        raise ValueError("Failed to create a new profile; no ID was returned.")
-    profile = get_profile(db, cursor.lastrowid)
-    if profile is None:
-        raise ValueError(
-            f"Failed to retrieve the newly created profile with ID {cursor.lastrowid}."
+    with db.database.bind_ctx([Profile]):
+        return Profile.create(
+            name=name, password=password, preferences=preferences, instructions=instructions
         )
-    return profile
 
 
-def get_profile(db: Database, profile_id: int) -> Profile | None:
+def get_profile(db: "Database", profile_id: int) -> Profile | None:
     """Retrieve a profile by its ID.
 
     Args:
@@ -72,18 +55,11 @@ def get_profile(db: Database, profile_id: int) -> Profile | None:
     Returns:
         Profile | None: The profile if found, otherwise None.
     """
-    cursor = db.execute(
-        "SELECT id, name, password, preferences, instructions, created_at "
-        "FROM profile WHERE id = ?",
-        (profile_id,),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    return _row_to_profile(row)
+    with db.database.bind_ctx([Profile]):
+        return Profile.get_or_none(Profile.id == profile_id)
 
 
-def get_profile_by_name(db: Database, name: str) -> Profile | None:
+def get_profile_by_name(db: "Database", name: str) -> Profile | None:
     """Retrieve a profile by its display name.
 
     Args:
@@ -93,18 +69,11 @@ def get_profile_by_name(db: Database, name: str) -> Profile | None:
     Returns:
         Profile | None: The profile if found, otherwise None.
     """
-    cursor = db.execute(
-        "SELECT id, name, password, preferences, instructions, created_at "
-        "FROM profile WHERE name = ?",
-        (name,),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    return _row_to_profile(row)
+    with db.database.bind_ctx([Profile]):
+        return Profile.get_or_none(Profile.name == name)
 
 
-def update_profile_preferences(db: Database, profile_id: int, preferences: str) -> None:
+def update_profile_preferences(db: "Database", profile_id: int, preferences: str) -> None:
     """Overwrite a profile's preferences.
 
     Args:
@@ -112,13 +81,11 @@ def update_profile_preferences(db: Database, profile_id: int, preferences: str) 
         profile_id (int): The unique identifier for the profile.
         preferences (str): The new preferences text.
     """
-    db.execute(
-        "UPDATE profile SET preferences = ? WHERE id = ?",
-        (preferences, profile_id),
-    )
+    with db.database.bind_ctx([Profile]):
+        Profile.update(preferences=preferences).where(Profile.id == profile_id).execute()
 
 
-def update_profile_instructions(db: Database, profile_id: int, instructions: str) -> None:
+def update_profile_instructions(db: "Database", profile_id: int, instructions: str) -> None:
     """Overwrite a profile's instructions.
 
     Args:
@@ -126,7 +93,5 @@ def update_profile_instructions(db: Database, profile_id: int, instructions: str
         profile_id (int): The unique identifier for the profile.
         instructions (str): The new instructions text.
     """
-    db.execute(
-        "UPDATE profile SET instructions = ? WHERE id = ?",
-        (instructions, profile_id),
-    )
+    with db.database.bind_ctx([Profile]):
+        Profile.update(instructions=instructions).where(Profile.id == profile_id).execute()

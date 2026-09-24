@@ -1,89 +1,60 @@
 """Database module for storing and retrieving chat history."""
 
-import sqlite3
 from types import TracebackType
-from typing import Any, Self
+from typing import Self
+
+from peewee import Model, SqliteDatabase
+
+from sensai.data.profile.profile import Profile
+from sensai.data.session.document import Document
+from sensai.data.session.message import Message
+from sensai.data.session.session import Session
+
+_MODELS: list[type[Model]] = [Profile, Session, Message, Document]
 
 
 class Database:
-    """A SQLite database connection wrapper, lazily connected and schema-initializable."""
+    """A SQLite database connection wrapper, backed by peewee, lazily connected."""
 
-    def __init__(self, path: str, schema: str, name: str, timeout: float = 10.0):
-        """Initialize the database with a path, schema, and name.
+    def __init__(self, path: str, name: str, timeout: float = 10.0):
+        """Initialize the database with a path and a name.
 
         Args:
             path (str): The directory path where the database file will be stored.
-            schema (str): The SQL schema to initialize the database.
             name (str): The name of the database file.
             timeout (float, optional): The timeout for database operations in seconds.
                 Default is 10.0 seconds.
         """
-        self._path = f"{path}/{name}"
-        self._schema = schema
-        self._timeout = timeout
-        self._conn: sqlite3.Connection | None = None
+        self._db = SqliteDatabase(
+            f"{path}/{name}",
+            pragmas={"foreign_keys": 1},
+            timeout=timeout,
+        )
 
     @property
-    def connection(self) -> sqlite3.Connection:
-        """Return the database connection, creating it if necessary.
+    def database(self) -> SqliteDatabase:
+        """Return the underlying peewee database, connecting it if necessary.
 
         Returns:
-            sqlite3.Connection: The database connection object.
+            SqliteDatabase: The peewee database object models bind to for a query.
         """
-        if self._conn is None:
-            self._conn = sqlite3.connect(self._path, timeout=self._timeout)
-            self._conn.execute("PRAGMA foreign_keys = ON")
-            self._conn.row_factory = sqlite3.Row
-        return self._conn
-
-    @property
-    def schema(self) -> str:
-        """Return the database schema.
-
-        Returns:
-            str: The database schema as a string.
-        """
-        return self._schema
+        return self._db
 
     def close(self) -> None:
         """Close the database connection if it is open."""
-        if self._conn is not None:
-            self._conn.close()
-            self._conn = None
-
-    def execute(self, query: str, params: tuple[Any, ...] = ()) -> sqlite3.Cursor:
-        """Execute a SQL query with optional parameters.
-
-        Args:
-            query (str): The SQL query to execute.
-            params (tuple, optional): Parameters to substitute into the query.
-                Default is an empty tuple.
-
-        Returns:
-            sqlite3.Cursor: A cursor object that can be used to fetch results from the
-                executed query.
-        """
-        cursor = self.connection.cursor()
-        cursor.execute(query, params)
-        self.connection.commit()
-        return cursor
-
-    def clear(self) -> None:
-        """Clear all data from the database."""
-        self.execute("DELETE FROM session")
-        self.execute("DELETE FROM message")
-        self.execute("DELETE FROM document")
-        self.execute("DELETE FROM profile")
+        if not self._db.is_closed():
+            self._db.close()
 
     def initialize(self) -> None:
-        """Initialize the database with the provided schema.
+        """Create the project's tables if they don't already exist."""
+        with self._db.bind_ctx(_MODELS):
+            self._db.create_tables(_MODELS)
 
-        This method executes the schema SQL to set up the database structure.
-
-        Raises:
-            sqlite3.Error: If an error occurs while executing the schema SQL.
-        """
-        self.connection.executescript(self._schema)
+    def clear(self) -> None:
+        """Delete all rows from the project's tables, children before parents."""
+        with self._db.bind_ctx(_MODELS):
+            for model in reversed(_MODELS):
+                model.delete().execute()
 
     def __enter__(self) -> Self:
         """Enter the runtime context related to this object.

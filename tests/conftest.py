@@ -7,17 +7,14 @@ import pytest
 
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import ProfileManager
+from sensai.data.profile.profile import create_profile
 from sensai.data.session.manager import SessionManager
-
-SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent / "src" / "sensai" / "data" / "database" / "schema.sql"
-)
 
 
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[Database]:
     """A real SQLite database, initialized with the project's schema, in a temp directory."""
-    database = Database(path=str(tmp_path), schema=SCHEMA_PATH.read_text(), name="test.db")
+    database = Database(path=str(tmp_path), name="test.db")
     database.initialize()
     yield database
     database.close()
@@ -25,15 +22,10 @@ def db(tmp_path: Path) -> Iterator[Database]:
 
 @pytest.fixture
 def profile_id(db: Database) -> int:
-    """Insert a minimal profile row and return its id.
-
-    There is no profile_manager module yet, so this inserts directly.
-    """
-    cursor = db.execute(
-        "INSERT INTO profile (name, password) VALUES (?, ?)", ("Test Profile", "secret")
-    )
-    assert cursor.lastrowid is not None
-    return cursor.lastrowid
+    """Insert a minimal profile row and return its id."""
+    profile = create_profile(db, "Test Profile", "secret")
+    assert profile.id is not None
+    return profile.id
 
 
 @pytest.fixture(autouse=True)

@@ -1,6 +1,5 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .data.database.database import Database
@@ -17,12 +16,10 @@ from .tools.registry import get_all_tools
 if TYPE_CHECKING:
     from .data.session.session import Session
 
-SCHEMA_PATH = Path(__file__).parent / "data" / "database" / "schema.sql"
-
 
 def main() -> None:
     """Entry point for the ``sensai`` console script."""
-    database = Database("./", SCHEMA_PATH.read_text(), "sensai.db")
+    database = Database("./", "sensai.db")
     database.initialize()
 
     # Creating a profile

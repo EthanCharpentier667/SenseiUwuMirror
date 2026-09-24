@@ -1,108 +1,93 @@
 """Tests for the ``sensai.data.database.database`` module."""
 
-import sqlite3
 from pathlib import Path
 
-import pytest
-
 from sensai.data.database.database import Database
+from sensai.data.profile.profile import Profile, create_profile
+from sensai.data.session.document import Document
+from sensai.data.session.message import Message
+from sensai.data.session.session import Session
 
-SCHEMA = "CREATE TABLE IF NOT EXISTS thing(id INTEGER PRIMARY KEY, name TEXT NOT NULL);"
+_TABLES = {"profile", "session", "message", "document"}
 
 
 def test_connection_is_created_lazily(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="lazy.db")
+    database = Database(path=str(tmp_path), name="lazy.db")
 
     assert not (tmp_path / "lazy.db").exists()
 
-    _ = database.connection
+    database.initialize()
 
     assert (tmp_path / "lazy.db").exists()
     database.close()
 
 
-def test_connection_is_reused(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="reuse.db")
-
-    assert database.connection is database.connection
-    database.close()
-
-
 def test_foreign_keys_pragma_is_enabled(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="fk.db")
+    database = Database(path=str(tmp_path), name="fk.db")
+    database.initialize()
 
-    cursor = database.connection.execute("PRAGMA foreign_keys")
-
-    assert cursor.fetchone()[0] == 1
+    with database.database.bind_ctx([Profile]):
+        cursor = database.database.execute_sql("PRAGMA foreign_keys")
+        assert cursor.fetchone()[0] == 1
     database.close()
 
 
-def test_row_factory_allows_column_access_by_name(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="rows.db")
-    database.initialize()
-
-    database.execute("INSERT INTO thing (name) VALUES (?)", ("widget",))
-    row = database.execute("SELECT id, name FROM thing").fetchone()
-
-    assert row["name"] == "widget"
-    database.close()
-
-
-def test_initialize_executes_the_full_schema(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="init.db")
+def test_initialize_creates_all_tables(tmp_path: Path) -> None:
+    database = Database(path=str(tmp_path), name="init.db")
 
     database.initialize()
 
-    cursor = database.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'thing'"
-    )
-    assert cursor.fetchone() is not None
+    with database.database.bind_ctx([Profile]):
+        cursor = database.database.execute_sql(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+        table_names = {row[0] for row in cursor.fetchall()}
+    assert _TABLES.issubset(table_names)
     database.close()
 
 
 def test_initialize_is_idempotent(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="idempotent.db")
+    database = Database(path=str(tmp_path), name="idempotent.db")
 
     database.initialize()
-    database.execute("INSERT INTO thing (name) VALUES (?)", ("widget",))
+    create_profile(database, "Ada", "secret")
     database.initialize()
 
-    cursor = database.execute("SELECT COUNT(*) FROM thing")
-    assert cursor.fetchone()[0] == 1
+    with database.database.bind_ctx([Profile]):
+        assert Profile.select().count() == 1
+    database.close()
+
+
+def test_clear_empties_every_table(tmp_path: Path) -> None:
+    database = Database(path=str(tmp_path), name="clear.db")
+    database.initialize()
+    create_profile(database, "Ada", "secret")
+
+    database.clear()
+
+    with database.database.bind_ctx([Profile, Session, Message, Document]):
+        assert Profile.select().count() == 0
+        assert Session.select().count() == 0
+        assert Message.select().count() == 0
+        assert Document.select().count() == 0
     database.close()
 
 
 def test_close_allows_reconnecting(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="close.db")
+    database = Database(path=str(tmp_path), name="close.db")
     database.initialize()
 
     database.close()
-    cursor = database.execute("SELECT COUNT(*) FROM thing")
+    create_profile(database, "Ada", "secret")
 
-    assert cursor.fetchone()[0] == 0
+    with database.database.bind_ctx([Profile]):
+        assert Profile.select().count() == 1
     database.close()
 
 
 def test_context_manager_closes_connection_on_exit(tmp_path: Path) -> None:
-    with Database(path=str(tmp_path), schema=SCHEMA, name="ctx.db") as database:
+    with Database(path=str(tmp_path), name="ctx.db") as database:
         database.initialize()
-        conn = database.connection
+        assert not database.database.is_closed()
 
-    with pytest.raises(sqlite3.ProgrammingError):
-        conn.execute("SELECT 1")
-
-
-def test_schema_property_returns_the_schema_text(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="schema.db")
-
-    assert database.schema == SCHEMA
-    database.close()
-
-
-def test_execute_raises_on_invalid_sql(tmp_path: Path) -> None:
-    database = Database(path=str(tmp_path), schema=SCHEMA, name="invalid.db")
-    database.initialize()
-
-    with pytest.raises(sqlite3.OperationalError):
-        database.execute("SELECT * FROM nonexistent_table")
-    database.close()
+    assert database.database.is_closed()

@@ -1,23 +1,28 @@
 """Document for handling documents attached to messages in chat sessions."""
 
-from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from sensai.data.database.database import Database
+from peewee import SQL, BlobField, DateTimeField, IntegerField
+
+from sensai.data.database.base_model import BaseModel
+
+if TYPE_CHECKING:
+    from sensai.data.database.database import Database
 
 
-@dataclass(frozen=True, slots=True)
-class Document:
+class Document(BaseModel):
     """A document attached to a message, mirroring the `document` table."""
 
-    message_id: int
+    message_id = IntegerField(
+        index=True, constraints=[SQL('REFERENCES "message" ("id") ON DELETE CASCADE')]
+    )
     # TODO: raw blob, needs RAG (convert + vectorize + retrieve relevant chunks)
     # before use as LLM context
-    content: bytes
-    id: int | None = None
-    timestamp: str | None = None
+    content = BlobField()
+    timestamp = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
 
-def create_document(db: Database, message_id: int, content: bytes) -> Document:
+def create_document(db: "Database", message_id: int, content: bytes) -> Document:
     """Create a new document attached to a message.
 
     Args:
@@ -28,21 +33,11 @@ def create_document(db: Database, message_id: int, content: bytes) -> Document:
     Returns:
         Document: The newly created document, including its assigned ID.
     """
-    cursor = db.execute(
-        "INSERT INTO document (content, message_id) VALUES (?, ?)",
-        (content, message_id),
-    )
-    if cursor.lastrowid is None:
-        raise ValueError("Failed to create a new document; no ID was returned.")
-    document = get_document(db, cursor.lastrowid)
-    if document is None:
-        raise ValueError(
-            f"Failed to retrieve the newly created document with ID {cursor.lastrowid}."
-        )
-    return document
+    with db.database.bind_ctx([Document]):
+        return Document.create(message_id=message_id, content=content)
 
 
-def get_document(db: Database, document_id: int) -> Document | None:
+def get_document(db: "Database", document_id: int) -> Document | None:
     """Retrieve a document by its ID.
 
     Args:
@@ -52,22 +47,11 @@ def get_document(db: Database, document_id: int) -> Document | None:
     Returns:
         Document | None: The document if found, otherwise None.
     """
-    cursor = db.execute(
-        "SELECT id, content, message_id, timestamp FROM document WHERE id = ?",
-        (document_id,),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    return Document(
-        id=row["id"],
-        content=row["content"],
-        message_id=row["message_id"],
-        timestamp=row["timestamp"],
-    )
+    with db.database.bind_ctx([Document]):
+        return Document.get_or_none(Document.id == document_id)
 
 
-def get_documents_by_message(db: Database, message_id: int) -> list[Document]:
+def get_documents_by_message(db: "Database", message_id: int) -> list[Document]:
     """Retrieve all documents attached to a message.
 
     Args:
@@ -77,17 +61,7 @@ def get_documents_by_message(db: Database, message_id: int) -> list[Document]:
     Returns:
         list[Document]: The documents attached to the message.
     """
-    cursor = db.execute(
-        "SELECT id, content, message_id, timestamp "
-        "FROM document WHERE message_id = ? ORDER BY timestamp",
-        (message_id,),
-    )
-    return [
-        Document(
-            id=row["id"],
-            content=row["content"],
-            message_id=row["message_id"],
-            timestamp=row["timestamp"],
+    with db.database.bind_ctx([Document]):
+        return list(
+            Document.select().where(Document.message_id == message_id).order_by(Document.timestamp)
         )
-        for row in cursor.fetchall()
-    ]

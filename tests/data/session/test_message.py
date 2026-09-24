@@ -1,7 +1,6 @@
 """Tests for the ``sensai.data.session.message`` module."""
 
-import sqlite3
-
+import peewee
 import pytest
 
 from sensai.data.database.database import Database
@@ -33,7 +32,7 @@ def test_create_message_starts_with_no_documents(db: Database, session_id: int) 
 
 
 def test_create_message_rejects_unknown_session(db: Database) -> None:
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(peewee.IntegrityError):
         create_message(db, 9999, "hello", "user", 1.0)
 
 

@@ -1,10 +1,10 @@
 """Tests for the ``sensai.data.session.session`` module."""
 
-import sqlite3
-
+import peewee
 import pytest
 
 from sensai.data.database.database import Database
+from sensai.data.profile.profile import create_profile
 from sensai.data.session.message import create_message
 from sensai.data.session.session import (
     add_session_usage,
@@ -43,7 +43,7 @@ def test_create_session_starts_with_zeroed_usage_and_no_messages(
 
 
 def test_create_session_rejects_unknown_profile(db: Database) -> None:
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(peewee.IntegrityError):
         create_session(db, profile_id=9999, name="orphan")
 
 
@@ -132,12 +132,8 @@ def test_set_session_summary_overwrites_a_previous_summary(db: Database, profile
 
 
 def test_sessions_are_isolated_by_profile(db: Database) -> None:
-    profile_a = db.execute(
-        "INSERT INTO profile (name, password) VALUES (?, ?)", ("A", "secret")
-    ).lastrowid
-    profile_b = db.execute(
-        "INSERT INTO profile (name, password) VALUES (?, ?)", ("B", "secret")
-    ).lastrowid
+    profile_a = create_profile(db, "A", "secret").id
+    profile_b = create_profile(db, "B", "secret").id
     assert profile_a is not None
     assert profile_b is not None
 
