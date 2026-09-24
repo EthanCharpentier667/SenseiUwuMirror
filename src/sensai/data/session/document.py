@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from sensai.data.database.database import Database
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Document:
     """A document attached to a message, mirroring the `document` table."""
 

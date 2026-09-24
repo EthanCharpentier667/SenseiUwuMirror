@@ -8,7 +8,7 @@ from sensai.data.database.database import Database
 from .message import Message, get_messages_by_session
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Session:
     """A chat session, mirroring the `session` table, with its messages."""
 

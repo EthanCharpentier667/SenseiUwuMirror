@@ -6,7 +6,7 @@ from sqlite3 import Row
 from sensai.data.database.database import Database
 
 
-@dataclass
+@dataclass(slots=True)
 class Profile:
     """A user profile, mirroring the `profile` table."""
 

@@ -8,7 +8,7 @@ from sensai.data.database.database import Database
 from .document import Document
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Message:
     """A chat message, mirroring the `message` table."""
 

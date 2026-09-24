@@ -1,5 +1,6 @@
 """Tests for the ``sensai.data.session.manager`` module."""
 
+import dataclasses
 import re
 
 import pytest
@@ -240,7 +241,7 @@ def test_add_message_to_current_session_raises_without_a_current_session(db: Dat
 
 def test_update_session_returns_none_when_session_has_no_id(db: Database, profile_id: int) -> None:
     session = create_session(db, profile_id)
-    session.id = None
+    session = dataclasses.replace(session, id=None)
 
     result = update_session(db, session, _make_response())
 
@@ -402,7 +403,7 @@ def test_compress_session_returns_unchanged_when_there_is_no_history(
 
 def test_compress_session_raises_without_a_session_id(db: Database, profile_id: int) -> None:
     session = create_session(db, profile_id)
-    session.id = None
+    session = dataclasses.replace(session, id=None)
 
     with pytest.raises(ValueError, match=re.escape("Session does not have a valid ID.")):
         compress_session(db, session)
