@@ -11,6 +11,15 @@ from .session import Session, add_session_usage, create_session, get_session, se
 
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 
+HISTORY_CONTEXT_NOTE = (
+    "Everything above, the conversation summary (if present) and the message history, "
+    "already reflects what has been learned in this session, including the results of "
+    "any earlier tool call. Treat the summary as authoritative for anything before it; "
+    "the messages are only what happened since. Do not repeat a tool call for "
+    "information already retrieved there. Use this context to answer the newest user "
+    "message below."
+)
+
 
 class SessionManager:
     """Holds the process-wide currently active session."""
@@ -112,13 +121,31 @@ def _context_prefix(session: Session) -> list[dict[str, Any]]:
     return prefix
 
 
+def _history_context_suffix(session: Session) -> list[dict[str, Any]]:
+    """A system message pre-empting the model from treating history as still pending.
+
+    Placed right after the summary/history and before the new prompt, so "above" in its
+    text is accurate. Without it, a model can mistake earlier turns (e.g. a tool call and
+    its result) for part of the current, unresolved request, and repeat the tool call
+    instead of reusing what it already retrieved. Only emitted when there's actually
+    history to misread — an empty session has nothing to be confused about.
+    """
+    if not session.summary and not _sendable_messages(session):
+        return []
+    return [{"role": "system", "content": HISTORY_CONTEXT_NOTE}]
+
+
 def _history_prefix_length(session: Session) -> int:
     """The number of leading entries a ``build_messages()`` payload spends on known state.
 
-    That's the synthetic context prefix plus the still-unsummarized history messages —
-    everything before the new prompt for this turn.
+    That's the synthetic context prefix, the still-unsummarized history messages, and the
+    history-context note — everything before the new prompt for this turn.
     """
-    return len(_context_prefix(session)) + len(_sendable_messages(session))
+    return (
+        len(_context_prefix(session))
+        + len(_sendable_messages(session))
+        + len(_history_context_suffix(session))
+    )
 
 
 def update_session(db: Database, session: Session, response: Response) -> Session | None:
@@ -142,7 +169,8 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
         return None
     new_messages = response.messages[_history_prefix_length(session) :]
     for message in new_messages:
-        add_message_to_current_session(db, message.content, message.role, message.response_time)
+        if message.role != "tool" and len(message.content.strip()) > 0:
+            add_message_to_current_session(db, message.content, message.role, message.response_time)
     add_session_usage(
         db, session.id, response.prompt_eval_count, response.eval_count, response.token_used
     )
@@ -168,7 +196,12 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
         {"role": message.role, "content": message.content}
         for message in _sendable_messages(session)
     ]
-    return [*_context_prefix(session), *history, {"role": "user", "content": prompt}]
+    return [
+        *_context_prefix(session),
+        *history,
+        *_history_context_suffix(session),
+        {"role": "user", "content": prompt},
+    ]
 
 
 def compress_session(db: Database, session: Session) -> Session:
@@ -232,6 +265,10 @@ def maybe_compress_session(
     """
     if response.prompt_eval_count <= threshold:
         return session
+    print(  # noqa: T201
+        f"Prompt token count {response.prompt_eval_count} exceeded threshold {threshold}; "
+        "compressing session history."
+    )
     return compress_session(db, session)
 
 
