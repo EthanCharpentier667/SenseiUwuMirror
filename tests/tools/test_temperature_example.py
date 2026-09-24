@@ -2,8 +2,8 @@
 
 from typing import Any
 
+import httpx
 import pytest
-import requests
 
 from sensai.tools.temperature_example import TempToolExample
 
@@ -20,7 +20,7 @@ WTTR_PAYLOAD = {
 
 
 class MockGetResponse:
-    """Minimal stand-in for :meth:`requests.get`'s return value."""
+    """Minimal stand-in for :meth:`httpx.get`'s return value."""
 
     def __init__(self, payload: dict[str, Any]) -> None:
         """Initialize the mock response with a canned payload."""
@@ -55,7 +55,7 @@ def test_execute_fetches_and_formats_weather(monkeypatch: pytest.MonkeyPatch) ->
         captured_url["timeout"] = timeout
         return MockGetResponse(WTTR_PAYLOAD)
 
-    monkeypatch.setattr(requests, "get", mock_get)
+    monkeypatch.setattr(httpx, "get", mock_get)
 
     tool = TempToolExample()
     result = tool.execute(city="Paris")
@@ -71,7 +71,7 @@ def test_execute_defaults_to_unknown_city_when_missing(monkeypatch: pytest.Monke
     def mock_get(url: str, timeout: float) -> MockGetResponse:
         return MockGetResponse(WTTR_PAYLOAD)
 
-    monkeypatch.setattr(requests, "get", mock_get)
+    monkeypatch.setattr(httpx, "get", mock_get)
 
     tool = TempToolExample()
     result = tool.execute()

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-import requests
+import httpx
 
 from .tool import Tool
 
@@ -36,7 +36,7 @@ class TempToolExample(Tool):
             str: A message indicating that the web tool has been executed.
         """
         city = kwargs.get("city", "Unknown City")
-        data = requests.get(f"https://wttr.in/{city}?format=j1", timeout=10).json()
+        data = httpx.get(f"https://wttr.in/{city}?format=j1", timeout=10).json()
         condition = data["current_condition"][0]
         return (
             f"The current temperature in {city} is {condition['temp_C']}°C. "
