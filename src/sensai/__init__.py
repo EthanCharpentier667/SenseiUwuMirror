@@ -37,27 +37,25 @@ def main() -> None:
     if session is None:
         raise ValueError("Failed to create the default session.")
 
-    # First request to Sensei
-    response = get_sensei_response(
-        messages=build_messages(
-            session, "Hello, Sensei! How are you doing today? Who is sweetie fox?"
-        ),
-        stream=True,
-        tools=get_all_tools(),
-    )
-    session = update_session(database, session, response)
-    if session is None:
-        raise ValueError("Failed to update the session after the first response.")
-    session = maybe_compress_session(database, session, response)
+    # Starting the chat loop
+    try:
+        print(  # noqa: T201
+            "Hello "
+            + profile.name
+            + "! Welcome to Sensai. You can start chatting now. (Press Ctrl+C to exit.)\n"
+        )
+        while True:
+            user_input = input("Enter something (Ctrl+C to exit): ")
+            response = get_sensei_response(
+                messages=build_messages(session, user_input),
+                stream=True,
+                tools=get_all_tools(),
+            )
+            session = update_session(database, session, response)
+            if session is None:
+                raise ValueError("Failed to update the session after the first response.")
+            session = maybe_compress_session(database, session, response)
+            print("\n")  # noqa: T201
 
-    # Second request to Sensei, using the session's history
-    print("\n---------------\n")  # noqa: T201
-    response2 = get_sensei_response(
-        messages=build_messages(session, "So what do you think about her ?"),
-        stream=True,
-    )
-    session = update_session(database, session, response2)
-    if session is None:
-        raise ValueError("Failed to update the session after the second response.")
-    session = maybe_compress_session(database, session, response2)
-    print("\n---------------\n")  # noqa: T201
+    except KeyboardInterrupt:
+        print("\nProgram terminated by user.")  # noqa: T201

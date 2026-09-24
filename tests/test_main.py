@@ -51,22 +51,35 @@ class _FakeDatabase:
         pass
 
 
-def test_main_prints_separators(
-    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
     monkeypatch.setattr("sensai.create_new_profile", _make_profile)
     monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
+    monkeypatch.setattr("sensai.maybe_compress_session", lambda *args, **kwargs: _make_session())
+
+
+def test_main_greets_the_profile_and_exits_on_keyboard_interrupt(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_main_dependencies(monkeypatch)
     monkeypatch.setattr("sensai.get_sensei_response", lambda *args, **kwargs: _make_response())
+
+    def fake_input(_prompt: str) -> str:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
     main()
+
     captured = capsys.readouterr()
-    assert captured.out.count("---------------") == 2
+    assert "Hello Default Profile! Welcome to Sensai." in captured.out
+    assert "Program terminated by user." in captured.out
 
 
-def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_calls_get_sensei_response_for_each_input(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[dict[str, Any]] = []
 
     def mock_get_sensei_response(
@@ -82,30 +95,31 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
         assert stream is True
         return _make_response()
 
-    monkeypatch.setattr("sensai.Database", _FakeDatabase)
-    monkeypatch.setattr("sensai.create_new_profile", _make_profile)
-    monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
-    monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
-    monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
-    monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
+    inputs = iter(["hello there", "second question"])
+
+    def fake_input(_prompt: str) -> str:
+        try:
+            return next(inputs)
+        except StopIteration as exc:
+            raise KeyboardInterrupt from exc
+
+    _patch_main_dependencies(monkeypatch)
     monkeypatch.setattr("sensai.get_sensei_response", mock_get_sensei_response)
+    monkeypatch.setattr("builtins.input", fake_input)
+
     main()
 
+    assert len(calls) == 2
     assert calls[0]["prompt"] is None
-    assert calls[0]["messages"] == [
-        {
-            "role": "user",
-            "content": "Hello, Sensei! How are you doing today? Who is sweetie fox?",
-        }
-    ]
+    assert calls[0]["messages"] == [{"role": "user", "content": "hello there"}]
     first_turn_tools = calls[0]["tools"]
     assert first_turn_tools is not None
     assert len(first_turn_tools) == 2
     assert isinstance(first_turn_tools[0], WebSearch)
     assert isinstance(first_turn_tools[1], TempToolExample)
 
-    assert calls[1] == {
-        "prompt": None,
-        "messages": [{"role": "user", "content": "So what do you think about her ?"}],
-        "tools": None,
-    }
+    assert calls[1]["prompt"] is None
+    assert calls[1]["messages"] == [{"role": "user", "content": "second question"}]
+    second_turn_tools = calls[1]["tools"]
+    assert second_turn_tools is not None
+    assert len(second_turn_tools) == 2
