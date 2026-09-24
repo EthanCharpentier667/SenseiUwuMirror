@@ -8,6 +8,7 @@ from sensai.data.database.database import Database
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.manager import (
+    HISTORY_CONTEXT_NOTE,
     SessionManager,
     add_message_to_current_session,
     build_messages,
@@ -50,6 +51,7 @@ def test_build_messages_prefixes_session_history_before_the_prompt() -> None:
     assert messages == [
         {"role": "user", "content": "hi"},
         {"role": "assistant", "content": "hello!"},
+        {"role": "system", "content": HISTORY_CONTEXT_NOTE},
         {"role": "user", "content": "what did I just say?"},
     ]
 
@@ -61,6 +63,7 @@ def test_build_messages_prefixes_a_summary_as_a_system_message() -> None:
 
     assert messages == [
         {"role": "system", "content": "Conversation summary so far: the user said hi"},
+        {"role": "system", "content": HISTORY_CONTEXT_NOTE},
         {"role": "user", "content": "what did I say?"},
     ]
 
@@ -84,6 +87,7 @@ def test_build_messages_omits_messages_already_folded_into_the_summary() -> None
     assert messages == [
         {"role": "system", "content": "Conversation summary so far: the user said hi"},
         {"role": "user", "content": "how are you?"},
+        {"role": "system", "content": HISTORY_CONTEXT_NOTE},
         {"role": "user", "content": "still there?"},
     ]
 
@@ -273,12 +277,14 @@ def test_update_session_only_persists_messages_new_to_this_turn(
     session = update_session(db, session, first_turn)
     assert session is not None
 
-    # A response built with build_messages() echoes the whole history back, plus the
-    # new turn: the first two messages here are already persisted from first_turn.
+    # A response built with build_messages() echoes the whole history back (plus the
+    # history-context note), then the new turn: the first three messages here are
+    # already persisted from first_turn or synthetic.
     second_turn = _make_response(
         messages=[
             Message(role="user", content="hi", response_time=1.0),
             Message(role="assistant", content="hello!", response_time=2.0),
+            Message(role="system", content=HISTORY_CONTEXT_NOTE, response_time=3.0),
             Message(role="user", content="what did I say?", response_time=3.0),
             Message(role="assistant", content="you said hi", response_time=4.0),
         ]
@@ -308,11 +314,12 @@ def test_update_session_skips_the_summary_line_when_persisting(
     session = get_session(db, session.id)
     assert session is not None
 
-    # build_messages() would have sent [summary system message, new prompt] for this turn,
-    # since both prior messages are already folded into the summary.
+    # build_messages() would have sent [summary system message, history-context note, new
+    # prompt] for this turn, since both prior messages are already folded into the summary.
     response = _make_response(
         messages=[
             Message(role="system", content="Conversation summary so far: ...", response_time=3.0),
+            Message(role="system", content=HISTORY_CONTEXT_NOTE, response_time=3.0),
             Message(role="user", content="still there?", response_time=3.0),
             Message(role="assistant", content="yep!", response_time=4.0),
         ]
@@ -359,6 +366,7 @@ def test_update_session_skips_the_profile_context_line_when_persisting(
         {"role": "system", "content": "User preferences: dark mode"},
         {"role": "user", "content": "hi"},
         {"role": "assistant", "content": "hello!"},
+        {"role": "system", "content": HISTORY_CONTEXT_NOTE},
         {"role": "user", "content": "still there?"},
     ]
 
