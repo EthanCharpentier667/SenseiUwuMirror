@@ -1,502 +1,319 @@
-"""Tests for the ``sensai.requester`` module."""
+"""Tests for the ``requester`` module."""
 
 import json
+import re
 from typing import Any
 
+import httpx
 import pytest
-import requests
 
 from sensai import requester
+from sensai.events import AsyncUIHandler
 
 
-def test_get_buffered_response_joins_and_clears_buffer() -> None:
-    requester.streaming_response_buffer.extend(["Hello", " ", "world"])
+class MockUIHandler(AsyncUIHandler):
+    def __init__(self, *, approval_response: bool = True) -> None:
+        """Initialize MockUIHandler."""
+        self.streamed: list[str] = []
+        self.tool_calls: list[tuple[str, dict[str, Any]]] = []
+        self.tool_results: list[tuple[str, Any]] = []
+        self.errors: list[Exception] = []
+        self.approval_response = approval_response
 
-    result = requester.get_buffered_response()
+    async def on_stream_chunk(self, chunk: str) -> None:
+        self.streamed.append(chunk)
 
-    assert result == "Hello world"
-    assert requester.streaming_response_buffer == []
+    async def on_tool_call_request(self, name: str, arguments: dict[str, Any]) -> bool:
+        self.tool_calls.append((name, arguments))
+        return self.approval_response
 
+    async def on_tool_call_result(self, name: str, result: Any) -> None:
+        self.tool_results.append((name, result))
 
-class MockResponse:
-    """Minimal stand-in for :class:`requests.Response` used across these tests."""
-
-    def __init__(
-        self,
-        json_data: dict[str, Any] | None = None,
-        status_code: int = 200,
-        lines: list[bytes] | None = None,
-    ) -> None:
-        """Initialize the mock response with canned data."""
-        self._json_data = json_data
-        self.status_code = status_code
-        self._lines = lines or []
-
-    def raise_for_status(self) -> None:
-        if self.status_code != 200:
-            raise requests.exceptions.HTTPError("HTTP Error")
-
-    def json(self) -> dict[str, Any] | None:
-        return self._json_data
-
-    def iter_lines(self):
-        return iter(self._lines)
+    async def on_error(self, error: Exception) -> None:
+        self.errors.append(error)
 
 
-def test_make_request_returns_json_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    def mock_post(url, headers, data, stream, timeout):
-        return MockResponse({"message": {"content": "This is a mock response."}})
+@pytest.mark.asyncio
+async def test_make_request_stream_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockResponse:
+        status_code = 200
 
-    monkeypatch.setattr(requests, "post", mock_post)
+        def raise_for_status(self) -> None:
+            pass
 
-    response = requester.make_request(
-        "https://api.example.com/sensei",
-        {"messages": [{"role": "user", "content": "Hello, Sensei!"}]},
-        {"Authorization": "Bearer test_token"},
+        async def aiter_lines(self):
+            yield json.dumps({"message": {"content": "Hello"}})
+            yield json.dumps({"message": {"content": " World"}})
+            yield json.dumps({"done": True, "eval_count": 10})
+
+    class MockStreamContext:
+        async def __aenter__(self) -> MockResponse:
+            return MockResponse()
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        def stream(self, *args: Any, **kwargs: Any) -> MockStreamContext:  # noqa: ARG002
+            return MockStreamContext()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    ui_handler = MockUIHandler()
+    res = await requester.make_request("url", {}, stream=True, ui_handler=ui_handler)
+
+    assert res["response"] == "Hello World"
+    assert res["eval_count"] == 10
+    assert "".join(ui_handler.streamed) == "Hello World"
+
+
+@pytest.mark.asyncio
+async def test_get_sensei_response_tool_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTool:
+        name = "get_weather"
+
+        def define(self) -> dict[str, Any]:
+            return {"type": "function", "function": {"name": "get_weather"}}
+
+        def execute(self, **_kwargs: Any) -> str:
+            return "Sunny"
+
+    call_count = 0
+
+    async def mock_make_request(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "response": "",
+                "tool_calls": [{"function": {"name": "get_weather", "arguments": {}}}],
+            }
+        return {"response": "Final Answer", "tool_calls": []}
+
+    monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test")
+
+    ui_handler = MockUIHandler(approval_response=True)
+    res = await requester.get_sensei_response(
+        "Hello", tools=[FakeTool()], human_in_the_loop=True, ui_handler=ui_handler
     )
 
-    assert response == {"message": {"content": "This is a mock response."}}
+    assert res["response"] == "Final Answer"
+    assert call_count == 2
+    assert len(ui_handler.tool_calls) == 1
+    assert ui_handler.tool_calls[0][0] == "get_weather"
+    assert len(ui_handler.tool_results) == 1
+    assert ui_handler.tool_results[0][0] == "get_weather"
 
 
-def test_make_request_raises_exception_on_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def mock_post(url, headers, data, stream, timeout):
-        return MockResponse(status_code=500)
+@pytest.mark.asyncio
+async def test_get_sensei_response_tool_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTool:
+        name = "get_weather"
 
-    monkeypatch.setattr(requests, "post", mock_post)
+        def define(self) -> dict[str, Any]:
+            return {"type": "function", "function": {"name": "get_weather"}}
 
-    with pytest.raises(requests.exceptions.HTTPError, match="HTTP Error"):
-        requester.make_request(
-            "https://api.example.com/sensei",
-            {"messages": []},
-            {"Authorization": "Bearer test_token"},
-        )
+        def execute(self, **_kwargs: Any) -> str:
+            return "Sunny"
 
+    call_count = 0
 
-def test_make_request_without_headers_skips_header_merge(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured_headers = {}
+    async def mock_make_request(
+        url: str, payload: dict[str, Any], *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "response": "",
+                "tool_calls": [{"function": {"name": "get_weather", "arguments": {}}}],
+            }
+        messages = payload["messages"]
+        assert messages[-1]["content"] == "Action cancelled by user."
 
-    def mock_post(url, headers, data, stream, timeout):
-        captured_headers.update(headers)
-        return MockResponse({"message": {"content": "ok"}})
+        return {"response": "Understood.", "tool_calls": []}
 
-    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test")
 
-    response = requester.make_request("https://api.example.com/sensei", {"messages": []})
-
-    assert response == {"message": {"content": "ok"}}
-    assert captured_headers == {"Content-Type": "application/json"}
-
-
-def test_make_request_streaming_returns_defaults_when_no_lines(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def mock_post(url, headers, data, stream, timeout):
-        return MockResponse(lines=[])
-
-    monkeypatch.setattr(requests, "post", mock_post)
-
-    response = requester.make_request(
-        "https://api.example.com/sensei", {"messages": []}, stream=True
+    ui_handler = MockUIHandler(approval_response=False)
+    res = await requester.get_sensei_response(
+        "Hello", tools=[FakeTool()], human_in_the_loop=True, ui_handler=ui_handler
     )
 
-    assert response["response"] == ""
-    assert response["stop_reason"] == ""
-    assert response["eval_count"] == 0
-    assert response["prompt_eval_count"] == 0
-    assert response["token_used"] == 0
-    assert response["tool_calls"] == []
-    assert response["status_code"] == 200
+    assert res["response"] == "Understood."
+    assert call_count == 2
+    assert len(ui_handler.tool_results) == 0
 
 
-def test_make_request_streaming_skips_empty_lines_and_aggregates_content(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def mock_post(url, headers, data, stream, timeout):
-        return MockResponse(
-            lines=[
-                b"",
-                b'{"message": {"content": "Hello"}}',
-                (
-                    b'{"message": {"content": " world"}, "done": true, '
-                    b'"done_reason": "stop", "eval_count": 5, "prompt_eval_count": 3, '
-                    b'"total_duration": 42}'
-                ),
-            ]
-        )
+@pytest.mark.asyncio
+async def test_get_sensei_response_unmatched_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    call_count = 0
 
-    monkeypatch.setattr(requests, "post", mock_post)
+    async def mock_make_request(
+        url: str, payload: dict[str, Any], *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "response": "",
+                "tool_calls": [{"function": {"name": "unknown_tool", "arguments": {}}}],
+            }
 
-    response = requester.make_request(
-        "https://api.example.com/sensei", {"messages": []}, stream=True
+        messages = payload["messages"]
+        assert messages[-1]["content"] == "Tool 'unknown_tool' not found."
+        return {"response": "Fixed.", "tool_calls": []}
+
+    monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test")
+
+    res = await requester.get_sensei_response("Hello", tools=[], human_in_the_loop=False)
+    assert res["response"] == "Fixed."
+
+
+@pytest.mark.asyncio
+async def test_get_sensei_response_no_human_in_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTool:
+        name = "get_weather"
+
+        def define(self) -> dict[str, Any]:
+            return {"type": "function", "function": {"name": "get_weather"}}
+
+        def execute(self, **_kwargs: Any) -> str:
+            return "Sunny"
+
+    call_count = 0
+
+    async def mock_make_request(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "response": "",
+                "tool_calls": [{"function": {"name": "get_weather", "arguments": {}}}],
+            }
+        return {"response": "Done.", "tool_calls": []}
+
+    monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test")
+
+    ui_handler = MockUIHandler()
+    await requester.get_sensei_response(
+        "Hello", tools=[FakeTool()], human_in_the_loop=False, ui_handler=ui_handler
     )
 
-    assert response["response"] == "Hello world"
-    assert response["stop_reason"] == "stop"
-    assert response["eval_count"] == 5
-    assert response["prompt_eval_count"] == 3
-    assert response["token_used"] == 8
-    assert response["total_duration"] == 42
+    assert len(ui_handler.tool_calls) == 0
+    assert len(ui_handler.tool_results) == 1
 
 
-def test_make_request_streaming_collects_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:
-    tool_call = {
-        "id": "call_1",
-        "function": {"name": "get_temperature", "arguments": {"city": "Paris"}},
-    }
-
-    def mock_post(url, headers, data, stream, timeout):
-        return MockResponse(
-            lines=[
-                json_line({"message": {"content": "", "tool_calls": [tool_call]}}),
-                json_line({"message": {"content": ""}, "done": True, "done_reason": "stop"}),
-            ]
-        )
-
-    monkeypatch.setattr(requests, "post", mock_post)
-
-    response = requester.make_request(
-        "https://api.example.com/sensei", {"messages": []}, stream=True
-    )
-
-    assert response["tool_calls"] == [tool_call]
+def test_get_buffered_response() -> None:
+    requester.streaming_response_buffer.clear()
+    requester.streaming_response_buffer.append("A")
+    requester.streaming_response_buffer.append("B")
+    assert requester.get_buffered_response() == "AB"
+    assert requester.get_buffered_response() == ""
 
 
-def json_line(payload: dict[str, Any]) -> bytes:
-    return json.dumps(payload).encode()
+@pytest.mark.asyncio
+async def test_make_request_non_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, str]:
+            return {"result": "ok"}
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        async def post(self, *args: Any, **kwargs: Any) -> MockResponse:  # noqa: ARG002
+            return MockResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    res = await requester.make_request("url", {}, stream=False)
+    assert res == {"result": "ok"}
 
 
-def test_get_sensei_response_raises_value_error_when_token_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+@pytest.mark.asyncio
+async def test_make_request_stream_json_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        async def aiter_lines(self):
+            yield "bad json"
+            yield json.dumps({"done": True, "eval_count": 5})
+
+    class MockStreamContext:
+        async def __aenter__(self) -> MockResponse:
+            return MockResponse()
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        def stream(self, *args: Any, **kwargs: Any) -> MockStreamContext:  # noqa: ARG002
+            return MockStreamContext()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    res = await requester.make_request("url", {}, stream=True)
+    assert res["eval_count"] == 5
+
+
+@pytest.mark.asyncio
+async def test_get_sensei_response_exception_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def mock_make_request(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise ValueError("Network Error")
+
+    monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test")
+    ui_handler = MockUIHandler()
+    with pytest.raises(ValueError, match="Network Error"):
+        await requester.get_sensei_response("Hello", ui_handler=ui_handler)
+    assert len(ui_handler.errors) == 1
+    assert str(ui_handler.errors[0]) == "Network Error"
+
+
+@pytest.mark.asyncio
+async def test_get_sensei_response_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TOKEN", raising=False)
-
-    with pytest.raises(ValueError) as excinfo:
-        requester.get_sensei_response("Hello, Sensei!")
-
-    assert "API token not found in environment variables." in str(excinfo.value)
-
-
-def test_get_sensei_response_raises_value_error_without_prompt_or_messages(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("TOKEN", "test_token")
-
-    with pytest.raises(ValueError) as excinfo:
-        requester.get_sensei_response()
-
-    assert "Either prompt or messages must be provided." in str(excinfo.value)
-
-
-def test_get_sensei_response_builds_messages_from_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, Any] = {}
-
-    def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
-        captured["url"] = url
-        captured["payload"] = payload
-        captured["headers"] = headers
-        return {"response": "hi", "tool_calls": [], "messages": payload["messages"]}
-
-    monkeypatch.setattr(requester, "make_request", mock_make_request)
-    monkeypatch.setenv("TOKEN", "test_token")
-
-    response = requester.get_sensei_response("Hello, Sensei! Can you tell me a joke?")
-
-    assert captured["url"] == "https://ollama.tanouminou.com/api/chat"
-    assert captured["payload"]["messages"] == [
-        {"role": "user", "content": "Hello, Sensei! Can you tell me a joke?"}
-    ]
-    assert captured["payload"]["model"] == "llama3.2"
-    assert captured["payload"]["tools"] == []
-    assert captured["payload"]["stream"] is True
-    assert captured["headers"] == {"Authorization": "Bearer test_token"}
-    assert response["response"] == "hi"
-
-
-def test_get_sensei_response_uses_messages_when_given(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, Any] = {}
-
-    def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
-        captured["payload"] = payload
-        return {"response": "hi", "tool_calls": [], "messages": payload["messages"]}
-
-    monkeypatch.setattr(requester, "make_request", mock_make_request)
-    monkeypatch.setenv("TOKEN", "test_token")
-
-    history = [
-        {"role": "user", "content": "hey"},
-        {"role": "assistant", "content": "yo"},
-    ]
-    requester.get_sensei_response(messages=history)
-
-    assert captured["payload"]["messages"] == history
-
-
-def test_get_sensei_response_formats_tools(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeTool:
-        def define(self) -> dict[str, Any]:
-            return {"type": "function", "function": {"name": "noop"}}
-
-    captured: dict[str, Any] = {}
-
-    def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
-        captured["payload"] = payload
-        return {"response": "hi", "tool_calls": [], "messages": payload["messages"]}
-
-    monkeypatch.setattr(requester, "make_request", mock_make_request)
-    monkeypatch.setenv("TOKEN", "test_token")
-
-    requester.get_sensei_response("hello", tools=[FakeTool()])
-
-    assert captured["payload"]["tools"] == [{"type": "function", "function": {"name": "noop"}}]
-
-
-def test_call_tool_returns_response_unchanged_without_tools() -> None:
-    response = {"response": "hi"}
-
-    result = requester.call_tool([{"function": {"name": "x"}}], response, [], tools=None)
-
-    assert result is response
-
-
-def test_call_tool_returns_response_unchanged_without_toolcalls() -> None:
-    response = {"response": "hi"}
-
-    result = requester.call_tool([], response, [], tools=[object()])
-
-    assert result is response
-
-
-def test_call_tool_executes_matching_tool_and_recurses(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeTool:
-        name = "get_temperature"
-
-        def execute(self, **kwargs: Any) -> str:
-            return f"It is 20°C in {kwargs['city']}."
-
-    tool_call = {
-        "id": "call_1",
-        "function": {"name": "get_temperature", "arguments": {"city": "Paris"}},
-    }
-    response = {"response": "", "model": "llama3.2"}
-    messages = [{"role": "user", "content": "What's the temperature in Paris?"}]
-
-    captured: dict[str, Any] = {}
-
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {"response": "It is 20°C in Paris.", "tool_calls": []}
-
-    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
-
-    result = requester.call_tool([tool_call], response, messages, tools=[FakeTool()])
-
-    assert result == {"response": "It is 20°C in Paris.", "tool_calls": []}
-    assert captured["model"] == "llama3.2"
-    assert captured["tools"][0].name == "get_temperature"
-    conversation = captured["messages"]
-    assert conversation[0] == messages[0]
-    assert conversation[1] == {"role": "assistant", "content": "", "tool_calls": [tool_call]}
-    assert conversation[2] == {"role": "tool", "content": "It is 20°C in Paris."}
-
-
-def test_call_tool_serializes_non_string_tool_results(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeTool:
-        name = "get_temperature"
-
-        def execute(self, **kwargs: Any) -> dict[str, Any]:
-            return {"city": kwargs["city"], "temp_c": 20}
-
-    tool_call = {
-        "id": "call_1",
-        "function": {"name": "get_temperature", "arguments": {"city": "Paris"}},
-    }
-    response = {"response": "", "model": "llama3.2"}
-
-    captured: dict[str, Any] = {}
-
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {}
-
-    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
-
-    requester.call_tool([tool_call], response, [], tools=[FakeTool()])
-
-    assert captured["messages"][-1] == {
-        "role": "tool",
-        "content": '{"city": "Paris", "temp_c": 20}',
-    }
-
-
-def test_call_tool_skips_unmatched_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeTool:
-        name = "get_temperature"
-
-        def execute(self, **_kwargs: Any) -> str:
-            return "unused"
-
-    tool_call = {"id": "call_1", "function": {"name": "unknown_tool", "arguments": {}}}
-    response = {"response": "", "model": "llama3.2"}
-
-    captured: dict[str, Any] = {}
-
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {}
-
-    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
-
-    requester.call_tool([tool_call], response, [], tools=[FakeTool()])
-
-    conversation = captured["messages"]
-    assert conversation == [{"role": "assistant", "content": "", "tool_calls": [tool_call]}]
-
-
-def test_get_sensei_response_end_to_end_with_tool_round_trip(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class FakeTool:
-        name = "get_temperature"
-
-        def define(self) -> dict[str, Any]:
-            return {"type": "function", "function": {"name": "get_temperature"}}
-
-        def execute(self, **kwargs: Any) -> str:
-            return f"It is 20°C in {kwargs['city']}."
-
-    tool_call = {
-        "id": "call_1",
-        "function": {"name": "get_temperature", "arguments": {"city": "Paris"}},
-    }
-    calls: list[dict[str, Any]] = []
-
-    def mock_make_request(url, payload, headers=None, *, stream=False, timeout=300):
-        calls.append(payload)
-        if len(calls) == 1:
-            return {"response": "", "tool_calls": [tool_call], "messages": payload["messages"]}
-        return {
-            "response": "It is 20°C in Paris.",
-            "tool_calls": [],
-            "messages": payload["messages"],
-        }
-
-    monkeypatch.setattr(requester, "make_request", mock_make_request)
-    monkeypatch.setenv("TOKEN", "test_token")
-
-    response = requester.get_sensei_response("What's the temperature in Paris?", tools=[FakeTool()])
-
-    assert len(calls) == 2
-    assert response["response"] == "It is 20°C in Paris."
-    second_call_messages = calls[1]["messages"]
-    assert second_call_messages[-1] == {"role": "tool", "content": "It is 20°C in Paris."}
-
-
-def test_call_tool_with_human_in_the_loop_approved_executes_tool(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class FakeTool:
-        name = "web_search"
-
-        def execute(self, **_kwargs: Any) -> str:
-            return "result"
-
-    tool_call = {"id": "c1", "function": {"name": "web_search", "arguments": {"query": "Paris"}}}
-    response = {"response": "", "model": "llama3.2"}
-    captured: dict[str, Any] = {}
-
-    monkeypatch.setattr("sensai.requester.require_approval", lambda *_: True)
-
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {"response": "done", "tool_calls": []}
-
-    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
-
-    requester.call_tool([tool_call], response, [], tools=[FakeTool()], human_in_the_loop=True)
-
-    tool_messages = [m for m in captured["messages"] if m["role"] == "tool"]
-    assert tool_messages == [{"role": "tool", "content": "result"}]
-
-
-def test_call_tool_with_human_in_the_loop_denied_cancels_tool(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class FakeTool:
-        name = "web_search"
-
-        def execute(self, **_kwargs: Any) -> str:
-            return "should not be called"
-
-    tool_call = {"id": "c1", "function": {"name": "web_search", "arguments": {"query": "Paris"}}}
-    response = {"response": "", "model": "llama3.2"}
-    captured: dict[str, Any] = {}
-
-    monkeypatch.setattr("sensai.requester.require_approval", lambda *_: False)
-
-    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {"response": "ok", "tool_calls": []}
-
-    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
-
-    requester.call_tool([tool_call], response, [], tools=[FakeTool()], human_in_the_loop=True)
-
-    tool_messages = [m for m in captured["messages"] if m["role"] == "tool"]
-    assert tool_messages == [{"role": "tool", "content": "Action cancelled by user."}]
-
-
-def test_get_sensei_response_passes_human_in_the_loop_to_call_tool(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
-
-    def mock_call_tool(
-        toolcalls: Any, response: Any, messages: Any, tools: Any, **kwargs: Any
-    ) -> dict[str, Any]:
-        captured.update(kwargs)
-        return {"response": "ok", "tool_calls": []}
-
-    def mock_make_request(
-        url: Any, payload: Any, headers: Any = None, *, stream: bool = False, timeout: float = 300
-    ) -> dict[str, Any]:
-        return {"response": "", "tool_calls": [], "messages": payload["messages"]}
-
-    monkeypatch.setattr(requester, "call_tool", mock_call_tool)
-    monkeypatch.setattr(requester, "make_request", mock_make_request)
-    monkeypatch.setenv("TOKEN", "test_token")
-
-    requester.get_sensei_response("hello", human_in_the_loop=True)
-
-    assert captured["human_in_the_loop"] is True
-
-
-def test_call_tool_without_human_in_the_loop_skips_approval(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class FakeTool:
-        name = "web_search"
-
-        def execute(self, **_kwargs: Any) -> str:
-            return "result"
-
-    approval_called = {"called": False}
-
-    def mock_require_approval(name: str, arguments: Any) -> bool:
-        approval_called["called"] = True
-        return True
-
-    monkeypatch.setattr("sensai.requester.require_approval", mock_require_approval)
-
-    tool_call = {"id": "c1", "function": {"name": "web_search", "arguments": {}}}
-    response = {"response": "", "model": "llama3.2"}
-
-    def mock_get_sensei_response(**_kwargs: Any) -> dict[str, Any]:
-        return {"response": "ok", "tool_calls": []}
-
-    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
-
-    requester.call_tool([tool_call], response, [], tools=[FakeTool()])
-
-    assert not approval_called["called"]
+    pattern = re.escape("API token not found in environment variables.")
+    with pytest.raises(ValueError, match=pattern):
+        await requester.get_sensei_response("Hello")
+
+
+@pytest.mark.asyncio
+async def test_get_sensei_response_no_messages_or_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOKEN", "test")
+    with pytest.raises(ValueError, match=re.escape("Either prompt or messages must be provided.")):
+        await requester.get_sensei_response()

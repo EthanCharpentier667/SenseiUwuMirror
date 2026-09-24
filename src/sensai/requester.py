@@ -6,9 +6,9 @@ import time
 from typing import Any, cast
 
 import dotenv
-import requests
+import httpx
 
-from sensai.require_approval import require_approval
+from sensai.events import AsyncUIHandler
 
 dotenv.load_dotenv()
 
@@ -18,74 +18,69 @@ streaming_response_buffer: list[str] = []
 
 
 def get_buffered_response() -> str:
-    """Get a buffered response from the Sensei API and delete the buffer.
-
-    Returns:
-        str: The buffered response as a string.
-    """
+    """Get a buffered response from the Sensei API and delete the buffer."""
     value_to_return = "".join(streaming_response_buffer)
     streaming_response_buffer.clear()
     return value_to_return
 
 
-def make_request(
+async def make_request(  # noqa: PLR0913
     url: str,
     payload: dict[str, Any],
     headers: dict[str, Any] | None = None,
     *,
     stream: bool = False,
-    timeout: float = DEFAULT_TIMEOUT,
+    timeout: float = DEFAULT_TIMEOUT,  # noqa: ASYNC109
+    ui_handler: AsyncUIHandler | None = None,
 ) -> dict[str, Any]:
-    """Make a POST request to the specified URL with the given payload.
-
-    Args:
-        url (str): The URL to send the request to.
-        payload (dict): The data to send in the request body.
-        headers (dict, optional): Additional headers to include in the request. Default is None.
-        stream (bool): Whether to stream the response. Default is False.
-        timeout (float): The maximum time to wait for a response, in seconds. Default is 300s.
-
-    Returns:
-        dict: The JSON response from the server.
-
-    Raises:
-        requests.exceptions.RequestException: If an error occurs during the request.
-    """
+    """Make a POST request to the specified URL with the given payload."""
     request_time = time.time()
     request_headers = {"Content-Type": "application/json"}
     if headers is not None:
         request_headers.update(headers)
-    response = requests.post(
-        url, headers=request_headers, data=json.dumps(payload), stream=stream, timeout=timeout
-    )
-    response.raise_for_status()
 
-    if not stream:
-        return cast("dict[str, Any]", response.json())
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        if not stream:
+            response = await client.post(url, headers=request_headers, json=payload)
+            response.raise_for_status()
+            return cast("dict[str, Any]", response.json())
 
-    full_response = ""
-    done_reason = ""
-    eval_count = 0
-    prompt_eval_count = 0
-    total_duration = 0
-    tool_calls = []
-    for line in response.iter_lines():
-        if not line:
-            continue
-        chunk = json.loads(line)
-        message = chunk.get("message", {})
-        text = message.get("content", "")
-        print(text, end="", flush=True)  # noqa: T201
-        full_response += text
-        streaming_response_buffer.append(text)
-        if message.get("tool_calls"):
-            tool_calls.extend(message["tool_calls"])
-        if chunk.get("done"):
-            done_reason = chunk.get("done_reason", "")
-            eval_count = chunk.get("eval_count", 0)
-            prompt_eval_count = chunk.get("prompt_eval_count", 0)
-            total_duration = chunk.get("total_duration", 0)
-            break
+        full_response = ""
+        done_reason = ""
+        eval_count = 0
+        prompt_eval_count = 0
+        total_duration = 0
+        tool_calls = []
+
+        async with client.stream("POST", url, headers=request_headers, json=payload) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                message = chunk.get("message", {})
+                text = message.get("content", "")
+
+                if text and ui_handler:
+                    await ui_handler.on_stream_chunk(text)
+
+                full_response += text
+                streaming_response_buffer.append(text)
+
+                if message.get("tool_calls"):
+                    tool_calls.extend(message["tool_calls"])
+
+                if chunk.get("done"):
+                    done_reason = chunk.get("done_reason", "")
+                    eval_count = chunk.get("eval_count", 0)
+                    prompt_eval_count = chunk.get("prompt_eval_count", 0)
+                    total_duration = chunk.get("total_duration", 0)
+                    break
+
     return {
         "response": full_response,
         "respond_time": time.time() - request_time,
@@ -103,84 +98,16 @@ def make_request(
     }
 
 
-def call_tool(
-    toolcalls: list[dict[str, Any]],
-    response: dict[str, Any],
-    messages: list[dict[str, Any]],
-    tools: list[Any] | None = None,
-    *,
-    human_in_the_loop: bool = False,
-) -> dict[str, Any]:
-    """Call the appropriate tool based on the provided tool calls.
-
-    Args:
-        toolcalls (list): A list of tool call dictionaries.
-        response (dict): The response dictionary from the Sensei API.
-        messages (list): The list of messages in the conversation.
-        tools (list, optional): A list of available tools. Default is None.
-        human_in_the_loop (bool): If True, ask the user to approve each tool call. Default is False.
-
-    Returns:
-        dict: The updated response dictionary after executing the tool calls.
-    """
-    if not tools or not toolcalls:
-        return response
-
-    conversation = [
-        *messages,
-        {"role": "assistant", "content": response.get("response", ""), "tool_calls": toolcalls},
-    ]
-    for tool_call in toolcalls:
-        function = tool_call.get("function", {})
-        fn_name = function.get("name", "")
-        fn_args = function.get("arguments", {})
-
-        if human_in_the_loop and not require_approval(fn_name, fn_args):
-            conversation.append({"role": "tool", "content": "Action cancelled by user."})
-            continue
-
-        for tool in tools:
-            if tool.name == fn_name:
-                tool_response = tool.execute(**fn_args)
-                content = (
-                    tool_response if isinstance(tool_response, str) else json.dumps(tool_response)
-                )
-                conversation.append({"role": "tool", "content": content})
-                break
-    return get_sensei_response(
-        messages=conversation,
-        model=response.get("model", "llama3.2"),
-        tools=tools,
-        human_in_the_loop=human_in_the_loop,
-    )
-
-
-def get_sensei_response(
+async def get_sensei_response(  # noqa: C901, PLR0912, PLR0913
     prompt: str | None = None,
     model: str = "llama3.2",
     tools: list[Any] | None = None,
     *,
     messages: list[dict[str, Any]] | None = None,
     human_in_the_loop: bool = False,
+    ui_handler: AsyncUIHandler | None = None,
 ) -> dict[str, Any]:
-    """Get a response from the Sensei API based on the provided prompt and model.
-
-    Args:
-        prompt (str, optional): The input prompt for the Sensei model.
-            Ignored if ``messages`` is given.
-        model (str): The model to use for generating the response. Default is "llama3.2".
-        tools (list, optional): A list of tools to use with the model. Default is None.
-        messages (list, optional): The full conversation history to send.
-            Overrides ``prompt`` when given.
-        human_in_the_loop (bool): If True, ask the user to approve each tool call. Default is False.
-
-    Returns:
-        dict: The JSON response from the Sensei API.
-
-    Raises:
-        ValueError: If neither ``prompt`` nor ``messages`` is provided.
-        requests.exceptions.RequestException: If an error occurs during the request.
-    """
+    """Get a response from the Sensei API iteratively resolving tools."""
     url = "https://ollama.tanouminou.com/api/chat"
     token = os.getenv("TOKEN")
     if not token:
@@ -189,19 +116,66 @@ def get_sensei_response(
         if prompt is None:
             raise ValueError("Either prompt or messages must be provided.")
         messages = [{"role": "user", "content": prompt}]
+
     headers = {"Authorization": f"Bearer {token}"}
     formatedtools = [tool.define() for tool in tools or []]
-    payload = {
-        "messages": messages,
-        "model": model,
-        "tools": formatedtools,
-        "stream": True,
-    }
-    reponse = make_request(url, payload, headers=headers, stream=True)
-    return call_tool(
-        reponse.get("tool_calls", []),
-        reponse,
-        messages,
-        tools,
-        human_in_the_loop=human_in_the_loop,
-    )
+
+    current_messages = list(messages)
+
+    while True:
+        payload = {
+            "messages": current_messages,
+            "model": model,
+            "tools": formatedtools,
+            "stream": True,
+        }
+
+        try:
+            response = await make_request(
+                url, payload, headers=headers, stream=True, ui_handler=ui_handler
+            )
+        except Exception as e:
+            if ui_handler:
+                await ui_handler.on_error(e)
+            raise
+
+        tool_calls = response.get("tool_calls", [])
+        if not tool_calls:
+            return response
+
+        current_messages.append(
+            {"role": "assistant", "content": response.get("response", ""), "tool_calls": tool_calls}
+        )
+
+        for tool_call in tool_calls:
+            function = tool_call.get("function", {})
+            fn_name = function.get("name", "")
+            fn_args = function.get("arguments", {})
+
+            if human_in_the_loop:
+                approved = True
+                if ui_handler:
+                    approved = await ui_handler.on_tool_call_request(fn_name, fn_args)
+                if not approved:
+                    current_messages.append(
+                        {"role": "tool", "content": "Action cancelled by user."}
+                    )
+                    continue
+
+            tool_executed = False
+            for tool in tools or []:
+                if tool.name == fn_name:
+                    tool_response = tool.execute(**fn_args)
+                    content = (
+                        tool_response
+                        if isinstance(tool_response, str)
+                        else json.dumps(tool_response)
+                    )
+                    current_messages.append({"role": "tool", "content": content})
+                    if ui_handler:
+                        await ui_handler.on_tool_call_result(fn_name, tool_response)
+                    tool_executed = True
+                    break
+
+            if not tool_executed:
+                current_messages.append({"role": "tool", "content": f"Tool '{fn_name}' not found."})
