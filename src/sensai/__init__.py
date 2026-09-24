@@ -9,6 +9,6 @@ def main() -> None:
     print("Hello from sensei-uwu-mirror!")  # noqa: T201
     get_sensei_response(
         "Hello, Sensei! Who is Sweetie Fox ?",
-        stream=True,
         tools=get_all_tools(),
+        human_in_the_loop=True,
     )

@@ -27,13 +27,13 @@ def test_main_calls_get_sensei_response(monkeypatch: pytest.MonkeyPatch) -> None
         tools: list[Any] | None = None,
         *,
         messages: list[dict[str, Any]] | None = None,
-        stream: bool = True,
+        human_in_the_loop: bool = False,
     ) -> dict[str, Any]:
         called["called"] = True
         assert prompt == "Hello, Sensei! Who is Sweetie Fox ?"
         assert model == "llama3.2"
         assert messages is None
-        assert stream is True
+        assert human_in_the_loop is True
         assert tools is not None
         assert len(tools) == 2
         assert isinstance(tools[0], WebSearch)

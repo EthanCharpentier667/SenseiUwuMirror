@@ -295,7 +295,6 @@ def test_call_tool_executes_matching_tool_and_recurses(monkeypatch: pytest.Monke
     assert result == {"response": "It is 20°C in Paris.", "tool_calls": []}
     assert captured["model"] == "llama3.2"
     assert captured["tools"][0].name == "get_temperature"
-    assert captured["stream"] is True
     conversation = captured["messages"]
     assert conversation[0] == messages[0]
     assert conversation[1] == {"role": "assistant", "content": "", "tool_calls": [tool_call]}
@@ -392,3 +391,112 @@ def test_get_sensei_response_end_to_end_with_tool_round_trip(
     assert response["response"] == "It is 20°C in Paris."
     second_call_messages = calls[1]["messages"]
     assert second_call_messages[-1] == {"role": "tool", "content": "It is 20°C in Paris."}
+
+
+def test_call_tool_with_human_in_the_loop_approved_executes_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeTool:
+        name = "web_search"
+
+        def execute(self, **_kwargs: Any) -> str:
+            return "result"
+
+    tool_call = {"id": "c1", "function": {"name": "web_search", "arguments": {"query": "Paris"}}}
+    response = {"response": "", "model": "llama3.2"}
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr("sensai.requester.require_approval", lambda *_: True)
+
+    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"response": "done", "tool_calls": []}
+
+    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
+
+    requester.call_tool([tool_call], response, [], tools=[FakeTool()], human_in_the_loop=True)
+
+    tool_messages = [m for m in captured["messages"] if m["role"] == "tool"]
+    assert tool_messages == [{"role": "tool", "content": "result"}]
+
+
+def test_call_tool_with_human_in_the_loop_denied_cancels_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeTool:
+        name = "web_search"
+
+        def execute(self, **_kwargs: Any) -> str:
+            return "should not be called"
+
+    tool_call = {"id": "c1", "function": {"name": "web_search", "arguments": {"query": "Paris"}}}
+    response = {"response": "", "model": "llama3.2"}
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr("sensai.requester.require_approval", lambda *_: False)
+
+    def mock_get_sensei_response(**kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"response": "ok", "tool_calls": []}
+
+    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
+
+    requester.call_tool([tool_call], response, [], tools=[FakeTool()], human_in_the_loop=True)
+
+    tool_messages = [m for m in captured["messages"] if m["role"] == "tool"]
+    assert tool_messages == [{"role": "tool", "content": "Action cancelled by user."}]
+
+
+def test_get_sensei_response_passes_human_in_the_loop_to_call_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def mock_call_tool(
+        toolcalls: Any, response: Any, messages: Any, tools: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"response": "ok", "tool_calls": []}
+
+    def mock_make_request(
+        url: Any, payload: Any, headers: Any = None, *, stream: bool = False, timeout: float = 300
+    ) -> dict[str, Any]:
+        return {"response": "", "tool_calls": [], "messages": payload["messages"]}
+
+    monkeypatch.setattr(requester, "call_tool", mock_call_tool)
+    monkeypatch.setattr(requester, "make_request", mock_make_request)
+    monkeypatch.setenv("TOKEN", "test_token")
+
+    requester.get_sensei_response("hello", human_in_the_loop=True)
+
+    assert captured["human_in_the_loop"] is True
+
+
+def test_call_tool_without_human_in_the_loop_skips_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeTool:
+        name = "web_search"
+
+        def execute(self, **_kwargs: Any) -> str:
+            return "result"
+
+    approval_called = {"called": False}
+
+    def mock_require_approval(name: str, arguments: Any) -> bool:
+        approval_called["called"] = True
+        return True
+
+    monkeypatch.setattr("sensai.requester.require_approval", mock_require_approval)
+
+    tool_call = {"id": "c1", "function": {"name": "web_search", "arguments": {}}}
+    response = {"response": "", "model": "llama3.2"}
+
+    def mock_get_sensei_response(**_kwargs: Any) -> dict[str, Any]:
+        return {"response": "ok", "tool_calls": []}
+
+    monkeypatch.setattr(requester, "get_sensei_response", mock_get_sensei_response)
+
+    requester.call_tool([tool_call], response, [], tools=[FakeTool()])
+
+    assert not approval_called["called"]
