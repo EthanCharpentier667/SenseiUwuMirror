@@ -42,6 +42,12 @@ def test_create_session_starts_with_zeroed_usage_and_no_messages(
     assert session.messages == []
 
 
+def test_create_session_sets_last_updated(db: Database, profile_id: int) -> None:
+    session = create_session(db, profile_id)
+
+    assert session.last_updated is not None
+
+
 def test_create_session_rejects_unknown_profile(db: Database) -> None:
     with pytest.raises(peewee.IntegrityError):
         create_session(db, profile_id=9999, name="orphan")
@@ -84,6 +90,19 @@ def test_rename_session_changes_the_name(db: Database, profile_id: int) -> None:
     updated = get_session(db, session.id)
     assert updated is not None
     assert updated.name == "new name"
+
+
+def test_rename_session_updates_last_updated(db: Database, profile_id: int) -> None:
+    session = create_session(db, profile_id, name="old name")
+    assert session.id is not None
+    assert session.last_updated is not None
+
+    rename_session(db, session.id, "new name")
+
+    updated = get_session(db, session.id)
+    assert updated is not None
+    assert updated.last_updated is not None
+    assert updated.last_updated > session.last_updated
 
 
 def test_add_session_usage_accumulates_across_calls(db: Database, profile_id: int) -> None:

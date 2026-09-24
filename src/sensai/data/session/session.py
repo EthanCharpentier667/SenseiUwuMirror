@@ -1,5 +1,6 @@
 """Session for handling chat sessions data, including messages and documents."""
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from peewee import SQL, CharField, DateTimeField, ForeignKeyField, IntegerField, TextField
@@ -26,6 +27,7 @@ class Session(BaseModel):
     summarized_message = ForeignKeyField(Message, null=True, on_delete="SET NULL")
     summarized_message_id: int | None
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+    last_updated = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
     messages: list[Message]
 
@@ -41,6 +43,11 @@ class Session(BaseModel):
         """
         super().__init__(*args, **kwargs)
         self.messages = messages if messages is not None else []
+
+
+def _utc_now() -> datetime:
+    # Naive UTC, to match `created_at`'s SQLite `DEFAULT CURRENT_TIMESTAMP` (also naive UTC).
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _with_messages(db: "Database", session: Session) -> Session:
@@ -60,7 +67,7 @@ def create_session(db: "Database", profile_id: int, name: str | None = None) -> 
         Session: The newly created session, including its assigned ID.
     """
     with db.database.bind_ctx([Session]):
-        session = Session.create(profile=profile_id, name=name)
+        session = Session.create(profile=profile_id, name=name, last_updated=_utc_now())
     return _with_messages(db, session)
 
 
@@ -88,7 +95,7 @@ def rename_session(db: "Database", session_id: int, name: str) -> None:
         name (str): The new name for the session.
     """
     with db.database.bind_ctx([Session]):
-        Session.update(name=name).where(Session.id == session_id).execute()
+        Session.update(name=name, last_updated=_utc_now()).where(Session.id == session_id).execute()
 
 
 def set_session_summary(
@@ -104,9 +111,11 @@ def set_session_summary(
             messages with a lower or equal ID are omitted from future prompts.
     """
     with db.database.bind_ctx([Session]):
-        Session.update(summary=summary, summarized_message=summarized_message_id).where(
-            Session.id == session_id
-        ).execute()
+        Session.update(
+            summary=summary,
+            summarized_message=summarized_message_id,
+            last_updated=_utc_now(),
+        ).where(Session.id == session_id).execute()
 
 
 def add_session_usage(
@@ -126,4 +135,5 @@ def add_session_usage(
             prompt_eval_count=Session.prompt_eval_count + prompt_eval_count,
             eval_count=Session.eval_count + eval_count,
             token_used=Session.token_used + token_used,
+            last_updated=_utc_now(),
         ).where(Session.id == session_id).execute()
