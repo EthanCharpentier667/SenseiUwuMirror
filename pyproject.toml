@@ -7,7 +7,11 @@ authors = [
     { name = "EthanCharpentier667", email = "ethan.charpentier@epitech.eu" },
 ]
 requires-python = ">=3.11"
-dependencies = ["dotenv>=0.9.9", "requests>=2.34.2"]
+dependencies = [
+    "argparse>=1.4.0",
+    "dotenv>=0.9.9",
+    "requests>=2.34.2",
+]
 
 [project.scripts]
 sensai = "sensai:main"

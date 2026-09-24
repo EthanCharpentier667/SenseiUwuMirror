@@ -1,8 +1,8 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .config import Config
 from .data.database.database import Database
 from .data.profile.manager import add_instruction, add_preference, create_new_profile
 from .data.session.manager import (
@@ -17,12 +17,13 @@ from .tools.registry import get_all_tools
 if TYPE_CHECKING:
     from .data.session.session import Session
 
-SCHEMA_PATH = Path(__file__).parent / "data" / "database" / "schema.sql"
-
 
 def main() -> None:
     """Entry point for the ``sensai`` console script."""
-    database = Database("./", SCHEMA_PATH.read_text(), "sensai.db")
+    config = Config()
+    config.parse_args()
+
+    database = Database(config.db_path, config.schema_path.read_text(), config.db_name)
     database.initialize()
 
     # Creating a profile
@@ -48,13 +49,16 @@ def main() -> None:
             user_input = input("Enter something (Ctrl+C to exit): ")
             response = get_sensei_response(
                 messages=build_messages(session, user_input),
+                model=config.model,
                 stream=True,
                 tools=get_all_tools(),
             )
             session = update_session(database, session, response)
             if session is None:
                 raise ValueError("Failed to update the session after the first response.")
-            session = maybe_compress_session(database, session, response)
+            session = maybe_compress_session(
+                database, session, response, threshold=config.compression_threshold
+            )
             print("\n")  # noqa: T201
 
     except KeyboardInterrupt:

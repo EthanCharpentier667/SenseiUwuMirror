@@ -52,6 +52,7 @@ class _FakeDatabase:
 
 
 def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
     monkeypatch.setattr("sensai.create_new_profile", _make_profile)
     monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)

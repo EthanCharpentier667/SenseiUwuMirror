@@ -9,8 +9,6 @@ from sensai.requester import Response, get_sensei_response
 from .message import Message, create_message
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
 
-DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
-
 HISTORY_CONTEXT_NOTE = (
     "Everything above, the conversation summary (if present) and the message history, "
     "already reflects what has been learned in this session, including the results of "
@@ -247,7 +245,7 @@ def maybe_compress_session(
     db: Database,
     session: Session,
     response: Response,
-    threshold: int = DEFAULT_COMPRESSION_TOKEN_THRESHOLD,
+    threshold: int,
 ) -> Session:
     """Compress a session's history once its last prompt exceeded a token threshold.
 
@@ -258,7 +256,7 @@ def maybe_compress_session(
             ``prompt_eval_count`` reflects the size of the prompt that was just sent,
             history and all.
         threshold (int): The prompt token count above which compression triggers.
-            Default is 3000.
+            Callers get the default from ``Config.compression_threshold``.
 
     Returns:
         Session: The session, compressed if the threshold was exceeded.
