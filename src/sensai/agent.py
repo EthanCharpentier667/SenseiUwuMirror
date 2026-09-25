@@ -5,7 +5,7 @@ import inspect
 import json
 from typing import Any
 
-from sensai.client import OllamaClient
+from sensai.client import OllamaClient, Response
 from sensai.ui.protocol import AsyncUIHandler
 
 DEFAULT_MAX_TURNS = 10
@@ -21,7 +21,7 @@ class Agent:
         *,
         human_in_the_loop: bool = False,
         ui_handler: AsyncUIHandler | None = None,
-        client: OllamaClient | None = None,
+        client: OllamaClient,
     ) -> None:
         """Initialize the agent.
 
@@ -36,7 +36,7 @@ class Agent:
         self.tools = tools or []
         self.human_in_the_loop = human_in_the_loop
         self.ui_handler = ui_handler
-        self.client = client or OllamaClient()
+        self.client = client
         self.max_turns = DEFAULT_MAX_TURNS
         self.system_prompt: str | None = None
 
@@ -69,7 +69,7 @@ class Agent:
         for tool in self.tools:
             if getattr(tool, "name", None) == name:
                 execute_fn = getattr(tool, "execute_async", None)
-                if callable(execute_fn):
+                if execute_fn is not None:
                     res = await execute_fn(**args)
                 elif inspect.iscoroutinefunction(tool.execute):
                     res = await tool.execute(**args)
@@ -119,7 +119,7 @@ class Agent:
         self,
         current_messages: list[dict[str, Any]],
         formatted_tools: list[dict[str, Any]],
-    ) -> dict[str, Any]:
+    ) -> Response:
         """Execute a single model inference step with error reporting."""
         try:
             return await self.client.chat(
@@ -138,17 +138,17 @@ class Agent:
         self,
         current_messages: list[dict[str, Any]],
         formatted_tools: list[dict[str, Any]],
-    ) -> tuple[bool, dict[str, Any]]:
+    ) -> tuple[bool, Response]:
         """Execute a single turn. Returns (is_done, response)."""
         response = await self._step(current_messages, formatted_tools)
-        tool_calls = response.get("tool_calls", [])
+        tool_calls = response.tool_calls
         if not tool_calls:
             return True, response
 
         current_messages.append(
             {
                 "role": "assistant",
-                "content": response.get("response", ""),
+                "content": response.response,
                 "tool_calls": tool_calls,
             }
         )
@@ -161,7 +161,7 @@ class Agent:
         *,
         messages: list[dict[str, Any]] | None = None,
         system_prompt: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> Response:
         """Run the ReAct loop until completion or max iterations reached.
 
         Args:
@@ -170,14 +170,22 @@ class Agent:
             system_prompt: Optional system prompt to override default.
 
         Returns:
-            Final completion dictionary from the model.
+            Final completion response from the model.
         """
+        if self.max_turns < 1:
+            msg = "max_turns must be at least 1."
+            raise ValueError(msg)
+
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
         formatted_tools = [tool.define() for tool in self.tools]
 
+        response: Response | None = None
         for _ in range(self.max_turns):
             is_done, response = await self._execute_turn(current_messages, formatted_tools)
             if is_done:
                 return response
 
+        if response is None:  # pragma: no cover - unreachable, max_turns >= 1 is enforced above
+            msg = "Agent loop exited without producing a response."
+            raise RuntimeError(msg)
         return response

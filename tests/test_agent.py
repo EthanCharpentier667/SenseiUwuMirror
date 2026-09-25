@@ -6,8 +6,30 @@ from typing import Any
 import pytest
 
 from sensai.agent import Agent
-from sensai.client import OllamaClient
+from sensai.client import OllamaClient, Response
 from sensai.ui.protocol import AsyncUIHandler
+
+TEST_BASE_URL = "http://localhost:11434/api/chat"
+TEST_TOKEN = "test-token"  # noqa: S105
+TEST_TIMEOUT = 30.0
+
+
+def _make_response(response: str = "", tool_calls: list[dict[str, Any]] | None = None) -> Response:
+    return Response(
+        response=response,
+        respond_time=0.0,
+        request_time=0.0,
+        total_duration=0,
+        model="llama3.2",
+        tools=[],
+        messages=[],
+        prompt_eval_count=0,
+        eval_count=0,
+        token_used=0,
+        status_code=200,
+        tool_calls=tool_calls or [],
+        stop_reason="stop",
+    )
 
 
 class MockUIHandler(AsyncUIHandler):
@@ -61,7 +83,9 @@ class AsyncFakeTool:
 
 @pytest.mark.asyncio
 async def test_agent_missing_input() -> None:
-    agent = Agent()
+    agent = Agent(
+        client=OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+    )
     pattern = re.escape("Either prompt or messages must be provided.")
     with pytest.raises(ValueError, match=pattern):
         await agent.run()
@@ -77,11 +101,11 @@ async def test_agent_system_prompt_injection() -> None:
             messages: list[dict[str, Any]],
             *_args: Any,
             **_kwargs: Any,
-        ) -> dict[str, Any]:
+        ) -> Response:
             captured["messages"] = messages
-            return {"response": "ok", "tool_calls": []}
+            return _make_response("ok")
 
-    agent = Agent(client=MockClient())
+    agent = Agent(client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT))
     agent.system_prompt = "You are a helpful assistant."
     await agent.run("Hello")
 
@@ -101,11 +125,11 @@ async def test_agent_system_prompt_not_duplicated() -> None:
             messages: list[dict[str, Any]],
             *_args: Any,
             **_kwargs: Any,
-        ) -> dict[str, Any]:
+        ) -> Response:
             captured["messages"] = messages
-            return {"response": "ok", "tool_calls": []}
+            return _make_response("ok")
 
-    agent = Agent(client=MockClient())
+    agent = Agent(client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT))
     existing = [
         {"role": "system", "content": "Custom system prompt."},
         {"role": "user", "content": "Hi"},
@@ -121,25 +145,27 @@ async def test_agent_tool_loop_and_execution() -> None:
     turns = 0
 
     class MockClient(OllamaClient):
-        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        async def chat(self, *_args: Any, **_kwargs: Any) -> Response:
             nonlocal turns
             turns += 1
             if turns == 1:
-                return {
-                    "response": "",
-                    "tool_calls": [
-                        {"function": {"name": "calculator", "arguments": {"expr": "2+2"}}}
-                    ],
-                }
-            return {"response": "The answer is 4.", "tool_calls": []}
+                return _make_response(
+                    tool_calls=[{"function": {"name": "calculator", "arguments": {"expr": "2+2"}}}],
+                )
+            return _make_response("The answer is 4.")
 
     ui = MockUIHandler(approval=True)
     tool = FakeTool()
-    agent = Agent(tools=[tool], human_in_the_loop=True, ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[tool],
+        human_in_the_loop=True,
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     result = await agent.run("What is 2+2?")
 
-    assert result["response"] == "The answer is 4."
+    assert result.response == "The answer is 4."
     assert turns == 2
     assert len(ui.tool_requests) == 1
     assert ui.tool_requests[0] == ("calculator", {"expr": "2+2"})
@@ -152,25 +178,29 @@ async def test_agent_async_tool_execution() -> None:
     turns = 0
 
     class MockClient(OllamaClient):
-        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        async def chat(self, *_args: Any, **_kwargs: Any) -> Response:
             nonlocal turns
             turns += 1
             if turns == 1:
-                return {
-                    "response": "",
-                    "tool_calls": [
+                return _make_response(
+                    tool_calls=[
                         {"function": {"name": "async_calculator", "arguments": {"expr": "3+3"}}}
                     ],
-                }
-            return {"response": "The answer is 6.", "tool_calls": []}
+                )
+            return _make_response("The answer is 6.")
 
     ui = MockUIHandler(approval=True)
     tool = AsyncFakeTool()
-    agent = Agent(tools=[tool], human_in_the_loop=False, ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[tool],
+        human_in_the_loop=False,
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     result = await agent.run("What is 3+3?")
 
-    assert result["response"] == "The answer is 6."
+    assert result.response == "The answer is 6."
     assert len(ui.tool_results) == 1
     assert ui.tool_results[0] == ("async_calculator", "async result: 3+3")
 
@@ -186,26 +216,28 @@ async def test_agent_tool_denied_by_user() -> None:
             messages: list[dict[str, Any]],
             *_args: Any,
             **_kwargs: Any,
-        ) -> dict[str, Any]:
+        ) -> Response:
             nonlocal turns
             turns += 1
             if turns == 1:
-                return {
-                    "response": "",
-                    "tool_calls": [
-                        {"function": {"name": "calculator", "arguments": {"expr": "2+2"}}}
-                    ],
-                }
+                return _make_response(
+                    tool_calls=[{"function": {"name": "calculator", "arguments": {"expr": "2+2"}}}],
+                )
             captured_messages.extend(messages)
-            return {"response": "Operation cancelled.", "tool_calls": []}
+            return _make_response("Operation cancelled.")
 
     ui = MockUIHandler(approval=False)
     tool = FakeTool()
-    agent = Agent(tools=[tool], human_in_the_loop=True, ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[tool],
+        human_in_the_loop=True,
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     result = await agent.run("What is 2+2?")
 
-    assert result["response"] == "Operation cancelled."
+    assert result.response == "Operation cancelled."
     assert len(ui.tool_results) == 0
     assert captured_messages[-1] == {
         "role": "tool",
@@ -225,21 +257,22 @@ async def test_agent_tool_not_found() -> None:
             messages: list[dict[str, Any]],
             *_args: Any,
             **_kwargs: Any,
-        ) -> dict[str, Any]:
+        ) -> Response:
             nonlocal turns
             turns += 1
             if turns == 1:
-                return {
-                    "response": "",
-                    "tool_calls": [{"function": {"name": "unknown", "arguments": {}}}],
-                }
+                return _make_response(
+                    tool_calls=[{"function": {"name": "unknown", "arguments": {}}}],
+                )
             captured_messages.extend(messages)
-            return {"response": "Fixed.", "tool_calls": []}
+            return _make_response("Fixed.")
 
-    agent = Agent(tools=[], client=MockClient())
+    agent = Agent(
+        tools=[], client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+    )
     result = await agent.run("Run unknown tool")
 
-    assert result["response"] == "Fixed."
+    assert result.response == "Fixed."
     assert captured_messages[-1] == {
         "role": "tool",
         "content": "Tool 'unknown' not found.",
@@ -259,14 +292,17 @@ async def test_agent_tool_error_notifies_ui_and_raises() -> None:
             raise RuntimeError("Tool execution failed unexpectedly")
 
     class MockClient(OllamaClient):
-        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
-            return {
-                "response": "",
-                "tool_calls": [{"function": {"name": "broken", "arguments": {}}}],
-            }
+        async def chat(self, *_args: Any, **_kwargs: Any) -> Response:
+            return _make_response(
+                tool_calls=[{"function": {"name": "broken", "arguments": {}}}],
+            )
 
     ui = MockUIHandler()
-    agent = Agent(tools=[BrokenTool()], ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[BrokenTool()],
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     with pytest.raises(RuntimeError, match="Tool execution failed unexpectedly"):
         await agent.run("hello")
@@ -278,11 +314,14 @@ async def test_agent_tool_error_notifies_ui_and_raises() -> None:
 @pytest.mark.asyncio
 async def test_agent_error_notifies_ui() -> None:
     class MockClient(OllamaClient):
-        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        async def chat(self, *_args: Any, **_kwargs: Any) -> Response:
             raise RuntimeError("API crash")
 
     ui = MockUIHandler()
-    agent = Agent(ui_handler=ui, client=MockClient())
+    agent = Agent(
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     with pytest.raises(RuntimeError, match="API crash"):
         await agent.run("hello")
@@ -294,14 +333,17 @@ async def test_agent_error_notifies_ui() -> None:
 @pytest.mark.asyncio
 async def test_agent_max_turns_limit() -> None:
     class MockClient(OllamaClient):
-        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
-            return {
-                "response": "looping",
-                "tool_calls": [{"function": {"name": "calculator", "arguments": {}}}],
-            }
+        async def chat(self, *_args: Any, **_kwargs: Any) -> Response:
+            return _make_response(
+                "looping",
+                tool_calls=[{"function": {"name": "calculator", "arguments": {}}}],
+            )
 
-    agent = Agent(tools=[FakeTool()], client=MockClient())
+    agent = Agent(
+        tools=[FakeTool()],
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
     agent.max_turns = 3
     result = await agent.run("infinite loop")
 
-    assert result["response"] == "looping"
+    assert result.response == "looping"

@@ -26,7 +26,15 @@ class WebSearch(Tool):
         """Initialize the Web search tool definition."""
         super().__init__(
             name="web_search",
-            description="Perform a web search for the given query.",
+            description=(
+                "Search the web for information. Use this tool only as a last resort, "
+                "when you do not know the answer and it cannot be found anywhere in the "
+                "conversation, session, or profile context. This includes results from a "
+                "previous call to this same tool earlier in the conversation: if that "
+                "already answered the question, reuse it instead of searching again. "
+                "Never call this for information you already know, can infer, or have "
+                "already retrieved."
+            ),
             tool_type="function",
             parameters={
                 "type": "object",

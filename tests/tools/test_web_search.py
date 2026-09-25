@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 import sensai.tools.web_search as web_search_module
+from sensai.tools.tool import CALL_GUARD_PREFIX
 from sensai.tools.web_search import DEFAULT_TIMEOUT, WebSearch, web_search
 
 SEARCH_PAYLOAD = {
@@ -39,7 +40,7 @@ def test_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Perform a web search for the given query.",
+            "description": CALL_GUARD_PREFIX + tool.description,
             "parameters": {
                 "type": "object",
                 "required": ["query"],

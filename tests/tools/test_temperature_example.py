@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from sensai.tools.temperature_example import TempToolExample
+from sensai.tools.tool import CALL_GUARD_PREFIX
 
 WTTR_PAYLOAD = {
     "current_condition": [
@@ -29,6 +30,9 @@ class MockGetResponse:
     def json(self) -> dict[str, Any]:
         return self._payload
 
+    def raise_for_status(self) -> None:
+        """No-op stand-in for :meth:`requests.Response.raise_for_status`."""
+
 
 def test_define_returns_openai_style_schema() -> None:
     tool = TempToolExample()
@@ -37,7 +41,7 @@ def test_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "get_temperature",
-            "description": "Get the current temperature for a city.",
+            "description": CALL_GUARD_PREFIX + "Get the current temperature for a city.",
             "parameters": {
                 "type": "object",
                 "required": ["city"],

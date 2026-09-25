@@ -9,12 +9,10 @@ from typing import Any, cast
 import dotenv
 import httpx
 
+from sensai.data.session.message import Message
 from sensai.ui.protocol import AsyncUIHandler
 
 dotenv.load_dotenv()
-
-DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
-DEFAULT_TIMEOUT = 300.0
 
 
 @dataclass
@@ -30,23 +28,113 @@ class ChatResult:
     status_code: int = 200
 
 
+def _messages_from_payload(
+    payload_messages: list[dict[str, Any]], request_time: float, respond_time: float
+) -> list[Message]:
+    """Build the Message history from a request payload's raw messages.
+
+    A user message was sent at request_time; any other role (assistant, tool)
+    only became available once the response came back, at respond_time.
+    """
+    return [
+        Message(
+            role=message.get("role", "unknown"),
+            content=message.get("content", ""),
+            response_time=request_time if message.get("role") == "user" else respond_time,
+        )
+        for message in payload_messages
+    ]
+
+
+def _messages_with_reply(
+    payload_messages: list[dict[str, Any]], reply: str, request_time: float, respond_time: float
+) -> list[Message]:
+    """Build the full Message history for this exchange, including the assistant's reply.
+
+    ``_messages_from_payload`` only echoes what was sent; the assistant's own reply text
+    is only known once the response comes back, so it's appended here as a final message
+    (skipped when empty, e.g. a tool-call-only turn with no text yet).
+    """
+    messages = _messages_from_payload(payload_messages, request_time, respond_time)
+    if reply:
+        messages.append(Message(role="assistant", content=reply, response_time=respond_time))
+    return messages
+
+
+@dataclass
+class Response:
+    """A response from the Sensei API.
+
+    Attributes:
+        response (str): The response text from the Sensei API.
+        respond_time (float): The time taken to respond, in seconds.
+        request_time (float): The time taken to make the request, in seconds.
+        total_duration (float): The total duration of the request and response, in seconds.
+        model (str): The model used for generating the response.
+        tools (list[Any]): A list of tools used in the request.
+        messages (list[Message]): The conversation history exchanged during the request.
+        prompt_eval_count (int): The number of prompt evaluations performed.
+        eval_count (int): The number of evaluations performed.
+        token_used (int): The number of tokens used in the request and response.
+        status_code (int): The HTTP status code of the response.
+        tool_calls (list[dict[str, Any]]): A list of tool calls made during the request.
+        stop_reason (str): The reason for stopping the request, if applicable.
+    """
+
+    response: str
+    respond_time: float
+    request_time: float
+    total_duration: float
+    model: str
+    tools: list[Any]
+    messages: list[Message]
+    prompt_eval_count: int
+    eval_count: int
+    token_used: int
+    status_code: int
+    tool_calls: list[dict[str, Any]]
+    stop_reason: str
+
+    def row(self) -> dict[str, Any]:
+        """Return the response data as a dictionary.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the response data.
+        """
+        return {
+            "response": self.response,
+            "respond_time": self.respond_time,
+            "request_time": self.request_time,
+            "total_duration": self.total_duration,
+            "model": self.model,
+            "tools": self.tools,
+            "messages": self.messages,
+            "prompt_eval_count": self.prompt_eval_count,
+            "eval_count": self.eval_count,
+            "token_used": self.token_used,
+            "status_code": self.status_code,
+            "tool_calls": self.tool_calls,
+            "stop_reason": self.stop_reason,
+        }
+
+
 class OllamaClient:
     """Client responsible for low-level HTTP communication with Ollama."""
 
     def __init__(
         self,
-        base_url: str | None = None,
-        token: str | None = None,
-        timeout: float = DEFAULT_TIMEOUT,
+        base_url: str,
+        token: str | None,
+        timeout: float,
     ) -> None:
         """Initialize the Ollama client.
 
         Args:
-            base_url: Optional base endpoint URL for the chat API.
-            token: Optional bearer authentication token.
+            base_url: Base endpoint URL for the chat API.
+            token: Bearer authentication token of the Ollama API.
             timeout: HTTP request timeout in seconds.
         """
-        self.base_url: str = base_url or os.getenv("OLLAMA_URL") or DEFAULT_URL
+        self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
 
@@ -141,7 +229,7 @@ class OllamaClient:
         *,
         stream: bool = True,
         ui_handler: AsyncUIHandler | None = None,
-    ) -> dict[str, Any]:
+    ) -> Response:
         """Send a chat completion request to Ollama.
 
         Args:
@@ -152,7 +240,7 @@ class OllamaClient:
             ui_handler: Optional event handler for progressive streaming chunks.
 
         Returns:
-            Dictionary containing response content, metadata, and token usage.
+            Response: The parsed response, including metadata and token usage.
         """
         headers = self._build_headers()
         payload = {
@@ -175,18 +263,19 @@ class OllamaClient:
                     response.raise_for_status()
                     parsed = await self._parse_stream(response, ui_handler)
 
-        return {
-            "response": parsed.text,
-            "respond_time": time.time() - start_time,
-            "request_time": start_time,
-            "total_duration": parsed.total_duration,
-            "model": model,
-            "tools": tools or [],
-            "messages": messages,
-            "prompt_eval_count": parsed.prompt_eval_count,
-            "eval_count": parsed.eval_count,
-            "token_used": parsed.eval_count + parsed.prompt_eval_count,
-            "status_code": parsed.status_code,
-            "tool_calls": parsed.tool_calls,
-            "stop_reason": parsed.done_reason,
-        }
+        respond_time = time.time()
+        return Response(
+            response=parsed.text,
+            respond_time=respond_time,
+            request_time=start_time,
+            total_duration=parsed.total_duration,
+            model=model,
+            tools=tools or [],
+            messages=_messages_with_reply(messages, parsed.text, start_time, respond_time),
+            prompt_eval_count=parsed.prompt_eval_count,
+            eval_count=parsed.eval_count,
+            token_used=parsed.eval_count + parsed.prompt_eval_count,
+            status_code=parsed.status_code,
+            tool_calls=parsed.tool_calls,
+            stop_reason=parsed.done_reason,
+        )

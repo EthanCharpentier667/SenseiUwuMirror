@@ -33,7 +33,7 @@ class TempToolExample(Tool):
             **kwargs: Keyword arguments for the tool's execution.
 
         Returns:
-            str: A message indicating that the web tool has been executed.
+            str: A message indicating that the web tool has been executed successfully.
         """
         city = kwargs.get("city", "Unknown City")
         data = httpx.get(

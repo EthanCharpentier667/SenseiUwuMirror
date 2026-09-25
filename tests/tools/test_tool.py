@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from sensai.tools.tool import Tool
+from sensai.tools.tool import CALL_GUARD_PREFIX, Tool
 
 
 class ConcreteTool(Tool):
@@ -44,7 +44,7 @@ def test_tool_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "noop",
-            "description": "Does nothing.",
+            "description": CALL_GUARD_PREFIX + "Does nothing.",
             "parameters": {"type": "object", "properties": {}},
         },
     }

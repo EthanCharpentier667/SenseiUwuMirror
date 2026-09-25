@@ -17,7 +17,9 @@ env:
   UV_LOCKED: "1"
   TOKEN: ${{ secrets.TOKEN }}
   API_TOKEN: ${{ secrets.API_TOKEN }}
-
+  HASH_ALGORITHM: ${{ secrets.HASH_ALGORITHM }}
+  HASH_ITERATIONS: ${{ secrets.HASH_ITERATIONS }}
+  SALT_BYTES: ${{ secrets.SALT_BYTES }}
 jobs:
   lint:
     name: Lint (ruff)
