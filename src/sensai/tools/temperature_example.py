@@ -2,7 +2,7 @@
 
 from typing import Any
 
-import requests
+import httpx
 
 from .tool import Tool
 
@@ -37,12 +37,12 @@ class TempToolExample(Tool):
                 message if the temperature could not be retrieved.
         """
         city = kwargs.get("city", "Unknown City")
-        try:
-            response = requests.get(f"https://wttr.in/{city}?format=j1", timeout=10)
-            response.raise_for_status()
-            condition = response.json()["current_condition"][0]
-        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError) as error:
-            return f"Could not retrieve the temperature for {city}: {error}"
+        data = httpx.get(
+            f"https://wttr.in/{city}?format=j1",
+            timeout=10,
+            follow_redirects=True,
+        ).json()
+        condition = data["current_condition"][0]
         return (
             f"The current temperature in {city} is {condition['temp_C']}°C. "
             f"The weather is {condition['weatherDesc'][0]['value']}. "

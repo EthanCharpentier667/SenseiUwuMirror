@@ -100,7 +100,7 @@ def is_connected() -> bool:
     return ProfileManager.current_profile is not None
 
 
-def login(name: str, password: str, db: Database) -> Profile:
+def login(name: str, password: str, db: Database) -> Profile | None:
     """Set the current active profile by verifying credentials.
 
     Args:
@@ -109,17 +109,14 @@ def login(name: str, password: str, db: Database) -> Profile:
         db (Database): The database to read from.
 
     Returns:
-        Profile: The profile that was set as current.
-
-    Raises:
-        ValueError: If the profile does not exist or the password is incorrect.
+        Profile: The profile that was set as current, or None if login failed.
     """
     profile = get_profile_by_name(db, name)
     if profile is None:
-        raise ValueError(f"Profile with name '{name}' does not exist.")
+        return None
 
     if not _verify_password(password, profile.password):
-        raise ValueError("Incorrect password.")
+        return None
 
     ProfileManager.current_profile = profile
     return profile

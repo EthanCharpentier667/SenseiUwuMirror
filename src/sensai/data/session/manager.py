@@ -2,9 +2,9 @@
 
 from typing import Any
 
+from sensai.client import OllamaClient, Response
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import get_current_profile
-from sensai.requester import Response, get_sensei_response
 
 from .message import Message, create_message
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
@@ -216,7 +216,7 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     ]
 
 
-def compress_session(db: Database, session: Session, model: str = "llama3.2") -> Session:
+async def compress_session(db: Database, session: Session, model: str = "llama3.2") -> Session:
     """Fold a session's unsummarized history into its running summary via the LLM.
 
     Args:
@@ -247,7 +247,10 @@ def compress_session(db: Database, session: Session, model: str = "llama3.2") ->
         "Rewrite this as a single, concise, updated summary of the whole conversation, "
         "preserving important facts, decisions and context needed to continue it."
     )
-    response = get_sensei_response(prompt=prompt, model=model, stream=False)
+    client = OllamaClient()
+    response = await client.chat(
+        messages=[{"role": "user", "content": prompt}], model=model, stream=False
+    )
 
     last_folded_id = to_fold[-1].id
     if last_folded_id is None:
@@ -259,7 +262,7 @@ def compress_session(db: Database, session: Session, model: str = "llama3.2") ->
     return compressed
 
 
-def maybe_compress_session(
+async def maybe_compress_session(
     db: Database,
     session: Session,
     response: Response,
@@ -285,7 +288,7 @@ def maybe_compress_session(
         f"Prompt token count {response.prompt_eval_count} exceeded threshold {threshold}; "
         "compressing session history."
     )
-    return compress_session(db, session, model=response.model)
+    return await compress_session(db, session, model=response.model)
 
 
 def get_current_session_id() -> int | None:
