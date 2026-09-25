@@ -19,14 +19,12 @@ def test_config_uses_defaults_when_no_arguments_are_given() -> None:
     config.parse_args([])
 
     assert config.model == DEFAULT_MODEL
-    assert config.reasoning_mode is None
     assert config.db_path == DEFAULT_DB_PATH
     assert config.db_name == DEFAULT_DB_NAME
     assert config.compression_threshold == DEFAULT_COMPRESSION_TOKEN_THRESHOLD
 
 
 def test_config_parses_provided_arguments(tmp_path: Path) -> None:
-    schema_path = tmp_path / "schema.sql"
     db_path = tmp_path / "data"
     config = Config()
     config.parse_args(
@@ -35,8 +33,6 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
             "llama3.1",
             "--reasoning-mode",
             "plan",
-            "--schema-path",
-            str(schema_path),
             "--db-path",
             str(db_path),
             "--db-name",
@@ -48,7 +44,6 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
 
     assert config.model == "llama3.1"
     assert config.reasoning_mode == "plan"
-    assert config.schema_path == schema_path
     assert config.db_path == str(db_path)
     assert config.db_name == "custom.db"
     assert config.compression_threshold == 42
