@@ -48,11 +48,12 @@ def test_define_returns_openai_style_schema() -> None:
 
 
 def test_execute_fetches_and_formats_weather(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured_url: dict[str, Any] = {}
+    captured_request: dict[str, Any] = {}
 
-    def mock_get(url: str, timeout: float) -> MockGetResponse:
-        captured_url["url"] = url
-        captured_url["timeout"] = timeout
+    def mock_get(url: str, *, timeout: float, follow_redirects: bool = False) -> MockGetResponse:
+        captured_request["url"] = url
+        captured_request["timeout"] = timeout
+        captured_request["follow_redirects"] = follow_redirects
         return MockGetResponse(WTTR_PAYLOAD)
 
     monkeypatch.setattr(httpx, "get", mock_get)
@@ -60,7 +61,9 @@ def test_execute_fetches_and_formats_weather(monkeypatch: pytest.MonkeyPatch) ->
     tool = TempToolExample()
     result = tool.execute(city="Paris")
 
-    assert captured_url["url"] == "https://wttr.in/Paris?format=j1"
+    assert captured_request["url"] == "https://wttr.in/Paris?format=j1"
+    assert captured_request["timeout"] == 10
+    assert captured_request["follow_redirects"] is True
     assert result == (
         "The current temperature in Paris is 20°C. The weather is Sunny. "
         "The humidity is 50% and the wind speed is 15 km/h."
@@ -68,7 +71,7 @@ def test_execute_fetches_and_formats_weather(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_execute_defaults_to_unknown_city_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    def mock_get(url: str, timeout: float) -> MockGetResponse:
+    def mock_get(*_args: Any, **_kwargs: Any) -> MockGetResponse:
         return MockGetResponse(WTTR_PAYLOAD)
 
     monkeypatch.setattr(httpx, "get", mock_get)
