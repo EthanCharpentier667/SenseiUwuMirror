@@ -1,10 +1,9 @@
 """Tests for the ``sensai.tools.web_search`` module."""
 
-import json
 from typing import Any
 
+import httpx
 import pytest
-import requests
 
 import sensai.tools.web_search as web_search_module
 from sensai.tools.tool import CALL_GUARD_PREFIX
@@ -22,7 +21,7 @@ SEARCH_PAYLOAD = {
 
 
 class MockPostResponse:
-    """Minimal stand-in for :meth:`requests.post`'s return value."""
+    """Minimal stand-in for :meth:`httpx.post`'s return value."""
 
     def __init__(self, status_code: int, payload: dict[str, Any]) -> None:
         """Initialize the mock response with a status and JSON payload."""
@@ -73,14 +72,14 @@ def test_web_search_sends_authenticated_request(monkeypatch: pytest.MonkeyPatch)
         url: str,
         *,
         headers: dict[str, str],
-        data: str,
+        json: dict[str, Any],
         timeout: int,
     ) -> MockPostResponse:
-        captured_request.update({"url": url, "headers": headers, "data": data, "timeout": timeout})
+        captured_request.update({"url": url, "headers": headers, "json": json, "timeout": timeout})
         return MockPostResponse(200, SEARCH_PAYLOAD)
 
     monkeypatch.setenv("API_TOKEN", "test-api-token")
-    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(httpx, "post", mock_post)
 
     result = web_search("Lucas Hauchard")
 
@@ -91,7 +90,7 @@ def test_web_search_sends_authenticated_request(monkeypatch: pytest.MonkeyPatch)
             "Content-Type": "application/json",
             "Authorization": "Bearer test-api-token",
         },
-        "data": json.dumps({"query": "Lucas Hauchard"}),
+        "json": {"query": "Lucas Hauchard"},
         "timeout": DEFAULT_TIMEOUT,
     }
 
@@ -100,9 +99,9 @@ def test_web_search_returns_unavailable_without_token(monkeypatch: pytest.Monkey
     monkeypatch.delenv("API_TOKEN", raising=False)
 
     def unexpected_post(*_args: Any, **_kwargs: Any) -> MockPostResponse:
-        pytest.fail("requests.post must not be called without an API token")
+        pytest.fail("httpx.post must not be called without an API token")
 
-    monkeypatch.setattr(requests, "post", unexpected_post)
+    monkeypatch.setattr(httpx, "post", unexpected_post)
 
     assert web_search("Lucas Hauchard") == {"message": "Web search is not available."}
 
@@ -112,12 +111,12 @@ def test_web_search_returns_failure_for_http_error(monkeypatch: pytest.MonkeyPat
         _url: str,
         *,
         headers: dict[str, str],
-        data: str,
+        json: dict[str, Any],
         timeout: int,
     ) -> MockPostResponse:
         return MockPostResponse(500, {"error": "internal server error"})
 
     monkeypatch.setenv("API_TOKEN", "test-api-token")
-    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(httpx, "post", mock_post)
 
     assert web_search("Lucas Hauchard") == {"message": "Web search failed."}

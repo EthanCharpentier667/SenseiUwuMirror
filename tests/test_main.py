@@ -4,11 +4,11 @@ from typing import Any
 
 import pytest
 
-from sensai import main
+from sensai import Agent, main
+from sensai.client import Response
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
-from sensai.requester import Response
 from sensai.tools.temperature_example import TempToolExample
 from sensai.tools.web_search import WebSearch
 
@@ -51,21 +51,26 @@ class _FakeDatabase:
         pass
 
 
+async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
+    return _make_session()
+
+
 def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
+    monkeypatch.setattr("sensai.login", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_profile", _make_profile)
     monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
-    monkeypatch.setattr("sensai.maybe_compress_session", lambda *args, **kwargs: _make_session())
+    monkeypatch.setattr("sensai.maybe_compress_session", _fake_maybe_compress_session)
 
 
 def test_main_greets_the_profile_and_exits_on_keyboard_interrupt(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.get_sensei_response", lambda *args, **kwargs: _make_response())
 
     def fake_input(_prompt: str) -> str:
         raise KeyboardInterrupt
@@ -79,20 +84,19 @@ def test_main_greets_the_profile_and_exits_on_keyboard_interrupt(
     assert "Program terminated by user." in captured.out
 
 
-def test_main_calls_get_sensei_response_for_each_input(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[dict[str, Any]] = []
 
-    def mock_get_sensei_response(
+    async def mock_run(
+        self: Agent,
         prompt: str | None = None,
-        model: str = "llama3.2",
-        tools: list[Any] | None = None,
         *,
         messages: list[dict[str, Any]] | None = None,
-        stream: bool = True,
+        system_prompt: str | None = None,
     ) -> Response:
-        calls.append({"prompt": prompt, "messages": messages, "tools": tools})
-        assert model == "llama3.2"
-        assert stream is True
+        calls.append({"prompt": prompt, "messages": messages, "tools": self.tools})
+        assert self.model == "llama3.2"
+        assert self.human_in_the_loop is True
         return _make_response()
 
     inputs = iter(["hello there", "second question"])
@@ -104,7 +108,7 @@ def test_main_calls_get_sensei_response_for_each_input(monkeypatch: pytest.Monke
             raise KeyboardInterrupt from exc
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.get_sensei_response", mock_get_sensei_response)
+    monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("builtins.input", fake_input)
 
     main()
@@ -113,7 +117,6 @@ def test_main_calls_get_sensei_response_for_each_input(monkeypatch: pytest.Monke
     assert calls[0]["prompt"] is None
     assert calls[0]["messages"] == [{"role": "user", "content": "hello there"}]
     first_turn_tools = calls[0]["tools"]
-    assert first_turn_tools is not None
     assert len(first_turn_tools) == 2
     assert isinstance(first_turn_tools[0], WebSearch)
     assert isinstance(first_turn_tools[1], TempToolExample)
@@ -121,5 +124,4 @@ def test_main_calls_get_sensei_response_for_each_input(monkeypatch: pytest.Monke
     assert calls[1]["prompt"] is None
     assert calls[1]["messages"] == [{"role": "user", "content": "second question"}]
     second_turn_tools = calls[1]["tools"]
-    assert second_turn_tools is not None
     assert len(second_turn_tools) == 2

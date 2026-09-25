@@ -225,6 +225,3 @@ Sensai_project.pdf
 
 # Db
 *.db
-
-# Type hints
-*.typed

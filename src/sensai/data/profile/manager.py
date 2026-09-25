@@ -14,9 +14,25 @@ from .profile import (
     update_profile_preferences,
 )
 
-_HASH_ALGORITHM = "sha256"
-_HASH_ITERATIONS = 600_000
-_SALT_BYTES = 16
+
+def _required_env(name: str) -> str:
+    """Read a required environment variable.
+
+    Args:
+        name (str): The environment variable's name.
+
+    Returns:
+        str: Its value.
+
+    Raises:
+        ValueError: If the variable is not set (or empty). These are security-critical
+            password-hashing parameters, so they must never silently fall back to an
+            implicit default.
+    """
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"{name} environment variable must be set for password hashing.")
+    return value
 
 
 def _hash_password(password: str) -> str:
@@ -27,10 +43,17 @@ def _hash_password(password: str) -> str:
 
     Returns:
         str: The hash, formatted as ``iterations$salt_hex$digest_hex``.
+
+    Raises:
+        ValueError: If ``HASH_ALGORITHM``, ``HASH_ITERATIONS`` or ``SALT_BYTES`` is not
+            set in the environment.
     """
-    salt = os.urandom(_SALT_BYTES)
-    digest = hashlib.pbkdf2_hmac(_HASH_ALGORITHM, password.encode(), salt, _HASH_ITERATIONS)
-    return f"{_HASH_ITERATIONS}${salt.hex()}${digest.hex()}"
+    algorithm = _required_env("HASH_ALGORITHM")
+    iterations = int(_required_env("HASH_ITERATIONS"))
+    salt_bytes = int(_required_env("SALT_BYTES"))
+    salt = os.urandom(salt_bytes)
+    digest = hashlib.pbkdf2_hmac(algorithm, password.encode(), salt, iterations)
+    return f"{iterations}${salt.hex()}${digest.hex()}"
 
 
 def _verify_password(password: str, stored_hash: str) -> bool:
@@ -42,10 +65,14 @@ def _verify_password(password: str, stored_hash: str) -> bool:
 
     Returns:
         bool: True if the password matches, otherwise False.
+
+    Raises:
+        ValueError: If ``HASH_ALGORITHM`` is not set in the environment.
     """
+    algorithm = _required_env("HASH_ALGORITHM")
     iterations, salt_hex, digest_hex = stored_hash.split("$")
     salt = bytes.fromhex(salt_hex)
-    digest = hashlib.pbkdf2_hmac(_HASH_ALGORITHM, password.encode(), salt, int(iterations))
+    digest = hashlib.pbkdf2_hmac(algorithm, password.encode(), salt, int(iterations))
     return hmac.compare_digest(digest.hex(), digest_hex)
 
 
@@ -73,7 +100,7 @@ def is_connected() -> bool:
     return ProfileManager.current_profile is not None
 
 
-def login(name: str, password: str, db: Database) -> Profile:
+def login(name: str, password: str, db: Database) -> Profile | None:
     """Set the current active profile by verifying credentials.
 
     Args:
@@ -82,17 +109,14 @@ def login(name: str, password: str, db: Database) -> Profile:
         db (Database): The database to read from.
 
     Returns:
-        Profile: The profile that was set as current.
-
-    Raises:
-        ValueError: If the profile does not exist or the password is incorrect.
+        Profile: The profile that was set as current, or None if login failed.
     """
     profile = get_profile_by_name(db, name)
     if profile is None:
-        raise ValueError(f"Profile with name '{name}' does not exist.")
+        return None
 
     if not _verify_password(password, profile.password):
-        raise ValueError("Incorrect password.")
+        return None
 
     ProfileManager.current_profile = profile
     return profile

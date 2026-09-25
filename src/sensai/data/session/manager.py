@@ -2,14 +2,12 @@
 
 from typing import Any
 
+from sensai.client import OllamaClient, Response
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import get_current_profile
-from sensai.requester import Response, get_sensei_response
 
 from .message import Message, create_message
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
-
-DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 
 HISTORY_CONTEXT_NOTE = (
     "Everything above, the conversation summary (if present) and the message history, "
@@ -148,7 +146,12 @@ def _history_prefix_length(session: Session) -> int:
     )
 
 
-def update_session(db: Database, session: Session, response: Response) -> Session | None:
+def update_session(
+    db: Database,
+    session: Session,
+    response: Response,
+    sent_prefix_length: int | None = None,
+) -> Session | None:
     """Persist a response's new messages and usage onto an existing session.
 
     ``response.messages`` echoes everything sent to the API for this exchange, which
@@ -161,16 +164,25 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
         db (Database): The database to write to.
         session (Session): The session to update.
         response (Response): The response to persist.
+        sent_prefix_length (int, optional): The exact number of leading entries in
+            ``response.messages`` that were already-known state when the request was
+            actually sent, i.e. ``len(build_messages(session, prompt)) - 1`` at the time
+            of that call. Passing this avoids recomputing the prefix from ``session``'s
+            (and the current profile's) live state, which may have changed since the
+            request went out. Defaults to recomputing it from ``session``'s current state.
 
     Returns:
         Session | None: The updated session if successful, otherwise None.
     """
     if session.id is None:
         return None
-    new_messages = response.messages[_history_prefix_length(session) :]
+    prefix_length = (
+        sent_prefix_length if sent_prefix_length is not None else _history_prefix_length(session)
+    )
+    new_messages = response.messages[prefix_length:]
     for message in new_messages:
         if message.role != "tool" and len(message.content.strip()) > 0:
-            add_message_to_current_session(db, message.content, message.role, message.response_time)
+            create_message(db, session.id, message.content, message.role, message.response_time)
     add_session_usage(
         db, session.id, response.prompt_eval_count, response.eval_count, response.token_used
     )
@@ -204,12 +216,19 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     ]
 
 
-def compress_session(db: Database, session: Session) -> Session:
+async def compress_session(
+    db: Database, session: Session, client: OllamaClient, model: str = "llama3.2"
+) -> Session:
     """Fold a session's unsummarized history into its running summary via the LLM.
 
     Args:
         db (Database): The database to write to.
         session (Session): The session to compress.
+        client (OllamaClient): The preconfigured client to summarize with.
+        model (str): The model to summarize with. Callers should pass the model the
+            session's own turns are using (e.g. ``response.model``) so the summary is
+            produced by the same model the user configured, rather than silently falling
+            back to the default.
 
     Returns:
         Session: The session refreshed from the database, or unchanged if there was no
@@ -231,7 +250,9 @@ def compress_session(db: Database, session: Session) -> Session:
         "Rewrite this as a single, concise, updated summary of the whole conversation, "
         "preserving important facts, decisions and context needed to continue it."
     )
-    response = get_sensei_response(prompt=prompt, stream=False)
+    response = await client.chat(
+        messages=[{"role": "user", "content": prompt}], model=model, stream=False
+    )
 
     last_folded_id = to_fold[-1].id
     if last_folded_id is None:
@@ -243,11 +264,12 @@ def compress_session(db: Database, session: Session) -> Session:
     return compressed
 
 
-def maybe_compress_session(
+async def maybe_compress_session(
     db: Database,
     session: Session,
     response: Response,
-    threshold: int = DEFAULT_COMPRESSION_TOKEN_THRESHOLD,
+    threshold: int,
+    client: OllamaClient,
 ) -> Session:
     """Compress a session's history once its last prompt exceeded a token threshold.
 
@@ -258,7 +280,8 @@ def maybe_compress_session(
             ``prompt_eval_count`` reflects the size of the prompt that was just sent,
             history and all.
         threshold (int): The prompt token count above which compression triggers.
-            Default is 3000.
+            Callers get the default from ``Config.compression_threshold``.
+        client (OllamaClient): The preconfigured client to summarize with.
 
     Returns:
         Session: The session, compressed if the threshold was exceeded.
@@ -269,7 +292,7 @@ def maybe_compress_session(
         f"Prompt token count {response.prompt_eval_count} exceeded threshold {threshold}; "
         "compressing session history."
     )
-    return compress_session(db, session)
+    return await compress_session(db, session, client, model=response.model)
 
 
 def get_current_session_id() -> int | None:

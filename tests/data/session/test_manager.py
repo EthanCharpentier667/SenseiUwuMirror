@@ -4,6 +4,7 @@ import re
 
 import pytest
 
+from sensai.client import OllamaClient, Response
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
@@ -22,10 +23,13 @@ from sensai.data.session.manager import (
     set_current_session,
     update_session,
 )
+from sensai.data.session.message import Message, create_message
 from sensai.data.session.message import Message as SessionMessage
-from sensai.data.session.message import create_message
 from sensai.data.session.session import Session, create_session, get_session, set_session_summary
-from sensai.requester import Message, Response
+
+TEST_BASE_URL = "http://localhost:11434/api/chat"
+TEST_TOKEN = "test-token"  # noqa: S105
+TEST_TIMEOUT = 30.0
 
 
 def test_build_messages_with_no_history_returns_just_the_prompt() -> None:
@@ -247,6 +251,46 @@ def test_update_session_returns_none_when_session_has_no_id(db: Database, profil
     assert result is None
 
 
+def test_update_session_persists_to_the_passed_session_not_the_global_current(
+    db: Database, profile_id: int
+) -> None:
+    other_session = create_new_session(db, profile_id, "other")
+    assert get_current_session() is other_session
+    target_session = create_session(db, profile_id, "target")
+    assert target_session.id is not None
+    response = _make_response(messages=[Message(role="user", content="hi", response_time=1.0)])
+
+    result = update_session(db, target_session, response)
+
+    assert result is not None
+    assert result.id == target_session.id
+    assert [m.content for m in result.messages] == ["hi"]
+    other_after = get_session(db, other_session.id)  # type: ignore[arg-type]
+    assert other_after is not None
+    assert other_after.messages == []
+
+
+def test_update_session_uses_the_given_sent_prefix_length_over_recomputing_it(
+    db: Database, profile_id: int
+) -> None:
+    session = create_new_session(db, profile_id)
+    # Simulate state (e.g. a preference) that changed after build_messages() ran but before
+    # update_session() was called: recomputing the prefix length now would disagree with
+    # what was actually sent, so the caller must be able to pin it down explicitly.
+    response = _make_response(
+        messages=[
+            Message(role="system", content="a context line", response_time=1.0),
+            Message(role="user", content="hi", response_time=1.0),
+            Message(role="assistant", content="hello!", response_time=2.0),
+        ]
+    )
+
+    result = update_session(db, session, response, sent_prefix_length=1)
+
+    assert result is not None
+    assert [m.content for m in result.messages] == ["hi", "hello!"]
+
+
 def test_update_session_persists_the_response_messages(db: Database, profile_id: int) -> None:
     session = create_new_session(db, profile_id)
     response = _make_response(
@@ -390,25 +434,30 @@ def test_current_session_state_is_shared_across_the_class(db: Database, profile_
     assert SessionManager.current_session is session
 
 
-def test_compress_session_returns_unchanged_when_there_is_no_history(
+@pytest.mark.asyncio
+async def test_compress_session_returns_unchanged_when_there_is_no_history(
     db: Database, profile_id: int
 ) -> None:
     session = create_new_session(db, profile_id)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = compress_session(db, session)
+    result = await compress_session(db, session, client)
 
     assert result is session
 
 
-def test_compress_session_raises_without_a_session_id(db: Database, profile_id: int) -> None:
+@pytest.mark.asyncio
+async def test_compress_session_raises_without_a_session_id(db: Database, profile_id: int) -> None:
     session = create_session(db, profile_id)
     session.id = None
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
     with pytest.raises(ValueError, match=re.escape("Session does not have a valid ID.")):
-        compress_session(db, session)
+        await compress_session(db, session, client)
 
 
-def test_compress_session_folds_history_into_a_summary(
+@pytest.mark.asyncio
+async def test_compress_session_folds_history_into_a_summary(
     db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session: Session | None = create_new_session(db, profile_id)
@@ -422,14 +471,17 @@ def test_compress_session_folds_history_into_a_summary(
 
     captured_prompts: list[str] = []
 
-    def fake_get_sensei_response(prompt: str | None = None, **_kwargs: object) -> Response:
-        assert prompt is not None
+    async def fake_chat(
+        _self: OllamaClient, messages: list[dict[str, str]], **_kwargs: object
+    ) -> Response:
+        prompt = messages[0]["content"]
         captured_prompts.append(prompt)
         return _make_response()
 
-    monkeypatch.setattr("sensai.data.session.manager.get_sensei_response", fake_get_sensei_response)
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = compress_session(db, session)
+    result = await compress_session(db, session, client)
 
     assert result.summary == "hi"
     assert result.summarized_message_id == last_message.id
@@ -437,7 +489,60 @@ def test_compress_session_folds_history_into_a_summary(
     assert "assistant: hello!" in captured_prompts[0]
 
 
-def test_compress_session_only_folds_in_history_not_already_summarized(
+@pytest.mark.asyncio
+async def test_compress_session_summarizes_with_the_given_model(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session: Session | None = create_new_session(db, profile_id)
+    assert session is not None
+    assert session.id is not None
+    create_message(db, session.id, "hi", "user", 1.0)
+    session = get_session(db, session.id)
+    assert session is not None
+
+    captured: dict[str, object] = {}
+
+    async def fake_chat(_self: OllamaClient, **kwargs: object) -> Response:
+        captured.update(kwargs)
+        return _make_response()
+
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+
+    await compress_session(db, session, client, model="mistral")
+
+    assert captured["model"] == "mistral"
+
+
+@pytest.mark.asyncio
+async def test_maybe_compress_session_summarizes_with_the_responses_model(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session: Session | None = create_new_session(db, profile_id)
+    assert session is not None
+    assert session.id is not None
+    create_message(db, session.id, "hi", "user", 1.0)
+    session = get_session(db, session.id)
+    assert session is not None
+    response = _make_response(prompt_eval_count=5000)
+    response.model = "mistral"
+
+    captured: dict[str, object] = {}
+
+    async def fake_chat(_self: OllamaClient, **kwargs: object) -> Response:
+        captured.update(kwargs)
+        return _make_response()
+
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+
+    await maybe_compress_session(db, session, response, threshold=3000, client=client)
+
+    assert captured["model"] == "mistral"
+
+
+@pytest.mark.asyncio
+async def test_compress_session_only_folds_in_history_not_already_summarized(
     db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session: Session | None = create_new_session(db, profile_id)
@@ -453,14 +558,17 @@ def test_compress_session_only_folds_in_history_not_already_summarized(
 
     captured_prompts: list[str] = []
 
-    def fake_get_sensei_response(prompt: str | None = None, **_kwargs: object) -> Response:
-        assert prompt is not None
+    async def fake_chat(
+        _self: OllamaClient, messages: list[dict[str, str]], **_kwargs: object
+    ) -> Response:
+        prompt = messages[0]["content"]
         captured_prompts.append(prompt)
         return _make_response()
 
-    monkeypatch.setattr("sensai.data.session.manager.get_sensei_response", fake_get_sensei_response)
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = compress_session(db, session)
+    result = await compress_session(db, session, client)
 
     assert result.summarized_message_id == second_message.id
     new_conversation_section = captured_prompts[0].split("New conversation to fold in:")[1]
@@ -469,16 +577,21 @@ def test_compress_session_only_folds_in_history_not_already_summarized(
     assert "how are you?" in new_conversation_section
 
 
-def test_maybe_compress_session_skips_when_under_threshold(db: Database, profile_id: int) -> None:
+@pytest.mark.asyncio
+async def test_maybe_compress_session_skips_when_under_threshold(
+    db: Database, profile_id: int
+) -> None:
     session = create_new_session(db, profile_id)
     response = _make_response(prompt_eval_count=100)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = maybe_compress_session(db, session, response, threshold=3000)
+    result = await maybe_compress_session(db, session, response, threshold=3000, client=client)
 
     assert result is session
 
 
-def test_maybe_compress_session_compresses_when_over_threshold(
+@pytest.mark.asyncio
+async def test_maybe_compress_session_compresses_when_over_threshold(
     db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session: Session | None = create_new_session(db, profile_id)
@@ -490,12 +603,13 @@ def test_maybe_compress_session_compresses_when_over_threshold(
     assert session is not None
     response = _make_response(prompt_eval_count=5000)
 
-    monkeypatch.setattr(
-        "sensai.data.session.manager.get_sensei_response",
-        lambda *args, **kwargs: _make_response(),
-    )
+    async def fake_chat(_self: OllamaClient, *args: object, **kwargs: object) -> Response:
+        return _make_response()
 
-    result = maybe_compress_session(db, session, response, threshold=3000)
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+
+    result = await maybe_compress_session(db, session, response, threshold=3000, client=client)
 
     assert result.summary == "hi"
     assert result.summarized_message_id == last_message.id

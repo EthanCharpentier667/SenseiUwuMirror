@@ -26,6 +26,8 @@ def test_login_succeeds_with_the_correct_password(db: Database) -> None:
 
     profile = login("Ada", "secret", db)
 
+    if profile is None:
+        raise ValueError("Login failed; profile is None.")
     assert profile.name == "Ada"
     assert ProfileManager.current_profile is profile
 
@@ -34,10 +36,34 @@ def test_login_rejects_the_wrong_password(db: Database) -> None:
     create_new_profile(db, "Ada", "secret")
     logout()
 
-    with pytest.raises(ValueError, match=re.escape("Incorrect password.")):
-        login("Ada", "wrong", db)
+    profile = login("Ada", "wrong", db)
+
+    assert profile is None
+    assert ProfileManager.current_profile is None
 
 
 def test_login_rejects_an_unknown_profile(db: Database) -> None:
-    with pytest.raises(ValueError, match="does not exist"):
-        login("Nobody", "secret", db)
+    profile = login("Nobody", "secret", db)
+
+    assert profile is None
+    assert ProfileManager.current_profile is None
+
+
+@pytest.mark.parametrize("env_var", ["HASH_ALGORITHM", "HASH_ITERATIONS", "SALT_BYTES"])
+def test_create_new_profile_requires_each_hash_env_var(
+    db: Database, monkeypatch: pytest.MonkeyPatch, env_var: str
+) -> None:
+    monkeypatch.delenv(env_var, raising=False)
+
+    with pytest.raises(ValueError, match=re.escape(f"{env_var} environment variable must be set")):
+        create_new_profile(db, "Ada", "secret")
+
+
+def test_login_requires_hash_algorithm(db: Database, monkeypatch: pytest.MonkeyPatch) -> None:
+    create_new_profile(db, "Ada", "secret")
+    logout()
+
+    monkeypatch.delenv("HASH_ALGORITHM", raising=False)
+
+    with pytest.raises(ValueError, match="HASH_ALGORITHM environment variable must be set"):
+        login("Ada", "secret", db)
