@@ -9,6 +9,10 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient, Response
 from sensai.ui.protocol import AsyncUIHandler
 
+TEST_BASE_URL = "http://localhost:11434/api/chat"
+TEST_TOKEN = "test-token"  # noqa: S105
+TEST_TIMEOUT = 30.0
+
 
 def _make_response(response: str = "", tool_calls: list[dict[str, Any]] | None = None) -> Response:
     return Response(
@@ -79,7 +83,9 @@ class AsyncFakeTool:
 
 @pytest.mark.asyncio
 async def test_agent_missing_input() -> None:
-    agent = Agent()
+    agent = Agent(
+        client=OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+    )
     pattern = re.escape("Either prompt or messages must be provided.")
     with pytest.raises(ValueError, match=pattern):
         await agent.run()
@@ -99,7 +105,7 @@ async def test_agent_system_prompt_injection() -> None:
             captured["messages"] = messages
             return _make_response("ok")
 
-    agent = Agent(client=MockClient())
+    agent = Agent(client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT))
     agent.system_prompt = "You are a helpful assistant."
     await agent.run("Hello")
 
@@ -123,7 +129,7 @@ async def test_agent_system_prompt_not_duplicated() -> None:
             captured["messages"] = messages
             return _make_response("ok")
 
-    agent = Agent(client=MockClient())
+    agent = Agent(client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT))
     existing = [
         {"role": "system", "content": "Custom system prompt."},
         {"role": "user", "content": "Hi"},
@@ -150,7 +156,12 @@ async def test_agent_tool_loop_and_execution() -> None:
 
     ui = MockUIHandler(approval=True)
     tool = FakeTool()
-    agent = Agent(tools=[tool], human_in_the_loop=True, ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[tool],
+        human_in_the_loop=True,
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     result = await agent.run("What is 2+2?")
 
@@ -180,7 +191,12 @@ async def test_agent_async_tool_execution() -> None:
 
     ui = MockUIHandler(approval=True)
     tool = AsyncFakeTool()
-    agent = Agent(tools=[tool], human_in_the_loop=False, ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[tool],
+        human_in_the_loop=False,
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     result = await agent.run("What is 3+3?")
 
@@ -212,7 +228,12 @@ async def test_agent_tool_denied_by_user() -> None:
 
     ui = MockUIHandler(approval=False)
     tool = FakeTool()
-    agent = Agent(tools=[tool], human_in_the_loop=True, ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[tool],
+        human_in_the_loop=True,
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     result = await agent.run("What is 2+2?")
 
@@ -246,7 +267,9 @@ async def test_agent_tool_not_found() -> None:
             captured_messages.extend(messages)
             return _make_response("Fixed.")
 
-    agent = Agent(tools=[], client=MockClient())
+    agent = Agent(
+        tools=[], client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+    )
     result = await agent.run("Run unknown tool")
 
     assert result.response == "Fixed."
@@ -275,7 +298,11 @@ async def test_agent_tool_error_notifies_ui_and_raises() -> None:
             )
 
     ui = MockUIHandler()
-    agent = Agent(tools=[BrokenTool()], ui_handler=ui, client=MockClient())
+    agent = Agent(
+        tools=[BrokenTool()],
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     with pytest.raises(RuntimeError, match="Tool execution failed unexpectedly"):
         await agent.run("hello")
@@ -291,7 +318,10 @@ async def test_agent_error_notifies_ui() -> None:
             raise RuntimeError("API crash")
 
     ui = MockUIHandler()
-    agent = Agent(ui_handler=ui, client=MockClient())
+    agent = Agent(
+        ui_handler=ui,
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
 
     with pytest.raises(RuntimeError, match="API crash"):
         await agent.run("hello")
@@ -309,7 +339,10 @@ async def test_agent_max_turns_limit() -> None:
                 tool_calls=[{"function": {"name": "calculator", "arguments": {}}}],
             )
 
-    agent = Agent(tools=[FakeTool()], client=MockClient())
+    agent = Agent(
+        tools=[FakeTool()],
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
     agent.max_turns = 3
     result = await agent.run("infinite loop")
 

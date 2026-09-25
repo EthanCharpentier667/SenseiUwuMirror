@@ -10,6 +10,9 @@ import pytest
 from sensai.client import OllamaClient
 from sensai.ui.protocol import AsyncUIHandler
 
+TEST_BASE_URL = "http://localhost:11434/api/chat"
+TEST_TIMEOUT = 30.0
+
 
 class MockUIHandler(AsyncUIHandler):
     """Mock UI Handler for testing."""
@@ -35,7 +38,7 @@ class MockUIHandler(AsyncUIHandler):
 @pytest.mark.asyncio
 async def test_client_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TOKEN", raising=False)
-    client = OllamaClient(token=None)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     pattern = re.escape("API token not found in environment variables.")
     with pytest.raises(ValueError, match=pattern):
         await client.chat(messages=[{"role": "user", "content": "hi"}])
@@ -76,7 +79,7 @@ async def test_client_chat_non_stream(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
-    client = OllamaClient()
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     result = await client.chat(
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
@@ -111,7 +114,7 @@ async def test_client_chat_non_stream_error(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
-    client = OllamaClient()
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     with pytest.raises(RuntimeError, match="Ollama error: model not found"):
         await client.chat(messages=[{"role": "user", "content": "hi"}], stream=False)
 
@@ -160,7 +163,7 @@ async def test_client_chat_stream_success(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
     ui_handler = MockUIHandler()
-    client = OllamaClient()
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     res = await client.chat(
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -206,7 +209,7 @@ async def test_client_chat_stream_error_chunk(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
-    client = OllamaClient()
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     with pytest.raises(RuntimeError, match="Ollama error: something went wrong in stream"):
         await client.chat(messages=[{"role": "user", "content": "hi"}], stream=True)
 
@@ -244,7 +247,7 @@ async def test_client_chat_stream_incomplete_without_done(monkeypatch: pytest.Mo
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
-    client = OllamaClient()
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     pattern = re.escape("Incomplete response: stream ended without done event.")
     with pytest.raises(RuntimeError, match=pattern):
         await client.chat(messages=[{"role": "user", "content": "hi"}], stream=True)
@@ -292,7 +295,7 @@ async def test_client_chat_stream_invalid_json(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
-    client = OllamaClient()
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     res = await client.chat(
         messages=[{"role": "user", "content": "hi"}],
         stream=True,

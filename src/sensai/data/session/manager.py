@@ -216,12 +216,15 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     ]
 
 
-async def compress_session(db: Database, session: Session, model: str = "llama3.2") -> Session:
+async def compress_session(
+    db: Database, session: Session, client: OllamaClient, model: str = "llama3.2"
+) -> Session:
     """Fold a session's unsummarized history into its running summary via the LLM.
 
     Args:
         db (Database): The database to write to.
         session (Session): The session to compress.
+        client (OllamaClient): The preconfigured client to summarize with.
         model (str): The model to summarize with. Callers should pass the model the
             session's own turns are using (e.g. ``response.model``) so the summary is
             produced by the same model the user configured, rather than silently falling
@@ -247,7 +250,6 @@ async def compress_session(db: Database, session: Session, model: str = "llama3.
         "Rewrite this as a single, concise, updated summary of the whole conversation, "
         "preserving important facts, decisions and context needed to continue it."
     )
-    client = OllamaClient()
     response = await client.chat(
         messages=[{"role": "user", "content": prompt}], model=model, stream=False
     )
@@ -267,6 +269,7 @@ async def maybe_compress_session(
     session: Session,
     response: Response,
     threshold: int,
+    client: OllamaClient,
 ) -> Session:
     """Compress a session's history once its last prompt exceeded a token threshold.
 
@@ -278,6 +281,7 @@ async def maybe_compress_session(
             history and all.
         threshold (int): The prompt token count above which compression triggers.
             Callers get the default from ``Config.compression_threshold``.
+        client (OllamaClient): The preconfigured client to summarize with.
 
     Returns:
         Session: The session, compressed if the threshold was exceeded.
@@ -288,7 +292,7 @@ async def maybe_compress_session(
         f"Prompt token count {response.prompt_eval_count} exceeded threshold {threshold}; "
         "compressing session history."
     )
-    return await compress_session(db, session, model=response.model)
+    return await compress_session(db, session, client, model=response.model)
 
 
 def get_current_session_id() -> int | None:

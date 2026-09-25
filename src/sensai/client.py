@@ -14,9 +14,6 @@ from sensai.ui.protocol import AsyncUIHandler
 
 dotenv.load_dotenv()
 
-DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
-DEFAULT_TIMEOUT = 300.0
-
 
 @dataclass
 class ChatResult:
@@ -126,18 +123,18 @@ class OllamaClient:
 
     def __init__(
         self,
-        base_url: str | None = None,
-        token: str | None = None,
-        timeout: float = DEFAULT_TIMEOUT,
+        base_url: str,
+        token: str | None,
+        timeout: float,
     ) -> None:
         """Initialize the Ollama client.
 
         Args:
-            base_url: Optional base endpoint URL for the chat API.
-            token: Optional bearer authentication token.
+            base_url: Base endpoint URL for the chat API.
+            token: Bearer authentication token of
             timeout: HTTP request timeout in seconds.
         """
-        self.base_url: str = base_url or os.getenv("OLLAMA_URL") or DEFAULT_URL
+        self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
 

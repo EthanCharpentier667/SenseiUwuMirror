@@ -48,12 +48,18 @@ async def async_main() -> None:
     if session is None:
         raise ValueError("Failed to create the default session.")
 
+    client = OllamaClient(
+        base_url=config.url,
+        token=config.token,
+        timeout=config.timeout,
+    )
     ui_handler = CLIHandler()
     agent = Agent(
         model=config.model,
         tools=get_all_tools(),
         human_in_the_loop=True,
         ui_handler=ui_handler,
+        client=client,
     )
 
     try:
@@ -71,7 +77,7 @@ async def async_main() -> None:
             if session is None:
                 raise ValueError("Failed to update the session after the first response.")
             session = await maybe_compress_session(
-                database, session, response, threshold=config.compression_threshold
+                database, session, response, threshold=config.compression_threshold, client=client
             )
             print("\n")  # noqa: T201
 

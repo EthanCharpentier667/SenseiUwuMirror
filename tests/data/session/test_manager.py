@@ -27,6 +27,10 @@ from sensai.data.session.message import Message, create_message
 from sensai.data.session.message import Message as SessionMessage
 from sensai.data.session.session import Session, create_session, get_session, set_session_summary
 
+TEST_BASE_URL = "http://localhost:11434/api/chat"
+TEST_TOKEN = "test-token"  # noqa: S105
+TEST_TIMEOUT = 30.0
+
 
 def test_build_messages_with_no_history_returns_just_the_prompt() -> None:
     session = Session(profile_id=1, id=1)
@@ -435,8 +439,9 @@ async def test_compress_session_returns_unchanged_when_there_is_no_history(
     db: Database, profile_id: int
 ) -> None:
     session = create_new_session(db, profile_id)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await compress_session(db, session)
+    result = await compress_session(db, session, client)
 
     assert result is session
 
@@ -445,9 +450,10 @@ async def test_compress_session_returns_unchanged_when_there_is_no_history(
 async def test_compress_session_raises_without_a_session_id(db: Database, profile_id: int) -> None:
     session = create_session(db, profile_id)
     session.id = None
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
     with pytest.raises(ValueError, match=re.escape("Session does not have a valid ID.")):
-        await compress_session(db, session)
+        await compress_session(db, session, client)
 
 
 @pytest.mark.asyncio
@@ -473,8 +479,9 @@ async def test_compress_session_folds_history_into_a_summary(
         return _make_response()
 
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await compress_session(db, session)
+    result = await compress_session(db, session, client)
 
     assert result.summary == "hi"
     assert result.summarized_message_id == last_message.id
@@ -500,8 +507,9 @@ async def test_compress_session_summarizes_with_the_given_model(
         return _make_response()
 
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    await compress_session(db, session, model="mistral")
+    await compress_session(db, session, client, model="mistral")
 
     assert captured["model"] == "mistral"
 
@@ -526,8 +534,9 @@ async def test_maybe_compress_session_summarizes_with_the_responses_model(
         return _make_response()
 
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    await maybe_compress_session(db, session, response, threshold=3000)
+    await maybe_compress_session(db, session, response, threshold=3000, client=client)
 
     assert captured["model"] == "mistral"
 
@@ -557,8 +566,9 @@ async def test_compress_session_only_folds_in_history_not_already_summarized(
         return _make_response()
 
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await compress_session(db, session)
+    result = await compress_session(db, session, client)
 
     assert result.summarized_message_id == second_message.id
     new_conversation_section = captured_prompts[0].split("New conversation to fold in:")[1]
@@ -573,8 +583,9 @@ async def test_maybe_compress_session_skips_when_under_threshold(
 ) -> None:
     session = create_new_session(db, profile_id)
     response = _make_response(prompt_eval_count=100)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await maybe_compress_session(db, session, response, threshold=3000)
+    result = await maybe_compress_session(db, session, response, threshold=3000, client=client)
 
     assert result is session
 
@@ -596,8 +607,9 @@ async def test_maybe_compress_session_compresses_when_over_threshold(
         return _make_response()
 
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await maybe_compress_session(db, session, response, threshold=3000)
+    result = await maybe_compress_session(db, session, response, threshold=3000, client=client)
 
     assert result.summary == "hi"
     assert result.summarized_message_id == last_message.id

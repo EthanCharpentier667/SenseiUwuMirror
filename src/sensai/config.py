@@ -12,6 +12,8 @@ DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 REASONING_MODES = ["plan", "reflect"]
+DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
+DEFAULT_TIMEOUT = 300.0
 
 
 class Config:
@@ -45,6 +47,22 @@ class Config:
             "--model",
             default=DEFAULT_MODEL,
             help=f"The LLM model to use. Default: {DEFAULT_MODEL}.",
+        )
+        self.add_argument(
+            "--url",
+            default=DEFAULT_URL,
+            help=f"The URL of the Ollama API. Default: {DEFAULT_URL}.",
+        )
+        self.add_argument(
+            "--token",
+            default=None,
+            help="The bearer token for the Ollama API. Default: None.",
+        )
+        self.add_argument(
+            "--timeout",
+            type=float,
+            default=DEFAULT_TIMEOUT,
+            help=f"The timeout for the Ollama API requests. Default: {DEFAULT_TIMEOUT} seconds.",
         )
         self.add_argument(
             "--reasoning-mode",
@@ -119,3 +137,19 @@ class Config:
     def compression_threshold(self) -> int:
         """Prompt token count above which a session's history gets compressed."""
         return int(self._parsed().compression_threshold)
+
+    @property
+    def url(self) -> str:
+        """The URL of the Ollama API."""
+        return str(self._parsed().url)
+
+    @property
+    def token(self) -> str | None:
+        """The bearer token for the Ollama API."""
+        token = self._parsed().token
+        return str(token) if token is not None else None
+
+    @property
+    def timeout(self) -> float:
+        """The timeout for the Ollama API requests."""
+        return float(self._parsed().timeout)

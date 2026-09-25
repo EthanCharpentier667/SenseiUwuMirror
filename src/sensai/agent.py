@@ -21,7 +21,7 @@ class Agent:
         *,
         human_in_the_loop: bool = False,
         ui_handler: AsyncUIHandler | None = None,
-        client: OllamaClient | None = None,
+        client: OllamaClient,
     ) -> None:
         """Initialize the agent.
 
@@ -36,7 +36,7 @@ class Agent:
         self.tools = tools or []
         self.human_in_the_loop = human_in_the_loop
         self.ui_handler = ui_handler
-        self.client = client or OllamaClient()
+        self.client = client
         self.max_turns = DEFAULT_MAX_TURNS
         self.system_prompt: str | None = None
 
