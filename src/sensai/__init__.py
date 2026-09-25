@@ -36,7 +36,7 @@ async def async_main() -> None:
     profile = login(profile_name, profile_secret_not_secret, database)
 
     if profile is None:
-        profile = create_new_profile(database, "Ethan", "667")
+        profile = create_new_profile(database, profile_name, profile_secret_not_secret)
         if profile is None:
             raise ValueError("Failed to create or login to the default profile.")
     add_preference(database, "User prefer French language.")
