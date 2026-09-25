@@ -11,6 +11,13 @@ from sensai.data.profile.profile import create_profile
 from sensai.data.session.manager import SessionManager
 
 
+@pytest.fixture(autouse=True)
+def _hash_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASH_ALGORITHM", "sha256")
+    monkeypatch.setenv("HASH_ITERATIONS", "1000")
+    monkeypatch.setenv("SALT_BYTES", "16")
+
+
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[Database]:
     """A real SQLite database, initialized with the project's schema, in a temp directory."""
