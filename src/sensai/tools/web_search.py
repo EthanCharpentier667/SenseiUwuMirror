@@ -8,11 +8,10 @@
 
 """Example web tool implementation."""
 
-import json
 import os
 from typing import Any, cast
 
-import requests
+import httpx
 
 from .tool import Tool
 
@@ -67,16 +66,16 @@ def web_search(query: str) -> dict[str, Any]:
     token = os.getenv("API_TOKEN")
     if not token:
         return {"message": "Web search is not available."}
-    header = {"Authorization": f"Bearer {token}"}
-    request_headers = {"Content-Type": "application/json"}
-    request_headers.update(header)
+
+    request_headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
     payload: dict[str, str | int] = {
         "query": query,
     }
-    response = requests.post(
+
+    response = httpx.post(
         url,
         headers=request_headers,
-        data=json.dumps(payload),
+        json=payload,
         timeout=DEFAULT_TIMEOUT,
     )
     if response.status_code != DEFAULT_CODE:
