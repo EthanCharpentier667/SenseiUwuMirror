@@ -146,7 +146,12 @@ def _history_prefix_length(session: Session) -> int:
     )
 
 
-def update_session(db: Database, session: Session, response: Response) -> Session | None:
+def update_session(
+    db: Database,
+    session: Session,
+    response: Response,
+    sent_prefix_length: int | None = None,
+) -> Session | None:
     """Persist a response's new messages and usage onto an existing session.
 
     ``response.messages`` echoes everything sent to the API for this exchange, which
@@ -159,16 +164,25 @@ def update_session(db: Database, session: Session, response: Response) -> Sessio
         db (Database): The database to write to.
         session (Session): The session to update.
         response (Response): The response to persist.
+        sent_prefix_length (int, optional): The exact number of leading entries in
+            ``response.messages`` that were already-known state when the request was
+            actually sent, i.e. ``len(build_messages(session, prompt)) - 1`` at the time
+            of that call. Passing this avoids recomputing the prefix from ``session``'s
+            (and the current profile's) live state, which may have changed since the
+            request went out. Defaults to recomputing it from ``session``'s current state.
 
     Returns:
         Session | None: The updated session if successful, otherwise None.
     """
     if session.id is None:
         return None
-    new_messages = response.messages[_history_prefix_length(session) :]
+    prefix_length = (
+        sent_prefix_length if sent_prefix_length is not None else _history_prefix_length(session)
+    )
+    new_messages = response.messages[prefix_length:]
     for message in new_messages:
         if message.role != "tool" and len(message.content.strip()) > 0:
-            add_message_to_current_session(db, message.content, message.role, message.response_time)
+            create_message(db, session.id, message.content, message.role, message.response_time)
     add_session_usage(
         db, session.id, response.prompt_eval_count, response.eval_count, response.token_used
     )
@@ -202,12 +216,16 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     ]
 
 
-def compress_session(db: Database, session: Session) -> Session:
+def compress_session(db: Database, session: Session, model: str = "llama3.2") -> Session:
     """Fold a session's unsummarized history into its running summary via the LLM.
 
     Args:
         db (Database): The database to write to.
         session (Session): The session to compress.
+        model (str): The model to summarize with. Callers should pass the model the
+            session's own turns are using (e.g. ``response.model``) so the summary is
+            produced by the same model the user configured, rather than silently falling
+            back to the default.
 
     Returns:
         Session: The session refreshed from the database, or unchanged if there was no
@@ -229,7 +247,7 @@ def compress_session(db: Database, session: Session) -> Session:
         "Rewrite this as a single, concise, updated summary of the whole conversation, "
         "preserving important facts, decisions and context needed to continue it."
     )
-    response = get_sensei_response(prompt=prompt, stream=False)
+    response = get_sensei_response(prompt=prompt, model=model, stream=False)
 
     last_folded_id = to_fold[-1].id
     if last_folded_id is None:
@@ -267,7 +285,7 @@ def maybe_compress_session(
         f"Prompt token count {response.prompt_eval_count} exceeded threshold {threshold}; "
         "compressing session history."
     )
-    return compress_session(db, session)
+    return compress_session(db, session, model=response.model)
 
 
 def get_current_session_id() -> int | None:

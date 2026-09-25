@@ -33,11 +33,16 @@ class TempToolExample(Tool):
             **kwargs: Keyword arguments for the tool's execution.
 
         Returns:
-            str: A message indicating that the web tool has been executed.
+            str: A message indicating that the web tool has been executed, or an error
+                message if the temperature could not be retrieved.
         """
         city = kwargs.get("city", "Unknown City")
-        data = requests.get(f"https://wttr.in/{city}?format=j1", timeout=10).json()
-        condition = data["current_condition"][0]
+        try:
+            response = requests.get(f"https://wttr.in/{city}?format=j1", timeout=10)
+            response.raise_for_status()
+            condition = response.json()["current_condition"][0]
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError) as error:
+            return f"Could not retrieve the temperature for {city}: {error}"
         return (
             f"The current temperature in {city} is {condition['temp_C']}°C. "
             f"The weather is {condition['weatherDesc'][0]['value']}. "

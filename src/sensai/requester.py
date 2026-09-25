@@ -137,6 +137,8 @@ def _response_from_json(
     message = data.get("message", {})
     respond_time = time.time()
     reply = message.get("content", "")
+    prompt_eval_count = data.get("prompt_eval_count", 0)
+    eval_count = data.get("eval_count", 0)
     return Response(
         response=reply,
         respond_time=respond_time,
@@ -147,9 +149,9 @@ def _response_from_json(
         messages=_messages_with_reply(
             payload.get("messages", []), reply, request_time, respond_time
         ),
-        prompt_eval_count=data.get("prompt_eval_count", 0),
-        eval_count=data.get("eval_count", 0),
-        token_used=data.get("token_used", 0),
+        prompt_eval_count=prompt_eval_count,
+        eval_count=eval_count,
+        token_used=prompt_eval_count + eval_count,
         status_code=status_code,
         tool_calls=message.get("tool_calls", []),
         stop_reason=data.get("done_reason", ""),
@@ -207,8 +209,8 @@ def make_request(
     eval_count = 0
     prompt_eval_count = 0
     total_duration = 0
-    token_used = 0
     tool_calls = []
+    streaming_response_buffer.clear()
     for line in response.iter_lines():
         if not line:
             continue
@@ -225,8 +227,8 @@ def make_request(
             eval_count = chunk.get("eval_count", 0)
             prompt_eval_count = chunk.get("prompt_eval_count", 0)
             total_duration = chunk.get("total_duration", 0)
-            token_used = chunk.get("token_used", 0)
             break
+    token_used = prompt_eval_count + eval_count
     respond_time = time.time()
     return Response(
         response=full_response,

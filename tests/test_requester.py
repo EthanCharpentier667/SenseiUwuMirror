@@ -98,6 +98,21 @@ def test_make_request_returns_a_response_object(monkeypatch: pytest.MonkeyPatch)
     assert response.status_code == 200
 
 
+def test_make_request_computes_token_used_from_eval_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def mock_post(url, headers, data, stream, timeout):
+        return MockResponse({"message": {"content": "hi"}, "prompt_eval_count": 3, "eval_count": 5})
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    response = requester.make_request("https://api.example.com/sensei", {"messages": []})
+
+    # token_used is derived from prompt_eval_count + eval_count; the real API never sends
+    # a "token_used" field of its own.
+    assert response.token_used == 8
+
+
 def test_make_request_builds_message_history_with_role_based_timestamps(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -248,7 +263,7 @@ def test_make_request_streaming_skips_empty_lines_and_aggregates_content(
                 (
                     b'{"message": {"content": " world"}, "done": true, '
                     b'"done_reason": "stop", "eval_count": 5, "prompt_eval_count": 3, '
-                    b'"total_duration": 42, "token_used": 8}'
+                    b'"total_duration": 42}'
                 ),
             ]
         )
@@ -263,8 +278,25 @@ def test_make_request_streaming_skips_empty_lines_and_aggregates_content(
     assert response.stop_reason == "stop"
     assert response.eval_count == 5
     assert response.prompt_eval_count == 3
+    # token_used is derived from prompt_eval_count + eval_count, not read off the payload
+    # (the real API never sends a "token_used" field).
     assert response.token_used == 8
     assert response.total_duration == 42
+
+
+def test_make_request_streaming_clears_the_buffer_from_a_previous_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requester.streaming_response_buffer.extend(["leftover", " ", "tokens"])
+
+    def mock_post(url, headers, data, stream, timeout):
+        return MockResponse(lines=[json_line({"message": {"content": "hi"}, "done": True})])
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    requester.make_request("https://api.example.com/sensei", {"messages": []}, stream=True)
+
+    assert requester.streaming_response_buffer == ["hi"]
 
 
 def test_make_request_streaming_collects_tool_calls(monkeypatch: pytest.MonkeyPatch) -> None:

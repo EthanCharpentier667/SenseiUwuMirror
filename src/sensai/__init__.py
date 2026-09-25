@@ -47,13 +47,15 @@ def main() -> None:
         )
         while True:
             user_input = input("Enter something (Ctrl+C to exit): ")
+            messages = build_messages(session, user_input)
+            sent_prefix_length = len(messages) - 1
             response = get_sensei_response(
-                messages=build_messages(session, user_input),
+                messages=messages,
                 model=config.model,
                 stream=True,
                 tools=get_all_tools(),
             )
-            session = update_session(database, session, response)
+            session = update_session(database, session, response, sent_prefix_length)
             if session is None:
                 raise ValueError("Failed to update the session after the first response.")
             session = maybe_compress_session(

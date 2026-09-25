@@ -49,6 +49,13 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
     assert config.compression_threshold == 42
 
 
+def test_config_reasoning_mode_defaults_to_none_not_the_string_none() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.reasoning_mode is None
+
+
 def test_config_rejects_an_unknown_reasoning_mode() -> None:
     config = Config()
 

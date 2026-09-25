@@ -30,6 +30,9 @@ class MockGetResponse:
     def json(self) -> dict[str, Any]:
         return self._payload
 
+    def raise_for_status(self) -> None:
+        """No-op stand-in for :meth:`requests.Response.raise_for_status`."""
+
 
 def test_define_returns_openai_style_schema() -> None:
     tool = TempToolExample()

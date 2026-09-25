@@ -1,7 +1,6 @@
 """Configuration for the Sensai CLI."""
 
 from argparse import ArgumentParser, Namespace
-from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -103,12 +102,8 @@ class Config:
     @property
     def reasoning_mode(self) -> str | None:
         """The reasoning mode to use. Not implemented yet."""
-        return str(self._parsed().reasoning_mode)
-
-    @property
-    def schema_path(self) -> Path:
-        """Path to the SQL file used to initialize the database schema."""
-        return Path(self._parsed().schema_path)
+        reasoning_mode = self._parsed().reasoning_mode
+        return str(reasoning_mode) if reasoning_mode is not None else None
 
     @property
     def db_path(self) -> str:
