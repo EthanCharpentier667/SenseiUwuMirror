@@ -69,7 +69,7 @@ class Agent:
         for tool in self.tools:
             if getattr(tool, "name", None) == name:
                 execute_fn = getattr(tool, "execute_async", None)
-                if callable(execute_fn):
+                if execute_fn is not None:
                     res = await execute_fn(**args)
                 elif inspect.iscoroutinefunction(tool.execute):
                     res = await tool.execute(**args)
@@ -172,12 +172,20 @@ class Agent:
         Returns:
             Final completion response from the model.
         """
+        if self.max_turns < 1:
+            msg = "max_turns must be at least 1."
+            raise ValueError(msg)
+
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
         formatted_tools = [tool.define() for tool in self.tools]
 
+        response: Response | None = None
         for _ in range(self.max_turns):
             is_done, response = await self._execute_turn(current_messages, formatted_tools)
             if is_done:
                 return response
 
+        if response is None:  # pragma: no cover - unreachable, max_turns >= 1 is enforced above
+            msg = "Agent loop exited without producing a response."
+            raise RuntimeError(msg)
         return response
