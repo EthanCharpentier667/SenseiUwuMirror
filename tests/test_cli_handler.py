@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from sensai.cli_handler import CLIHandler
+from sensai.ui import CLIHandler
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import Any
 
-from .events import AsyncUIHandler
+from .protocol import AsyncUIHandler
 
 
 class CLIHandler(AsyncUIHandler):
@@ -18,6 +18,7 @@ class CLIHandler(AsyncUIHandler):
         """Ask the user to approve a tool call via the terminal."""
         print(f"\n\nThe AI wants to call '{name}' with the following arguments:")  # noqa: T201
         print(json.dumps(arguments, indent=2, ensure_ascii=False))  # noqa: T201
+
         choice = await asyncio.to_thread(input, "Approve? [y/n] : ")
         return choice.strip().lower() in {"y", "yes", "o", "oui", ""}
 
