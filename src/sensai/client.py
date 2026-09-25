@@ -131,7 +131,8 @@ class OllamaClient:
 
         Args:
             base_url: Base endpoint URL for the chat API.
-            token: Bearer authentication token of
+            token: Bearer authentication token of the Ollama API. If None, will attempt to read
+            from the TOKEN environment variable.
             timeout: HTTP request timeout in seconds.
         """
         self.base_url: str = base_url
