@@ -1,5 +1,7 @@
 """Agent abstraction managing reasoning loops and tool execution."""
 
+import asyncio
+import inspect
 import json
 from typing import Any
 
@@ -62,11 +64,17 @@ class Agent:
         result.append({"role": "user", "content": prompt})
         return result
 
-    def _dispatch_single_tool(self, name: str, args: dict[str, Any]) -> tuple[bool, Any]:
-        """Find and execute a tool by name."""
+    async def _dispatch_single_tool(self, name: str, args: dict[str, Any]) -> tuple[bool, Any]:
+        """Find and execute a tool by name, running sync tools in a thread."""
         for tool in self.tools:
             if getattr(tool, "name", None) == name:
-                res = tool.execute(**args)
+                execute_fn = getattr(tool, "execute_async", None)
+                if callable(execute_fn):
+                    res = await execute_fn(**args)
+                elif inspect.iscoroutinefunction(tool.execute):
+                    res = await tool.execute(**args)
+                else:
+                    res = await asyncio.to_thread(tool.execute, **args)
                 return True, res
         return False, None
 
@@ -81,7 +89,13 @@ class Agent:
             if not approved:
                 return "Action cancelled by user."
 
-        found, res = self._dispatch_single_tool(fn_name, fn_args)
+        try:
+            found, res = await self._dispatch_single_tool(fn_name, fn_args)
+        except Exception as e:
+            if self.ui_handler:
+                await self.ui_handler.on_error(e)
+            raise
+
         if not found:
             return f"Tool '{fn_name}' not found."
 
@@ -98,7 +112,8 @@ class Agent:
         """Execute all tool calls in the turn and append outputs to history."""
         for tool_call in tool_calls:
             content = await self._execute_single_tool_call(tool_call)
-            current_messages.append({"role": "tool", "content": content})
+            tool_name = tool_call.get("function", {}).get("name", "")
+            current_messages.append({"role": "tool", "content": content, "tool_name": tool_name})
 
     async def _step(
         self,

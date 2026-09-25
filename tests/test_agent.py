@@ -47,6 +47,18 @@ class FakeTool:
         return f"result: {kwargs.get('expr')}"
 
 
+class AsyncFakeTool:
+    """Fake async tool for testing coroutine execution."""
+
+    name = "async_calculator"
+
+    def define(self) -> dict[str, Any]:
+        return {"type": "function", "function": {"name": "async_calculator"}}
+
+    async def execute(self, **kwargs: Any) -> str:
+        return f"async result: {kwargs.get('expr')}"
+
+
 @pytest.mark.asyncio
 async def test_agent_missing_input() -> None:
     agent = Agent()
@@ -136,6 +148,34 @@ async def test_agent_tool_loop_and_execution() -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_async_tool_execution() -> None:
+    turns = 0
+
+    class MockClient(OllamaClient):
+        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            nonlocal turns
+            turns += 1
+            if turns == 1:
+                return {
+                    "response": "",
+                    "tool_calls": [
+                        {"function": {"name": "async_calculator", "arguments": {"expr": "3+3"}}}
+                    ],
+                }
+            return {"response": "The answer is 6.", "tool_calls": []}
+
+    ui = MockUIHandler(approval=True)
+    tool = AsyncFakeTool()
+    agent = Agent(tools=[tool], human_in_the_loop=False, ui_handler=ui, client=MockClient())
+
+    result = await agent.run("What is 3+3?")
+
+    assert result["response"] == "The answer is 6."
+    assert len(ui.tool_results) == 1
+    assert ui.tool_results[0] == ("async_calculator", "async result: 3+3")
+
+
+@pytest.mark.asyncio
 async def test_agent_tool_denied_by_user() -> None:
     turns = 0
     captured_messages: list[dict[str, Any]] = []
@@ -167,7 +207,11 @@ async def test_agent_tool_denied_by_user() -> None:
 
     assert result["response"] == "Operation cancelled."
     assert len(ui.tool_results) == 0
-    assert captured_messages[-1] == {"role": "tool", "content": "Action cancelled by user."}
+    assert captured_messages[-1] == {
+        "role": "tool",
+        "content": "Action cancelled by user.",
+        "tool_name": "calculator",
+    }
 
 
 @pytest.mark.asyncio
@@ -196,7 +240,39 @@ async def test_agent_tool_not_found() -> None:
     result = await agent.run("Run unknown tool")
 
     assert result["response"] == "Fixed."
-    assert captured_messages[-1] == {"role": "tool", "content": "Tool 'unknown' not found."}
+    assert captured_messages[-1] == {
+        "role": "tool",
+        "content": "Tool 'unknown' not found.",
+        "tool_name": "unknown",
+    }
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_error_notifies_ui_and_raises() -> None:
+    class BrokenTool:
+        name = "broken"
+
+        def define(self) -> dict[str, Any]:
+            return {"type": "function", "function": {"name": "broken"}}
+
+        def execute(self, **kwargs: Any) -> str:  # noqa: ARG002
+            raise RuntimeError("Tool execution failed unexpectedly")
+
+    class MockClient(OllamaClient):
+        async def chat(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            return {
+                "response": "",
+                "tool_calls": [{"function": {"name": "broken", "arguments": {}}}],
+            }
+
+    ui = MockUIHandler()
+    agent = Agent(tools=[BrokenTool()], ui_handler=ui, client=MockClient())
+
+    with pytest.raises(RuntimeError, match="Tool execution failed unexpectedly"):
+        await agent.run("hello")
+
+    assert len(ui.errors) == 1
+    assert str(ui.errors[0]) == "Tool execution failed unexpectedly"
 
 
 @pytest.mark.asyncio
