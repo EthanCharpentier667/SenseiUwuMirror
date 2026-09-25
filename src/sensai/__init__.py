@@ -37,10 +37,10 @@ async def async_main() -> None:
 
     if profile is None:
         profile = create_new_profile(database, profile_name, profile_secret_not_secret)
+        add_preference(database, "User prefer French language.")
+        add_instruction(database, 'replace all the ponctuation by "uwu"')
         if profile is None:
             raise ValueError("Failed to create or login to the default profile.")
-    add_preference(database, "User prefer French language.")
-    add_instruction(database, 'replace all the ponctuation by "uwu"')
     if profile.id is None:
         raise ValueError("Failed to create the default profile; no ID was returned.")
 
