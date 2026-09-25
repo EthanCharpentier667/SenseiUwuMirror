@@ -95,6 +95,8 @@ def get_messages_by_session(db: "Database", session_id: int) -> list[Message]:
     """
     with db.database.bind_ctx([Message]):
         messages = list(
-            Message.select().where(Message.session_id == session_id).order_by(Message.timestamp)
+            Message.select()
+            .where(Message.session_id == session_id)
+            .order_by(Message.timestamp, Message.id)
         )
     return [_without_documents(message) for message in messages]
