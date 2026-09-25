@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class Profile(BaseModel):
     """A user profile, mirroring the `profile` table."""
 
-    name = CharField()
+    name = CharField(unique=True)
     password = CharField()
     preferences = TextField(null=True)
     instructions = TextField(null=True)
