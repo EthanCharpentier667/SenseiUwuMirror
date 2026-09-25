@@ -23,7 +23,7 @@ def main() -> None:
     config = Config()
     config.parse_args()
 
-    database = Database(config.db_path, config.schema_path.read_text(), config.db_name)
+    database = Database(config.db_path, config.db_name)
     database.initialize()
 
     # Creating a profile

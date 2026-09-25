@@ -1,41 +1,53 @@
 """Message for handling chat messages data, including content and associated documents."""
 
-from dataclasses import dataclass, field
-from sqlite3 import Row
+from typing import TYPE_CHECKING
 
-from sensai.data.database.database import Database
+from peewee import SQL, CharField, DateTimeField, FloatField, IntegerField, TextField
+
+from sensai.data.database.base_model import BaseModel
 
 from .document import Document
 
+if TYPE_CHECKING:
+    from sensai.data.database.database import Database
 
-@dataclass
-class Message:
+
+class Message(BaseModel):
     """A chat message, mirroring the `message` table."""
 
-    session_id: int
-    content: str
-    role: str
-    response_time: float
-    id: int | None = None
-    timestamp: str | None = None
-    documents: list[Document] = field(default_factory=list)
-    # TODO: not loaded here,needs RAG (convert + vectorize + retrieve relevant chunks)
-    # before attaching to a message
-
-
-def _row_to_message(row: Row) -> Message:
-    return Message(
-        id=row["id"],
-        content=row["content"],
-        role=row["role"],
-        response_time=row["response_time"],
-        session_id=row["session_id"],
-        timestamp=row["timestamp"],
+    session_id = IntegerField(
+        index=True, constraints=[SQL('REFERENCES "session" ("id") ON DELETE CASCADE')]
     )
+    content = TextField()
+    role = CharField()
+    response_time = FloatField()
+    timestamp = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+
+    documents: list[Document]
+
+    def __init__(
+        self, *args: object, documents: list[Document] | None = None, **kwargs: object
+    ) -> None:
+        """Initialize a message, defaulting `documents` to an empty list like the fetch helpers do.
+
+        Args:
+            *args: Positional arguments to pass to the parent constructor.
+            documents (list[Document] | None): The list of documents for the message.
+            **kwargs: Keyword arguments to pass to the parent constructor.
+        """
+        super().__init__(*args, **kwargs)
+        self.documents = documents if documents is not None else []
+
+
+def _without_documents(message: Message) -> Message:
+    # TODO: not loaded here, needs RAG (convert + vectorize + retrieve relevant chunks)
+    # before attaching to a message
+    message.documents = []
+    return message
 
 
 def create_message(
-    db: Database, session_id: int, content: str, role: str, response_time: float
+    db: "Database", session_id: int, content: str, role: str, response_time: float
 ) -> Message:
     """Create a new message in a session.
 
@@ -49,21 +61,14 @@ def create_message(
     Returns:
         Message: The newly created message, including its assigned ID.
     """
-    cursor = db.execute(
-        "INSERT INTO message (content, role, response_time, session_id) VALUES (?, ?, ?, ?)",
-        (content, role, response_time, session_id),
-    )
-    if cursor.lastrowid is None:
-        raise ValueError("Failed to create a new message; no ID was returned.")
-    message = get_message(db, cursor.lastrowid)
-    if message is None:
-        raise ValueError(
-            f"Failed to retrieve the newly created message with ID {cursor.lastrowid}."
+    with db.database.bind_ctx([Message]):
+        message = Message.create(
+            session_id=session_id, content=content, role=role, response_time=response_time
         )
-    return message
+    return _without_documents(message)
 
 
-def get_message(db: Database, message_id: int) -> Message | None:
+def get_message(db: "Database", message_id: int) -> Message | None:
     """Retrieve a message by its ID.
 
     Args:
@@ -73,17 +78,12 @@ def get_message(db: Database, message_id: int) -> Message | None:
     Returns:
         Message | None: The message if found, otherwise None.
     """
-    cursor = db.execute(
-        "SELECT id, content, role, response_time, session_id, timestamp FROM message WHERE id = ?",
-        (message_id,),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    return _row_to_message(row)
+    with db.database.bind_ctx([Message]):
+        message = Message.get_or_none(Message.id == message_id)
+    return _without_documents(message) if message is not None else None
 
 
-def get_messages_by_session(db: Database, session_id: int) -> list[Message]:
+def get_messages_by_session(db: "Database", session_id: int) -> list[Message]:
     """Retrieve all messages belonging to a session, oldest first.
 
     Args:
@@ -93,9 +93,8 @@ def get_messages_by_session(db: Database, session_id: int) -> list[Message]:
     Returns:
         list[Message]: The messages belonging to the session.
     """
-    cursor = db.execute(
-        "SELECT id, content, role, response_time, session_id, timestamp "
-        "FROM message WHERE session_id = ? ORDER BY timestamp",
-        (session_id,),
-    )
-    return [_row_to_message(row) for row in cursor.fetchall()]
+    with db.database.bind_ctx([Message]):
+        messages = list(
+            Message.select().where(Message.session_id == session_id).order_by(Message.timestamp)
+        )
+    return [_without_documents(message) for message in messages]

@@ -10,7 +10,6 @@ from sensai.config import (
     DEFAULT_DB_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_MODEL,
-    DEFAULT_SCHEMA_PATH,
     Config,
 )
 
@@ -21,7 +20,6 @@ def test_config_uses_defaults_when_no_arguments_are_given() -> None:
 
     assert config.model == DEFAULT_MODEL
     assert config.reasoning_mode is None
-    assert config.schema_path == DEFAULT_SCHEMA_PATH
     assert config.db_path == DEFAULT_DB_PATH
     assert config.db_name == DEFAULT_DB_NAME
     assert config.compression_threshold == DEFAULT_COMPRESSION_TOKEN_THRESHOLD

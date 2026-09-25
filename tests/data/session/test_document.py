@@ -1,7 +1,6 @@
 """Tests for the ``sensai.data.session.document`` module."""
 
-import sqlite3
-
+import peewee
 import pytest
 
 from sensai.data.database.database import Database
@@ -28,7 +27,7 @@ def test_create_document_assigns_an_id(db: Database, message_id: int) -> None:
 
 
 def test_create_document_rejects_unknown_message(db: Database) -> None:
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(peewee.IntegrityError):
         create_document(db, 9999, b"raw bytes")
 
 

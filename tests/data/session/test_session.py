@@ -1,10 +1,10 @@
 """Tests for the ``sensai.data.session.session`` module."""
 
-import sqlite3
-
+import peewee
 import pytest
 
 from sensai.data.database.database import Database
+from sensai.data.profile.profile import create_profile
 from sensai.data.session.message import create_message
 from sensai.data.session.session import (
     add_session_usage,
@@ -42,8 +42,14 @@ def test_create_session_starts_with_zeroed_usage_and_no_messages(
     assert session.messages == []
 
 
+def test_create_session_sets_last_updated(db: Database, profile_id: int) -> None:
+    session = create_session(db, profile_id)
+
+    assert session.last_updated is not None
+
+
 def test_create_session_rejects_unknown_profile(db: Database) -> None:
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(peewee.IntegrityError):
         create_session(db, profile_id=9999, name="orphan")
 
 
@@ -84,6 +90,19 @@ def test_rename_session_changes_the_name(db: Database, profile_id: int) -> None:
     updated = get_session(db, session.id)
     assert updated is not None
     assert updated.name == "new name"
+
+
+def test_rename_session_updates_last_updated(db: Database, profile_id: int) -> None:
+    session = create_session(db, profile_id, name="old name")
+    assert session.id is not None
+    assert session.last_updated is not None
+
+    rename_session(db, session.id, "new name")
+
+    updated = get_session(db, session.id)
+    assert updated is not None
+    assert updated.last_updated is not None
+    assert updated.last_updated > session.last_updated
 
 
 def test_add_session_usage_accumulates_across_calls(db: Database, profile_id: int) -> None:
@@ -132,12 +151,8 @@ def test_set_session_summary_overwrites_a_previous_summary(db: Database, profile
 
 
 def test_sessions_are_isolated_by_profile(db: Database) -> None:
-    profile_a = db.execute(
-        "INSERT INTO profile (name, password) VALUES (?, ?)", ("A", "secret")
-    ).lastrowid
-    profile_b = db.execute(
-        "INSERT INTO profile (name, password) VALUES (?, ?)", ("B", "secret")
-    ).lastrowid
+    profile_a = create_profile(db, "A", "secret").id
+    profile_b = create_profile(db, "B", "secret").id
     assert profile_a is not None
     assert profile_b is not None
 

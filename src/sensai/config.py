@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DEFAULT_MODEL = "llama3.2"
-DEFAULT_SCHEMA_PATH = Path(__file__).parent / "data" / "database" / "schema.sql"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
@@ -53,13 +52,6 @@ class Config:
             default=None,
             choices=REASONING_MODES,
             help="Reasoning mode for the model. Not implemented yet.",
-        )
-        self.add_argument(
-            "--schema-path",
-            type=Path,
-            default=DEFAULT_SCHEMA_PATH,
-            help=f"Path to the SQL file used to initialize the database schema. "
-            f"Default: {DEFAULT_SCHEMA_PATH}.",
         )
         self.add_argument(
             "--db-path",
