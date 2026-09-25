@@ -105,7 +105,7 @@ def _context_prefix(session: Session) -> list[dict[str, Any]]:
 
     These reflect live state (the owning profile's preferences/instructions, the session's
     running summary) recomputed fresh on every call. They're never persisted as messages in
-    their own right — doing so would freeze a snapshot that goes stale the moment that state
+    their own right, doing so would freeze a snapshot that goes stale the moment that state
     changes (e.g. via ``add_preference``), and would duplicate on every turn.
     """
     prefix: list[dict[str, Any]] = []
@@ -126,7 +126,7 @@ def _history_context_suffix(session: Session) -> list[dict[str, Any]]:
     text is accurate. Without it, a model can mistake earlier turns (e.g. a tool call and
     its result) for part of the current, unresolved request, and repeat the tool call
     instead of reusing what it already retrieved. Only emitted when there's actually
-    history to misread — an empty session has nothing to be confused about.
+    history to misread, as an empty session has nothing to be confused about.
     """
     if not session.summary and not _sendable_messages(session):
         return []
@@ -137,7 +137,7 @@ def _history_prefix_length(session: Session) -> int:
     """The number of leading entries a ``build_messages()`` payload spends on known state.
 
     That's the synthetic context prefix, the still-unsummarized history messages, and the
-    history-context note — everything before the new prompt for this turn.
+    history-context note that everything before the new prompt for this turn.
     """
     return (
         len(_context_prefix(session))
