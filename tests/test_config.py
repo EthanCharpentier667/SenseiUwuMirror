@@ -10,6 +10,7 @@ from sensai.config import (
     DEFAULT_DB_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_MODEL,
+    DEFAULT_PERSONAS_FILE,
     Config,
 )
 
@@ -86,3 +87,25 @@ def test_config_properties_parse_lazily_when_accessed_without_parse_args(
 
     assert config.model == DEFAULT_MODEL
     assert config.get_args() is not None
+
+
+def test_config_persona_defaults_to_none() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.persona is None
+
+
+def test_config_personas_file_defaults_to_default_value() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.personas_file == DEFAULT_PERSONAS_FILE
+
+
+def test_config_parses_persona_and_personas_file() -> None:
+    config = Config()
+    config.parse_args(["--persona", "sensei_wu", "--personas-file", "custom.json"])
+
+    assert config.persona == "sensei_wu"
+    assert config.personas_file == "custom.json"

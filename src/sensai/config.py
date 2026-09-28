@@ -14,6 +14,7 @@ DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 REASONING_MODES = ["plan", "reflect"]
 DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
+DEFAULT_PERSONAS_FILE = "personas.json"
 
 
 class Config:
@@ -87,6 +88,16 @@ class Config:
             help="Prompt token count above which a session's history gets compressed. "
             f"Default: {DEFAULT_COMPRESSION_TOKEN_THRESHOLD}.",
         )
+        self.add_argument(
+            "--persona",
+            default=None,
+            help="Persona key to use from the personas file (e.g. 'sensei_wu').",
+        )
+        self.add_argument(
+            "--personas-file",
+            default=DEFAULT_PERSONAS_FILE,
+            help=f"Path to the personas JSON file. Default: {DEFAULT_PERSONAS_FILE}.",
+        )
 
     def add_argument(self, *args: Any, **kwargs: Any) -> None:
         """Add a command-line argument to the parser."""
@@ -153,3 +164,14 @@ class Config:
     def timeout(self) -> float:
         """The timeout for the Ollama API requests."""
         return float(self._parsed().timeout)
+
+    @property
+    def persona(self) -> str | None:
+        """The persona key to use from the personas file."""
+        persona = self._parsed().persona
+        return str(persona) if persona is not None else None
+
+    @property
+    def personas_file(self) -> str:
+        """Path to the personas JSON file."""
+        return str(self._parsed().personas_file)
