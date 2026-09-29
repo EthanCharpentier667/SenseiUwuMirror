@@ -250,6 +250,7 @@ class OllamaClient:
             "stream": stream,
         }
 
+        print(f"Sending request to Ollama: {payload}")  # noqa: T201
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:
             if not stream:

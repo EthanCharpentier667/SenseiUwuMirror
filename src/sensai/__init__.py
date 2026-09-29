@@ -16,7 +16,7 @@ from .data.session.manager import (
     retrieve_chunks,
     update_session,
 )
-from .data.session.message import create_message
+from .data.session.message import create_message, delete_message
 from .embedder import Embedder
 from .rag import ingest_document
 from .tools.registry import get_all_tools
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from .data.session.session import Session
 
 
-async def async_main() -> None:  # noqa: C901
+async def async_main() -> None:  # noqa: C901 PLR0915
     """Async entry point for the ``sensai`` console script."""
     config = Config()
     config.parse_args()
@@ -78,12 +78,17 @@ async def async_main() -> None:  # noqa: C901
                     db=database,
                     session_id=session.id,
                     content=f"File: {file_path}",
-                    role="tool",
+                    role="user",
                     response_time=0.0,
                 )
                 if file_message.id is None:
                     break
-                await ingest_document(database, embedder, file_message.id, file_content)
+                try:
+                    await ingest_document(
+                        database, embedder, file_message.id, file_content, file_path.name
+                    )
+                except ValueError:
+                    delete_message(database, file_message.id)
                 print(f"Successfully ingested file: {file_path}")  # noqa: T201
         except Exception as e:  # noqa: BLE001
             print(f"Error reading file {file_path}: {e}")  # noqa: T201

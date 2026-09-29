@@ -68,6 +68,17 @@ def create_message(
     return _without_documents(message)
 
 
+def delete_message(db: "Database", message_id: int) -> None:
+    """Delete a message by its ID.
+
+    Args:
+        db (Database): The database to write to.
+        message_id (int): The unique identifier for the message to delete.
+    """
+    with db.database.bind_ctx([Message]):
+        Message.delete().where(Message.id == message_id).execute()
+
+
 def get_message(db: "Database", message_id: int) -> Message | None:
     """Retrieve a message by its ID.
 

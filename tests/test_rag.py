@@ -41,7 +41,7 @@ def message_id(db: Database, profile_id: int) -> int:
 
 
 def test_split_text_keeps_short_text_whole() -> None:
-    assert split_text("  Un paragraphe.\n\nUn autre.  ") == ["Un paragraphe.\n\nUn autre."]
+    assert split_text("# Titre\n\nUn paragraphe.\n\n") == ["# Titre\n\nUn paragraphe."]
 
 
 def test_split_text_without_words_returns_nothing() -> None:
@@ -95,14 +95,71 @@ async def test_ingest_document_stores_document_and_searchable_chunks(
     assert search_chunks(db, second, k=1)[0].id == chunks[1].id
 
 
+def _pdf(text: str) -> bytes:
+    """A minimal one-page PDF showing ``text``."""
+    stream = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode()
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R"
+            b" /Resources << /Font << /F1 5 0 R >> >> >>"
+        ),
+        b"<< /Length %d >>\nstream\n%s\nendstream" % (len(stream), stream),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    pdf = b"%PDF-1.4\n"
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf += b"%d 0 obj\n%s\nendobj\n" % (number, body)
+    xref = len(pdf)
+    pdf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    pdf += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    pdf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        xref,
+    )
+    return pdf
+
+
 @pytest.mark.asyncio
-async def test_ingest_document_rejects_non_text_without_storing(
-    db: Database, message_id: int
+@pytest.mark.parametrize(
+    ("content", "name", "expected"),
+    [
+        (_pdf("Le serveur redemarre a minuit."), "notes.pdf", "Le serveur redemarre a minuit."),
+        (_pdf("Sans nom de fichier."), None, "Sans nom de fichier."),
+        (b"<h1>Titre</h1><p>Du texte.</p>", "page.html", "# Titre\n\nDu texte."),
+        ("Côté serveur.".encode(), "notes.txt", "Côté serveur."),
+    ],
+)
+async def test_ingest_document_extracts_text_from_supported_formats(
+    db: Database, message_id: int, content: bytes, name: str | None, expected: str
+) -> None:
+    document = await ingest_document(db, Embedder(MockClient()), message_id, content, name)
+
+    assert document.id is not None
+    assert [chunk.content for chunk in get_chunks_by_document(db, document.id)] == [expected]
+    assert document.content == content
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content", "name", "error"),
+    [
+        (b"\x00\x01\xff\xfe" * 10, None, "Could not extract text"),
+        (b"%PDF-1.4\n" + bytes(range(256)) * 4, "broken.pdf", "Could not extract text"),
+        (_pdf(""), "scan.pdf", "No text could be extracted from scan.pdf"),
+        (b" \n\n ", "empty.txt", "No text could be extracted from empty.txt"),
+    ],
+)
+async def test_ingest_document_rejects_documents_without_text_before_storing(
+    db: Database, message_id: int, content: bytes, name: str | None, error: str
 ) -> None:
     client = MockClient()
 
-    with pytest.raises(ValueError, match="UTF-8"):
-        await ingest_document(db, Embedder(client), message_id, b"%PDF-1.7\n\xff\xfe\x00")
+    with pytest.raises(ValueError, match=error):
+        await ingest_document(db, Embedder(client), message_id, content, name)
 
     assert client.requests == []
     with db.database.bind_ctx([Document]):
