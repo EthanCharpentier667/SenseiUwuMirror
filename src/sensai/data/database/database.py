@@ -3,6 +3,7 @@
 from types import TracebackType
 from typing import Self
 
+import sqlite_vec
 from peewee import Model, SqliteDatabase
 
 from sensai.data.profile.profile import Profile
@@ -14,7 +15,11 @@ _MODELS: list[type[Model]] = [Profile, Session, Message, Document]
 
 
 class Database:
-    """A SQLite database connection wrapper, backed by peewee, lazily connected."""
+    """A SQLite database connection wrapper, backed by peewee, lazily connected.
+
+    The sqlite-vec extension is loaded on every connection, exposing the ``vec0`` virtual
+    table and the ``vec_*`` SQL functions for storing and searching embeddings.
+    """
 
     def __init__(self, path: str, name: str, timeout: float = 10.0):
         """Initialize the database with a path and a name.
@@ -30,6 +35,7 @@ class Database:
             pragmas={"foreign_keys": 1},
             timeout=timeout,
         )
+        self._db.load_extension(sqlite_vec.loadable_path())
 
     @property
     def database(self) -> SqliteDatabase:

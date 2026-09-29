@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import sqlite_vec
+
 from sensai.data.database.database import Database
 from sensai.data.profile.profile import Profile, create_profile
 from sensai.data.session.document import Document
@@ -91,3 +93,41 @@ def test_context_manager_closes_connection_on_exit(tmp_path: Path) -> None:
         assert not database.database.is_closed()
 
     assert database.database.is_closed()
+
+
+def test_sqlite_vec_extension_is_loaded(tmp_path: Path) -> None:
+    database = Database(path=str(tmp_path), name="vec.db")
+
+    cursor = database.database.execute_sql("SELECT vec_version()")
+
+    assert cursor.fetchone()[0].startswith("v")
+    database.close()
+
+
+def test_sqlite_vec_is_reloaded_after_reconnecting(tmp_path: Path) -> None:
+    database = Database(path=str(tmp_path), name="vec_reconnect.db")
+    database.database.execute_sql("SELECT vec_version()")
+
+    database.close()
+    cursor = database.database.execute_sql("SELECT vec_version()")
+
+    assert cursor.fetchone()[0].startswith("v")
+    database.close()
+
+
+def test_vec0_table_supports_knn_search(tmp_path: Path) -> None:
+    database = Database(path=str(tmp_path), name="vec_knn.db")
+    database.database.execute_sql("CREATE VIRTUAL TABLE item_vec USING vec0(embedding float[3])")
+    for rowid, vector in [(1, [1.0, 0.0, 0.0]), (2, [0.0, 1.0, 0.0]), (3, [0.9, 0.1, 0.0])]:
+        database.database.execute_sql(
+            "INSERT INTO item_vec(rowid, embedding) VALUES (?, ?)",
+            (rowid, sqlite_vec.serialize_float32(vector)),
+        )
+
+    cursor = database.database.execute_sql(
+        "SELECT rowid FROM item_vec WHERE embedding MATCH ? AND k = 2 ORDER BY distance",
+        (sqlite_vec.serialize_float32([1.0, 0.0, 0.0]),),
+    )
+
+    assert [row[0] for row in cursor.fetchall()] == [1, 3]
+    database.close()
