@@ -51,15 +51,17 @@ class CLIApp:
         """Configure the prompt_toolkit session with custom key bindings."""
         kb = KeyBindings()
 
-        @kb.add("enter")  # type: ignore[untyped-decorator]
-        def _(event: Any) -> None:
+        def _handle_enter(event: Any) -> None:
             """Submit the input when Enter is pressed."""
             event.current_buffer.validate_and_handle()
 
-        @kb.add("escape", "enter")  # type: ignore[untyped-decorator]
-        def _(event: Any) -> None:
+        kb.add("enter")(_handle_enter)
+
+        def _handle_esc_enter(event: Any) -> None:
             """Insert a newline when Esc + Enter is pressed."""
             event.current_buffer.insert_text("\n")
+
+        kb.add("escape", "enter")(_handle_esc_enter)
 
         self.prompt_session = PromptSession[str](
             message="Vous > ",
