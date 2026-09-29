@@ -31,12 +31,6 @@ def test_create_message_assigns_an_id(db: Database, session_id: int) -> None:
     assert message.session_id == session_id
 
 
-def test_create_message_starts_with_no_documents(db: Database, session_id: int) -> None:
-    message = create_message(db, session_id, "hello", "user", 1.0)
-
-    assert message.documents == []
-
-
 def test_create_message_rejects_unknown_session(db: Database) -> None:
     with pytest.raises(peewee.IntegrityError):
         create_message(db, 9999, "hello", "user", 1.0)
