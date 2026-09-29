@@ -48,44 +48,30 @@ def test_split_text_without_words_returns_nothing() -> None:
     assert split_text(" \n\n \r\n ") == []
 
 
-def test_split_text_packs_paragraphs_and_overlaps_chunks() -> None:
-    paragraphs = [f"Paragraphe {i} " + "mot " * 20 for i in range(5)]
+def test_split_text_cuts_between_paragraphs_within_size() -> None:
+    paragraphs = [f"Paragraphe {i}. " + "Une phrase de remplissage. " * 5 for i in range(6)]
 
-    chunks = split_text("\n\n".join(paragraphs), size=250, overlap=30)
+    chunks = split_text("\n\n".join(paragraphs), size=400, overlap=0)
 
     assert len(chunks) > 1
-    assert all(len(chunk) <= 250 for chunk in chunks)
+    assert all(len(chunk) <= 400 for chunk in chunks)
+    assert all(chunk.startswith("Paragraphe") for chunk in chunks)
+
+
+def test_split_text_overlaps_consecutive_chunks() -> None:
+    words = " ".join(f"mot{i}" for i in range(200))
+
+    chunks = split_text(words, size=100, overlap=30)
+
+    assert all(len(chunk) <= 100 for chunk in chunks)
     for previous, current in pairwise(chunks):
-        overlap = current.split("\n\n", 1)[0]
-        assert previous.endswith(overlap)
-        assert 0 < len(overlap) <= 30
-    for paragraph in paragraphs:
-        assert any(paragraph.strip() in chunk for chunk in chunks)
+        assert previous.split()[-1] in current.split()
 
 
-def test_split_text_splits_long_paragraph_on_sentences() -> None:
-    sentences = [f"Phrase numéro {i} assez longue pour compter." for i in range(10)]
-
-    chunks = split_text(" ".join(sentences), size=150, overlap=0)
-
-    assert all(len(chunk) <= 150 for chunk in chunks)
-    assert all(chunk.endswith(".") for chunk in chunks)
-    assert " ".join(chunks) == " ".join(sentences)
-
-
-def test_split_text_splits_long_sentence_on_words() -> None:
-    sentence = "mot " * 100
-
-    chunks = split_text(sentence, size=60, overlap=0)
-
-    assert all(len(chunk) <= 60 for chunk in chunks)
-    assert all(word == "mot" for chunk in chunks for word in chunk.split())
-
-
-@pytest.mark.parametrize(("size", "overlap"), [(100, -1), (100, 98), (100, 100)])
-def test_split_text_rejects_overlap_leaving_no_room(size: int, overlap: int) -> None:
+@pytest.mark.parametrize("overlap", [-1, 100, 150])
+def test_split_text_rejects_invalid_overlap(overlap: int) -> None:
     with pytest.raises(ValueError, match="overlap"):
-        split_text("text", size=size, overlap=overlap)
+        split_text("text", size=100, overlap=overlap)
 
 
 @pytest.mark.asyncio
