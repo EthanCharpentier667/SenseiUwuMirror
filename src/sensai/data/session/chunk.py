@@ -136,14 +136,29 @@ def get_chunks_by_document(db: "Database", document_id: int) -> list[Chunk]:
 
 
 def _document_filter(column: str, document_ids: list[int] | None) -> tuple[str, list[object]]:
-    """An SQL `AND column IN (...)` clause and its params, empty when `document_ids` is None."""
+    """An SQL `AND column IN (...)` clause and its params, empty when `document_ids` is None.
+
+    Args:
+        column (str): The column name to filter on.
+        document_ids (list[int] | None): The document IDs to filter by, or None for no filter.
+
+    Returns:
+        tuple[str, list[object]]: The SQL clause and its parameters.
+    """
     if document_ids is None:
         return "", []
     return f"AND {column} IN ({', '.join('?' * len(document_ids))})", list(document_ids)
 
 
 def _keywords_query(text: str) -> str:
-    """Turn free text into an FTS5 query matching any of its words, each quoted literally."""
+    """Turn free text into an FTS5 query matching any of its words, each quoted literally.
+
+    Args:
+        text (str): The free text to turn into a query.
+
+    Returns:
+        str: The FTS5 query.
+    """
     return " OR ".join(f'"{word}"' for word in re.findall(r"\w+", text))
 
 
@@ -212,6 +227,35 @@ def search_chunks_by_keywords(
         return list(Chunk.raw(query, keywords, *filter_params, k))
 
 
+def _reciprocal_rank_fusion(rankings: list[list[Chunk]], k: int) -> list[Chunk]:
+    """Merge several rankings of chunks into one, using Reciprocal Rank Fusion.
+
+    Each chunk scores the sum of `1 / (k + position)` over the rankings it appears in, so a
+    chunk found by several rankings comes out on top.
+
+    Args:
+        rankings (list[list[Chunk]]): The rankings to merge, each ordered best first.
+        k (int): Dampens the gap between positions: the higher it is, the less a top
+            position weighs compared to a lower one.
+
+    Returns:
+        list[Chunk]: Every ranked chunk once, best score first, with `distance` and/or
+            `rank` set by whichever ranking found it.
+    """
+    scores: dict[int, float] = {}
+    chunks: dict[int, Chunk] = {}
+    for ranking in rankings:
+        for position, chunk in enumerate(ranking, start=1):
+            if chunk.id is None:
+                continue
+            found = chunks.setdefault(chunk.id, chunk)
+            found.distance = found.distance if found.distance is not None else chunk.distance
+            found.rank = found.rank if found.rank is not None else chunk.rank
+            scores[chunk.id] = scores.get(chunk.id, 0.0) + 1 / (k + position)
+    best = sorted(scores, key=scores.__getitem__, reverse=True)
+    return [chunks[chunk_id] for chunk_id in best]
+
+
 def search_chunks_hybrid(
     db: "Database",
     text: str,
@@ -237,18 +281,8 @@ def search_chunks_hybrid(
             whichever search found them.
     """
     candidates = k * 4
-    chunks: dict[int, Chunk] = {}
-    scores: dict[int, float] = {}
-    for results in (
+    rankings = [
         search_chunks(db, embedding, candidates, document_ids),
         search_chunks_by_keywords(db, text, candidates, document_ids),
-    ):
-        for position, chunk in enumerate(results):
-            if chunk.id is None:
-                continue
-            found = chunks.setdefault(chunk.id, chunk)
-            found.distance = found.distance if found.distance is not None else chunk.distance
-            found.rank = found.rank if found.rank is not None else chunk.rank
-            scores[chunk.id] = scores.get(chunk.id, 0.0) + 1 / (_RRF_K + position + 1)
-    best = sorted(scores, key=lambda chunk_id: scores[chunk_id], reverse=True)[:k]
-    return [chunks[chunk_id] for chunk_id in best]
+    ]
+    return _reciprocal_rank_fusion(rankings, _RRF_K)[:k]

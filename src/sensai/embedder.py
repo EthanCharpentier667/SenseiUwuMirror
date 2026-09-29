@@ -4,6 +4,7 @@ from sensai.client import OllamaClient
 
 DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
 
+
 _EMBEDDING_PREFIXES: dict[str, tuple[str, str]] = {
     "nomic-embed-text": ("search_query: ", "search_document: "),
 }
