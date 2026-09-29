@@ -8,6 +8,6 @@ from sensai.tools.web_search import WebSearch
 def test_get_all_tools_returns_tool_instances() -> None:
     tools = get_all_tools()
 
-    assert len(tools) == 2
+    assert len(tools) == 3
     assert isinstance(tools[0], WebSearch)
     assert isinstance(tools[1], TempToolExample)
