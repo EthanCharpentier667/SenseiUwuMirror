@@ -279,3 +279,26 @@ class OllamaClient:
             tool_calls=parsed.tool_calls,
             stop_reason=parsed.done_reason,
         )
+
+    async def embed(self, inputs: list[str], model: str) -> list[list[float]]:
+        """Send an embedding request to Ollama's `/api/embed` endpoint.
+
+        Args:
+            inputs: The texts to embed, sent as they are.
+            model: Name of the Ollama embedding model to invoke.
+
+        Returns:
+            list[list[float]]: One embedding vector per input, in the same order.
+        """
+        headers = self._build_headers()
+        payload = {"model": model, "input": inputs}
+        url = httpx.URL(self.base_url).join("embed")
+
+        async with httpx.AsyncClient(timeout=self.timeout) as http_client:
+            response = await http_client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = cast("dict[str, Any]", response.json())
+        if "error" in data:
+            msg = f"Ollama error: {data['error']}"
+            raise RuntimeError(msg)
+        return cast("list[list[float]]", data["embeddings"])
