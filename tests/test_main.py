@@ -1,11 +1,12 @@
 """Tests for the ``sensai`` package entry point."""
 
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, Self
 
 import pytest
 
 from sensai import Agent, main
-from sensai.client import Response
+from sensai.client import OllamaClient, Response
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
@@ -51,11 +52,31 @@ class _FakeDatabase:
         pass
 
 
+class _FakeMCPClient:
+    """Track the MCP connection lifetime without contacting a server."""
+
+    def __init__(self) -> None:
+        self.connected = False
+        self.closed = False
+
+    async def __aenter__(self) -> Self:
+        self.connected = True
+        return self
+
+    async def __aexit__(self, *_args: object) -> None:
+        self.connected = False
+        self.closed = True
+
+    async def list_tools(self) -> SimpleNamespace:
+        assert self.connected
+        return SimpleNamespace(tools=[])
+
+
 async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
     return _make_session()
 
 
-def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> _FakeMCPClient:
     monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.Database", _FakeDatabase)
     monkeypatch.setattr("sensai.login", lambda *args, **kwargs: None)
@@ -65,19 +86,26 @@ def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.maybe_compress_session", _fake_maybe_compress_session)
+    mcp_client = _FakeMCPClient()
+    monkeypatch.setattr("sensai.activate_mcp_client", lambda _url: mcp_client)
+    return mcp_client
 
 
 def test_main_greets_the_profile_and_exits_on_keyboard_interrupt(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _patch_main_dependencies(monkeypatch)
+    mcp_client = _patch_main_dependencies(monkeypatch)
 
     def fake_input(_prompt: str) -> str:
+        assert mcp_client.connected
         raise KeyboardInterrupt
 
     monkeypatch.setattr("builtins.input", fake_input)
 
     main()
+
+    assert mcp_client.closed
+    assert not mcp_client.connected
 
     captured = capsys.readouterr()
     assert "Hello Default Profile! Welcome to Sensai." in captured.out
@@ -95,6 +123,8 @@ def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) ->
         system_prompt: str | None = None,
     ) -> Response:
         calls.append({"prompt": prompt, "messages": messages, "tools": self.tools})
+        assert mcp_client.connected
+        assert isinstance(self.client, OllamaClient)
         assert self.model == "llama3.2"
         assert self.human_in_the_loop is True
         return _make_response()
@@ -107,11 +137,14 @@ def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) ->
         except StopIteration as exc:
             raise KeyboardInterrupt from exc
 
-    _patch_main_dependencies(monkeypatch)
+    mcp_client = _patch_main_dependencies(monkeypatch)
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("builtins.input", fake_input)
 
     main()
+
+    assert mcp_client.closed
+    assert not mcp_client.connected
 
     assert len(calls) == 2
     assert calls[0]["prompt"] is None

@@ -3,6 +3,8 @@
 import asyncio
 from typing import TYPE_CHECKING
 
+from sensai.mcp.sensai_client import activate_mcp_client
+
 from .agent import Agent
 from .client import OllamaClient
 from .config import Config
@@ -48,21 +50,22 @@ async def async_main() -> None:
     if session is None:
         raise ValueError("Failed to create the default session.")
 
-    client = OllamaClient(
+    ollama_client = OllamaClient(
         base_url=config.url,
         token=config.token,
         timeout=config.timeout,
     )
     ui_handler = CLIHandler()
-    agent = Agent(
-        model=config.model,
-        tools=get_all_tools(),
-        human_in_the_loop=True,
-        ui_handler=ui_handler,
-        client=client,
-    )
-
-    try:
+    async with activate_mcp_client(
+        "https://docs.mcp.cloudflare.com/mcp"
+    ) as mcp_client:  # TEMP : MCP client is always active for testing purposes
+        agent = Agent(
+            model=config.model,
+            tools=await get_all_tools(mcp_mode=True, client=mcp_client),
+            human_in_the_loop=True,
+            ui_handler=ui_handler,
+            client=ollama_client,
+        )
         print(  # noqa: T201
             "Hello "
             + profile.name
@@ -77,12 +80,13 @@ async def async_main() -> None:
             if session is None:
                 raise ValueError("Failed to update the session after the first response.")
             session = await maybe_compress_session(
-                database, session, response, threshold=config.compression_threshold, client=client
+                database,
+                session,
+                response,
+                threshold=config.compression_threshold,
+                client=ollama_client,
             )
             print("\n")  # noqa: T201
-
-    except KeyboardInterrupt:
-        print("\nProgram terminated by user.")  # noqa: T201
 
 
 def main() -> None:
