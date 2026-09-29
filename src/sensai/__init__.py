@@ -1,6 +1,7 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
 import asyncio
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .agent import Agent
@@ -15,7 +16,9 @@ from .data.session.manager import (
     retrieve_chunks,
     update_session,
 )
+from .data.session.message import create_message
 from .embedder import Embedder
+from .rag import ingest_document
 from .tools.registry import get_all_tools
 from .ui import AsyncUIHandler, CLIHandler
 
@@ -25,7 +28,7 @@ if TYPE_CHECKING:
     from .data.session.session import Session
 
 
-async def async_main() -> None:
+async def async_main() -> None:  # noqa: C901
     """Async entry point for the ``sensai`` console script."""
     config = Config()
     config.parse_args()
@@ -64,6 +67,26 @@ async def async_main() -> None:
         ui_handler=ui_handler,
         client=client,
     )
+
+    for file_path in config.files:
+        try:
+            with Path.open(file_path, "rb") as f:
+                file_content = f.read()
+                if session.id is None:
+                    break
+                file_message = create_message(
+                    db=database,
+                    session_id=session.id,
+                    content=f"File: {file_path}",
+                    role="tool",
+                    response_time=0.0,
+                )
+                if file_message.id is None:
+                    break
+                await ingest_document(database, embedder, file_message.id, file_content)
+                print(f"Successfully ingested file: {file_path}")  # noqa: T201
+        except Exception as e:  # noqa: BLE001
+            print(f"Error reading file {file_path}: {e}")  # noqa: T201
 
     try:
         print(  # noqa: T201
