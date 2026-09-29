@@ -5,8 +5,7 @@
 ## web_search
 ##
 
-
-"""Example web tool implementation."""
+"""Web search tool implementation."""
 
 import os
 from typing import Any, cast
@@ -15,7 +14,7 @@ import httpx
 
 from .tool import Tool
 
-DEFAULT_TIMEOUT = 300
+DEFAULT_TIMEOUT = 100
 DEFAULT_CODE = 200
 
 
@@ -43,7 +42,7 @@ class WebSearch(Tool):
             },
         )
 
-    def execute(self, *_args: Any, **kwargs: Any) -> str:
+    def execute(self, *_args: Any, **kwargs: Any) -> dict[str, Any]:
         """Execute the web tool's functionality.
 
         This method should be overridden to implement specific web tool behavior.
@@ -53,12 +52,11 @@ class WebSearch(Tool):
             **kwargs: Keyword arguments for the tool's execution.
 
         Returns:
-            str: A message indicating that the web tool has been executed.
+            dict[str, Any]: The result of the web tool's execution.
         """
         query = kwargs.get("query", "Unknown Query")
 
-        web_search_result = web_search(query)
-        return f"Web search result for '{query}': {web_search_result}"
+        return web_search(query)
 
 
 def web_search(query: str) -> dict[str, Any]:
