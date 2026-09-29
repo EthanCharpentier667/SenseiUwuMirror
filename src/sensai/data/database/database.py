@@ -7,11 +7,12 @@ import sqlite_vec
 from peewee import Model, SqliteDatabase
 
 from sensai.data.profile.profile import Profile
+from sensai.data.session.chunk import Chunk, create_chunk_search_tables
 from sensai.data.session.document import Document
 from sensai.data.session.message import Message
 from sensai.data.session.session import Session
 
-_MODELS: list[type[Model]] = [Profile, Session, Message, Document]
+_MODELS: list[type[Model]] = [Profile, Session, Message, Document, Chunk]
 
 
 class Database:
@@ -55,6 +56,7 @@ class Database:
         """Create the project's tables if they don't already exist."""
         with self._db.bind_ctx(_MODELS):
             self._db.create_tables(_MODELS)
+        create_chunk_search_tables(self)
 
     def clear(self) -> None:
         """Delete all rows from the project's tables, children before parents."""

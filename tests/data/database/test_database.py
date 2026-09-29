@@ -6,11 +6,12 @@ import sqlite_vec
 
 from sensai.data.database.database import Database
 from sensai.data.profile.profile import Profile, create_profile
+from sensai.data.session.chunk import Chunk
 from sensai.data.session.document import Document
 from sensai.data.session.message import Message
 from sensai.data.session.session import Session
 
-_TABLES = {"profile", "session", "message", "document"}
+_TABLES = {"profile", "session", "message", "document", "chunk", "chunk_vec", "chunk_fts"}
 
 
 def test_connection_is_created_lazily(tmp_path: Path) -> None:
@@ -67,11 +68,12 @@ def test_clear_empties_every_table(tmp_path: Path) -> None:
 
     database.clear()
 
-    with database.database.bind_ctx([Profile, Session, Message, Document]):
+    with database.database.bind_ctx([Profile, Session, Message, Document, Chunk]):
         assert Profile.select().count() == 0
         assert Session.select().count() == 0
         assert Message.select().count() == 0
         assert Document.select().count() == 0
+        assert Chunk.select().count() == 0
     database.close()
 
 

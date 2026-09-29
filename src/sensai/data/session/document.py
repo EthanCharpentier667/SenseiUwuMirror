@@ -16,8 +16,8 @@ class Document(BaseModel):
     message_id = IntegerField(
         index=True, constraints=[SQL('REFERENCES "message" ("id") ON DELETE CASCADE')]
     )
-    # TODO: raw blob, needs RAG (convert + vectorize + retrieve relevant chunks)
-    # before use as LLM context
+    # TODO: raw blob, needs converting to text and splitting into embedded chunks
+    # (see `chunk.create_chunk`) before its relevant parts can be retrieved as LLM context
     content = BlobField()
     timestamp = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
