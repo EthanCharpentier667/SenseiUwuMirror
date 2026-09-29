@@ -88,3 +88,5 @@ class Database:
             exc_tb: The traceback object, if an exception occurred.
         """
         self.close()
+
+    Session = None

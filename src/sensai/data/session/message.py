@@ -1,6 +1,6 @@
 """Message for handling chat messages data, including content and associated documents."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from peewee import SQL, CharField, DateTimeField, FloatField, IntegerField, TextField
 
@@ -100,3 +100,22 @@ def get_messages_by_session(db: "Database", session_id: int) -> list[Message]:
             .order_by(Message.timestamp, Message.id)
         )
     return [_without_documents(message) for message in messages]
+
+
+def get_document_ids_by_session(db: "Database", session_id: int) -> list[int]:
+    """Retrieve all document IDs attached to messages in a session.
+
+    Args:
+        db (Database): The database to read from.
+        session_id (int): The unique identifier for the session.
+
+    Returns:
+        list[int]: The IDs of the documents attached to the messages in the session.
+    """
+    with db.database.bind_ctx([Document, Message]):
+        query = (
+            Document.select(Document.id)
+            .join(Message, on=(Document.message_id == Message.id))
+            .where(Message.session_id == session_id)
+        )
+        return [cast("int", document.id) for document in query]
