@@ -12,8 +12,10 @@ from .data.session.manager import (
     build_messages,
     create_new_session,
     maybe_compress_session,
+    retrieve_chunks,
     update_session,
 )
+from .embedder import Embedder
 from .tools.registry import get_all_tools
 from .ui import AsyncUIHandler, CLIHandler
 
@@ -53,6 +55,7 @@ async def async_main() -> None:
         token=config.token,
         timeout=config.timeout,
     )
+    embedder = Embedder(client)
     ui_handler = CLIHandler()
     agent = Agent(
         model=config.model,
@@ -70,7 +73,8 @@ async def async_main() -> None:
         )
         while True:
             user_input = await asyncio.to_thread(input, "Enter something (Ctrl+C to exit): ")
-            messages = build_messages(session, user_input)
+            retrieved = await retrieve_chunks(database, embedder, session, user_input)
+            messages = build_messages(session, user_input, retrieved)
             sent_prefix_length = len(messages) - 1
             response = await agent.run(messages=messages)
             session = update_session(database, session, response, sent_prefix_length)

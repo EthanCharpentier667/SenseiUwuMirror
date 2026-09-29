@@ -51,6 +51,10 @@ class _FakeDatabase:
         pass
 
 
+async def _fake_retrieve_chunks(*_args: Any, **_kwargs: Any) -> list[Any]:
+    return []
+
+
 async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
     return _make_session()
 
@@ -65,6 +69,7 @@ def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.maybe_compress_session", _fake_maybe_compress_session)
+    monkeypatch.setattr("sensai.retrieve_chunks", _fake_retrieve_chunks)
 
 
 def test_main_greets_the_profile_and_exits_on_keyboard_interrupt(
