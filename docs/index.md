@@ -54,6 +54,13 @@ uv run sensai
 
 ---
 
+## Local MCP Server
+
+The example server exposes an `add` tool over MCP. See the
+[MCP server guide](mcp-server.md) to start it and test the connection.
+
+---
+
 ## Development & Quality Checks
 
 Run the automated test suite with coverage:

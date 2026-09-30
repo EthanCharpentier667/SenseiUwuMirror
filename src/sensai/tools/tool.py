@@ -3,10 +3,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-CALL_GUARD_PREFIX = (
-    "Only call a tool when the user explicitly asks for that specific information.\n"
-)
-
 
 class Tool(ABC):
     """Base class for tools that can be used with the ``sensai`` package."""
@@ -38,7 +34,7 @@ class Tool(ABC):
             "type": self.type,
             "function": {
                 "name": self.name,
-                "description": CALL_GUARD_PREFIX + self.description,
+                "description": self.description,
                 "parameters": self.parameters,
             },
         }

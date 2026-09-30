@@ -7,7 +7,6 @@ import httpx
 import pytest
 
 import sensai.tools.web_fetch as web_fetch_module
-from sensai.tools.tool import CALL_GUARD_PREFIX
 from sensai.tools.web_fetch import DEFAULT_TIMEOUT, WebFetch, fetch_url
 
 PAGE_URL = "https://example.com/game"
@@ -25,7 +24,7 @@ def test_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "web_fetch",
-            "description": CALL_GUARD_PREFIX + tool.description,
+            "description": tool.description,
             "parameters": {
                 "type": "object",
                 "required": ["url"],
