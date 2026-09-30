@@ -94,6 +94,7 @@ async def ingest_initial_files(
                 )
             except ValueError:
                 delete_message(database, file_message.id)
+                console.print(f"[red]Failed to ingest file: {file_path}[/red]")
             console.print(f"[green]Successfully ingested file: {file_path}[/green]")
         except Exception as e:  # noqa: BLE001
             console.print(f"[red]Error reading file {file_path}: {e}[/red]")

@@ -133,7 +133,10 @@ class CLIApp:
                 if user_input.startswith("/"):
                     await self._handle_command(user_input)
                 else:
-                    await self._handle_chat(user_input)
+                    try:
+                        await self._handle_chat(user_input)
+                    except Exception as e:  # noqa: BLE001
+                        self.console.print(f"[bold red]Chat failed:[/bold red] {e}")
                     self.console.print("\n")
 
         except (KeyboardInterrupt, EOFError):

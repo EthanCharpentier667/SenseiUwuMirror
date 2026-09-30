@@ -33,7 +33,10 @@ def get_saved_credentials() -> tuple[str | None, str | None]:
         if not username:
             return None, None
 
-        password = keyring.get_password("sensai_cli", username)
+        try:
+            password = keyring.get_password("sensai_cli", username)
+        except Exception:  # noqa: BLE001
+            return None, None
         return username, password
 
 
