@@ -72,4 +72,6 @@ class MCPTools(Tool):
         if self.argument_transform is not None:
             arguments = self.argument_transform(arguments)
         result = await self.client.call_tool(self.name, arguments)
+        if result.is_error:
+            return {"MCP tool": {self.name}, "failed": {result}}
         return result.model_dump(mode="json", exclude_none=True)
