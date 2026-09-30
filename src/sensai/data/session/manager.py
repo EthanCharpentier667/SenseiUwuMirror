@@ -1,13 +1,19 @@
 """Manager for handling chat sessions, messages, and documents."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sensai.client import OllamaClient, Response
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import get_current_profile
+from sensai.data.session.chunk import Chunk, search_chunks_hybrid
 
-from .message import Message, create_message
+from .message import Message, create_message, get_document_ids_by_session
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
+
+if TYPE_CHECKING:
+    from sensai.embedder import Embedder
+
+DEFAULT_RETRIEVED_CHUNKS = 3
 
 HISTORY_CONTEXT_NOTE = (
     "Everything above, the conversation summary (if present) and the message history, "
@@ -16,6 +22,11 @@ HISTORY_CONTEXT_NOTE = (
     "the messages are only what happened since. Do not repeat a tool call for "
     "information already retrieved there. Use this context to answer the newest user "
     "message below."
+)
+RETRIEVED_CONTEXT_NOTE = (
+    "Excerpts from the documents attached to this session, retrieved as the most relevant "
+    "to the newest user message below. Use them to answer when they are relevant, and say "
+    "so if they don't contain the answer rather than making one up."
 )
 
 
@@ -189,7 +200,57 @@ def update_session(
     return get_session(db, session.id)
 
 
-def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
+def _retrieved_context(chunks: list[Chunk]) -> list[dict[str, Any]]:
+    """A system message carrying the document excerpts retrieved for the new prompt.
+
+    Like the profile context, it's recomputed for every prompt and never persisted, as it
+    only makes sense next to the prompt it was retrieved for.
+    """
+    if not chunks:
+        return []
+    excerpts = "\n\n".join(
+        f"[Document {chunk.document_id}, excerpt {chunk.position + 1}]\n{chunk.content}"
+        for chunk in chunks
+    )
+    return [{"role": "system", "content": f"{RETRIEVED_CONTEXT_NOTE}\n\n{excerpts}"}]
+
+
+async def retrieve_chunks(
+    db: Database,
+    embedder: "Embedder",
+    session: Session,
+    prompt: str,
+    k: int = DEFAULT_RETRIEVED_CHUNKS,
+) -> list[Chunk]:
+    """Find the chunks of a session's documents most relevant to a new prompt.
+
+    Searches by both meaning and keywords (see `search_chunks_hybrid`), and only among the
+    documents attached to this session's messages. Doesn't call the embedding model at all
+    when the session has no document.
+
+    Args:
+        db (Database): The database to read from.
+        embedder (Embedder): The embedder that embedded the documents' chunks.
+        session (Session): The session whose documents are searched.
+        prompt (str): The new user prompt to find relevant chunks for.
+        k (int, optional): The maximum number of chunks to return.
+            Default is `DEFAULT_RETRIEVED_CHUNKS`.
+
+    Returns:
+        list[Chunk]: The most relevant chunks first, ready for ``build_messages``.
+    """
+    if session.id is None:
+        return []
+    document_ids = get_document_ids_by_session(db, session.id)
+    if not document_ids:
+        return []
+    embedding = await embedder.embed_query(prompt)
+    return search_chunks_hybrid(db, prompt, embedding, k, document_ids)
+
+
+def build_messages(
+    session: Session, prompt: str, retrieved: list[Chunk] | None = None
+) -> list[dict[str, Any]]:
     """Build the API-ready message list for a new prompt, prefixed with a session's history.
 
     Messages already folded into ``session.summary`` are replaced by a single system
@@ -199,6 +260,11 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
     Args:
         session (Session): The session whose summary and persisted messages provide context.
         prompt (str): The new user prompt to append after the session's history.
+        retrieved (list[Chunk] | None, optional): Document chunks relevant to the prompt,
+            e.g. from ``retrieve_chunks``, placed as a system message right before it.
+            They add an entry to the payload's known-state prefix, so pass
+            ``len(messages) - 1`` as ``update_session``'s ``sent_prefix_length``.
+            Default is None, which adds nothing.
 
     Returns:
         list[dict[str, Any]]: The conversation history followed by the new prompt, in the
@@ -212,6 +278,7 @@ def build_messages(session: Session, prompt: str) -> list[dict[str, Any]]:
         *_context_prefix(session),
         *history,
         *_history_context_suffix(session),
+        *_retrieved_context(retrieved or []),
         {"role": "user", "content": prompt},
     ]
 

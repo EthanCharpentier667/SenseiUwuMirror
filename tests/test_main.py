@@ -1,5 +1,6 @@
 """Tests for the ``sensai`` package entry point."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Self
 
@@ -84,6 +85,10 @@ class _FakeMCPClient:
         )
 
 
+async def _fake_retrieve_chunks(*_args: Any, **_kwargs: Any) -> list[Any]:
+    return []
+
+
 async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
     return _make_session()
 
@@ -98,6 +103,7 @@ def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.maybe_compress_session", _fake_maybe_compress_session)
+    monkeypatch.setattr("sensai.retrieve_chunks", _fake_retrieve_chunks)
 
 
 def _assert_agent_calls(calls: list[dict[str, Any]], expected_route: str | None) -> None:
@@ -188,3 +194,96 @@ def test_main_calls_agent_run_for_each_input(
     assert len(clients) == (2 if expected_route else 0)
     assert all(client.closed and not client.connected and client.listed == 1 for client in clients)
     _assert_agent_calls(calls, expected_route)
+
+
+def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An MCP-enabled turn receives RAG excerpts and the next turn sees the updated session."""
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sensai.USE_MCP_MODE", True)
+    monkeypatch.setattr("sensai.USE_GITHUB_MCP", True)
+    monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
+    clients: list[_FakeMCPClient] = []
+
+    def fake_github_client() -> _FakeMCPClient:
+        client = _FakeMCPClient()
+        clients.append(client)
+        return client
+
+    updated_session = _make_session()
+
+    async def keep_updated_session(
+        _database: Any, session: Session, *_args: Any, **_kwargs: Any
+    ) -> Session:
+        return session
+
+    monkeypatch.setattr("sensai.maybe_compress_session", keep_updated_session)
+    seen_sessions: list[Session] = []
+    calls: list[tuple[list[dict[str, Any]], list[Any]]] = []
+
+    async def fake_retrieve(
+        _database: Any, _embedder: Any, session: Session, _prompt: str
+    ) -> list[Any]:
+        seen_sessions.append(session)
+        if len(seen_sessions) == 1:
+            return [SimpleNamespace(document_id=1, position=0, content="Project fact")]
+        return []
+
+    async def mock_run(
+        self: Agent,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None,
+    ) -> Response:
+        assert messages is not None
+        calls.append((messages, list(self.tools)))
+        return _make_response()
+
+    inputs = iter(["question about the project", "follow-up"])
+
+    def fake_input(_prompt: str) -> str:
+        try:
+            return next(inputs)
+        except StopIteration as exc:
+            raise EOFError from exc
+
+    monkeypatch.setattr("sensai.activate_github_mcp_client", fake_github_client)
+    monkeypatch.setattr("sensai.retrieve_chunks", fake_retrieve)
+    monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: updated_session)
+    monkeypatch.setattr(Agent, "run", mock_run)
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    main()
+
+    assert len(calls) == 2
+    assert any("Project fact" in message["content"] for message in calls[0][0])
+    assert any(isinstance(tool, MCPTools) for tool in calls[0][1])
+    assert seen_sessions[1] is updated_session
+    assert len(clients) == 2
+    assert all(client.closed and client.listed == 1 for client in clients)
+
+
+def test_main_ingests_cli_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A CLI file is read and sent to the RAG ingestion path before chatting."""
+    file_path = tmp_path / "notes.txt"
+    file_path.write_text("A project note")
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--files", str(file_path)])
+    monkeypatch.setattr("sensai.USE_MCP_MODE", False)
+    monkeypatch.setattr("sensai.create_message", lambda *args, **kwargs: SimpleNamespace(id=17))
+    calls: list[tuple[int, bytes, str]] = []
+
+    async def fake_ingest(
+        _database: Any, _embedder: Any, message_id: int, content: bytes, name: str
+    ) -> None:
+        calls.append((message_id, content, name))
+
+    def fake_input(_prompt: str) -> str:
+        raise EOFError
+
+    monkeypatch.setattr("sensai.ingest_document", fake_ingest)
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    main()
+
+    assert calls == [(17, b"A project note", "notes.txt")]

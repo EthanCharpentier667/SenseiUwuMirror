@@ -4,7 +4,13 @@ import peewee
 import pytest
 
 from sensai.data.database.database import Database
-from sensai.data.session.message import create_message, get_message, get_messages_by_session
+from sensai.data.session.document import create_document
+from sensai.data.session.message import (
+    create_message,
+    get_document_ids_by_session,
+    get_message,
+    get_messages_by_session,
+)
 from sensai.data.session.session import create_session
 
 
@@ -23,12 +29,6 @@ def test_create_message_assigns_an_id(db: Database, session_id: int) -> None:
     assert message.role == "user"
     assert message.response_time == 1.0
     assert message.session_id == session_id
-
-
-def test_create_message_starts_with_no_documents(db: Database, session_id: int) -> None:
-    message = create_message(db, session_id, "hello", "user", 1.0)
-
-    assert message.documents == []
 
 
 def test_create_message_rejects_unknown_session(db: Database) -> None:
@@ -79,3 +79,27 @@ def test_get_messages_by_session_returns_empty_list_when_none(
     db: Database, session_id: int
 ) -> None:
     assert get_messages_by_session(db, session_id) == []
+
+
+def test_get_document_ids_by_session_only_returns_that_sessions_documents(
+    db: Database, profile_id: int
+) -> None:
+    session = create_session(db, profile_id)
+    other_session = create_session(db, profile_id)
+    assert session.id is not None
+    assert other_session.id is not None
+    first = create_message(db, session.id, "a", "user", 1.0)
+    second = create_message(db, session.id, "b", "user", 2.0)
+    other = create_message(db, other_session.id, "c", "user", 3.0)
+    assert first.id is not None
+    assert second.id is not None
+    assert other.id is not None
+    expected = [
+        create_document(db, first.id, b"1").id,
+        create_document(db, second.id, b"2").id,
+        create_document(db, second.id, b"3").id,
+    ]
+    create_document(db, other.id, b"other")
+
+    assert sorted(get_document_ids_by_session(db, session.id)) == expected
+    assert get_document_ids_by_session(db, 9999) == []
