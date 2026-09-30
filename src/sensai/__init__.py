@@ -99,6 +99,21 @@ async def async_main() -> None:
         )
         while True:
             user_input = await asyncio.to_thread(input, "Enter something (Ctrl+C to exit): ")
+
+            if user_input.startswith("/switch-persona "):
+                new_key = user_input[len("/switch-persona "):].strip()
+                try:
+                    personas = load_personas(config.personas_file)
+                    new_persona = get_persona(personas, new_key)
+                    if new_persona is not None:
+                        agent.system_prompt = new_persona.system_prompt
+                        print(f"[Persona switched to '{new_key}': {new_persona.name}]")  # noqa: T201
+                    else:
+                        print(f"Warning: persona '{new_key}' not found.")  # noqa: T201
+                except (FileNotFoundError, ValueError) as exc:
+                    print(f"Warning: could not switch persona: {exc}")  # noqa: T201
+                continue
+
             messages = build_messages(session, user_input)
             sent_prefix_length = len(messages) - 1
             response = await agent.run(messages=messages)

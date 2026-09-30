@@ -237,3 +237,62 @@ def test_main_list_personas_warns_when_file_not_found(
     main()
 
     assert "Warning: personas file not found: nonexistent.json" in capsys.readouterr().out
+
+
+def test_main_switch_persona_updates_system_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({"teacher": {"name": "Teacher", "description": "Teaches.", "system_prompt": "You teach."}}),
+        encoding="utf-8",
+    )
+
+    captured_system_prompts: list[str | None] = []
+
+    async def mock_run(
+        self: Agent,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None,
+    ) -> Response:
+        captured_system_prompts.append(self.system_prompt)
+        raise KeyboardInterrupt
+
+    inputs = iter(["/switch-persona teacher", "hello"])
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--personas-file", str(personas_file)])
+    monkeypatch.setattr(Agent, "run", mock_run)
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+
+    main()
+
+    assert captured_system_prompts[0] == "You teach."
+
+
+def test_main_switch_persona_warns_when_key_not_found(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({"hero": {"name": "Hero", "description": "A hero.", "system_prompt": "You are a hero."}}),
+        encoding="utf-8",
+    )
+
+    inputs = iter(["/switch-persona unknown"])
+
+    def fake_input(_: str) -> str:
+        try:
+            return next(inputs)
+        except StopIteration:
+            raise KeyboardInterrupt
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--personas-file", str(personas_file)])
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    main()
+
+    assert "Warning: persona 'unknown' not found." in capsys.readouterr().out
