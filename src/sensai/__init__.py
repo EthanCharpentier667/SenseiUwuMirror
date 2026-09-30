@@ -14,6 +14,7 @@ from .data.session.manager import (
     maybe_compress_session,
     update_session,
 )
+from .persona.manager import get_persona, load_personas
 from .tools.registry import get_all_tools
 from .ui import AsyncUIHandler, CLIHandler
 
@@ -61,6 +62,17 @@ async def async_main() -> None:
         ui_handler=ui_handler,
         client=client,
     )
+
+    if config.persona:
+        try:
+            personas = load_personas(config.personas_file)
+            persona = get_persona(personas, config.persona)
+            if persona is not None:
+                agent.system_prompt = persona.system_prompt
+            else:
+                print(f"Warning: persona '{config.persona}' not found.")  # noqa: T201
+        except FileNotFoundError:
+            print(f"Warning: personas file not found: {config.personas_file}")  # noqa: T201
 
     try:
         print(  # noqa: T201

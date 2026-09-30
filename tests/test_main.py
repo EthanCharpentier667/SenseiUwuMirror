@@ -1,5 +1,7 @@
 """Tests for the ``sensai`` package entry point."""
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -125,3 +127,52 @@ def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) ->
     assert calls[1]["messages"] == [{"role": "user", "content": "second question"}]
     second_turn_tools = calls[1]["tools"]
     assert len(second_turn_tools) == 2
+
+
+def test_main_sets_agent_system_prompt_from_persona(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),
+        encoding="utf-8",
+    )
+
+    captured_system_prompts: list[str | None] = []
+
+    async def mock_run(
+        self: Agent,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None,
+    ) -> Response:
+        captured_system_prompts.append(self.system_prompt)
+        raise KeyboardInterrupt
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "hero", "--personas-file", str(personas_file)])
+    monkeypatch.setattr(Agent, "run", mock_run)
+    monkeypatch.setattr("builtins.input", lambda _: "hello")
+
+    main()
+
+    assert captured_system_prompts[0] == "You are a hero."
+
+
+def test_main_warns_when_persona_key_not_found(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),
+        encoding="utf-8",
+    )
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "unknown", "--personas-file", str(personas_file)])
+    monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
+
+    main()
+
+    assert "Warning: persona 'unknown' not found." in capsys.readouterr().out
