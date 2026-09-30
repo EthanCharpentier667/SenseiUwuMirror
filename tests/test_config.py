@@ -31,8 +31,6 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
         [
             "--model",
             "llama3.1",
-            "--reasoning-mode",
-            "plan",
             "--db-path",
             str(db_path),
             "--db-name",
@@ -43,26 +41,9 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
     )
 
     assert config.model == "llama3.1"
-    assert config.reasoning_mode == "plan"
     assert config.db_path == str(db_path)
     assert config.db_name == "custom.db"
     assert config.compression_threshold == 42
-
-
-def test_config_reasoning_mode_defaults_to_none_not_the_string_none() -> None:
-    config = Config()
-    config.parse_args([])
-
-    assert config.reasoning_mode is None
-
-
-def test_config_rejects_an_unknown_reasoning_mode() -> None:
-    config = Config()
-
-    with pytest.raises(SystemExit) as exc_info:
-        config.parse_args(["--reasoning-mode", "guess"])
-
-    assert exc_info.value.code == 2
 
 
 def test_config_get_args_returns_none_before_parsing() -> None:

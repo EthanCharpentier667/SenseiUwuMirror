@@ -28,3 +28,7 @@ class CLIHandler(AsyncUIHandler):
     async def on_error(self, error: Exception) -> None:
         """Called when an error occurs in the pipeline."""
         print(f"\n[Error]: {error}")  # noqa: T201
+
+    async def on_thinking_chunk(self, chunk: str) -> None:
+        """Called when a new piece of text is streamed from the model during the thinking phase."""
+        print(f"\033[2m{chunk}\033[0m", end="", flush=True)  # noqa: T201

@@ -25,3 +25,7 @@ class AsyncUIHandler(Protocol):
     async def on_error(self, error: Exception) -> None:
         """Called when an error occurs in the pipeline."""
         ...  # pragma: no cover
+
+    async def on_thinking_chunk(self, chunk: str) -> None:
+        """Called when a new piece of text is streamed from the model during the thinking phase."""
+        ...  # pragma: no cover

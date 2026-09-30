@@ -3,6 +3,7 @@
 import json
 import os
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -13,6 +14,8 @@ from sensai.data.session.message import Message
 from sensai.ui.protocol import AsyncUIHandler
 
 dotenv.load_dotenv()
+
+ChunkCallback = Callable[[str], Awaitable[None]]
 
 
 @dataclass
@@ -152,15 +155,15 @@ class OllamaClient:
         self,
         chunk: dict[str, Any],
         result: ChatResult,
-        ui_handler: AsyncUIHandler | None,
+        on_chunk: ChunkCallback | None,
     ) -> None:
         """Process an individual streaming chunk and update the accumulated result."""
         message = chunk.get("message", {})
         text = message.get("content", "")
         if text:
             result.text += text
-            if ui_handler:
-                await ui_handler.on_stream_chunk(text)
+            if on_chunk:
+                await on_chunk(text)
 
         if message.get("tool_calls"):
             result.tool_calls.extend(message["tool_calls"])
@@ -174,7 +177,7 @@ class OllamaClient:
     async def _parse_stream(
         self,
         response: httpx.Response,
-        ui_handler: AsyncUIHandler | None,
+        on_chunk: ChunkCallback | None,
     ) -> ChatResult:
         """Parse line-delimited JSON stream from the Ollama response."""
         result = ChatResult(status_code=response.status_code)
@@ -192,7 +195,7 @@ class OllamaClient:
                 msg = f"Ollama error: {chunk['error']}"
                 raise RuntimeError(msg)
 
-            await self._consume_chunk(chunk, result, ui_handler)
+            await self._consume_chunk(chunk, result, on_chunk)
             if chunk.get("done"):
                 is_done = True
                 break
@@ -221,7 +224,7 @@ class OllamaClient:
             status_code=response.status_code,
         )
 
-    async def chat(
+    async def chat(  # noqa: PLR0913
         self,
         messages: list[dict[str, Any]],
         model: str = "llama3.2",
@@ -229,6 +232,7 @@ class OllamaClient:
         *,
         stream: bool = True,
         ui_handler: AsyncUIHandler | None = None,
+        on_chunk: ChunkCallback | None = None,
     ) -> Response:
         """Send a chat completion request to Ollama.
 
@@ -238,10 +242,14 @@ class OllamaClient:
             tools: Formatted tool definitions to pass to the model.
             stream: Whether to stream the response progressively.
             ui_handler: Optional event handler for progressive streaming chunks.
+            on_chunk: Callback receiving each streamed text piece. Defaults to
+                ``ui_handler.on_stream_chunk`` when a handler is given.
 
         Returns:
             Response: The parsed response, including metadata and token usage.
         """
+        if on_chunk is None and ui_handler is not None:
+            on_chunk = ui_handler.on_stream_chunk
         headers = self._build_headers()
         payload = {
             "messages": messages,
@@ -250,7 +258,6 @@ class OllamaClient:
             "stream": stream,
         }
 
-        print(f"Sending request to Ollama: {payload}")  # noqa: T201
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:
             if not stream:
@@ -262,7 +269,7 @@ class OllamaClient:
                     "POST", self.base_url, headers=headers, json=payload
                 ) as response:
                     response.raise_for_status()
-                    parsed = await self._parse_stream(response, ui_handler)
+                    parsed = await self._parse_stream(response, on_chunk)
 
         respond_time = time.time()
         return Response(

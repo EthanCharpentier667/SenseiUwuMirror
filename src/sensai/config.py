@@ -12,7 +12,6 @@ DEFAULT_MODEL = "llama3.2"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
-REASONING_MODES = ["plan", "reflect"]
 DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
 
@@ -64,12 +63,6 @@ class Config:
             type=float,
             default=DEFAULT_TIMEOUT,
             help=f"The timeout for the Ollama API requests. Default: {DEFAULT_TIMEOUT} seconds.",
-        )
-        self.add_argument(
-            "--reasoning-mode",
-            default=None,
-            choices=REASONING_MODES,
-            help="Reasoning mode for the model. Not implemented yet.",
         )
         self.add_argument(
             "--db-path",
@@ -127,12 +120,6 @@ class Config:
     def model(self) -> str:
         """The LLM model to use."""
         return str(self._parsed().model)
-
-    @property
-    def reasoning_mode(self) -> str | None:
-        """The reasoning mode to use. Not implemented yet."""
-        reasoning_mode = self._parsed().reasoning_mode
-        return str(reasoning_mode) if reasoning_mode is not None else None
 
     @property
     def db_path(self) -> str:
