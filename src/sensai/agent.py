@@ -288,5 +288,4 @@ class Agent:
                     continue
             return response
 
-        # Out of turns: force a plain answer instead of returning a dangling tool-call turn.
         return await self._step(current_messages, formatted_tools=[])
