@@ -176,3 +176,33 @@ def test_main_warns_when_persona_key_not_found(
     main()
 
     assert "Warning: persona 'unknown' not found." in capsys.readouterr().out
+
+
+def test_main_warns_when_personas_file_not_found(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "hero", "--personas-file", "nonexistent.json"])
+    monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
+
+    main()
+
+    assert "Warning: personas file not found: nonexistent.json" in capsys.readouterr().out
+
+
+def test_main_warns_when_personas_file_is_malformed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({"bad": {"name": "Bad", "description": "Missing system_prompt"}}),
+        encoding="utf-8",
+    )
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "bad", "--personas-file", str(personas_file)])
+    monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
+
+    main()
+
+    assert "Warning: invalid personas file:" in capsys.readouterr().out

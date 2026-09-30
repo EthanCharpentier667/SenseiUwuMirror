@@ -73,6 +73,8 @@ async def async_main() -> None:
                 print(f"Warning: persona '{config.persona}' not found.")  # noqa: T201
         except FileNotFoundError:
             print(f"Warning: personas file not found: {config.personas_file}")  # noqa: T201
+        except ValueError as exc:
+            print(f"Warning: invalid personas file: {exc}")  # noqa: T201
 
     try:
         print(  # noqa: T201
