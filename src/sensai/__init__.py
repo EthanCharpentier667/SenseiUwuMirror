@@ -1,6 +1,7 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
 import asyncio
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .agent import Agent
@@ -12,8 +13,12 @@ from .data.session.manager import (
     build_messages,
     create_new_session,
     maybe_compress_session,
+    retrieve_chunks,
     update_session,
 )
+from .data.session.message import create_message, delete_message
+from .embedder import Embedder
+from .rag import ingest_document
 from .tools.registry import get_all_tools
 from .ui import AsyncUIHandler, CLIHandler
 
@@ -23,7 +28,7 @@ if TYPE_CHECKING:
     from .data.session.session import Session
 
 
-async def async_main() -> None:
+async def async_main() -> None:  # noqa: C901 PLR0915
     """Async entry point for the ``sensai`` console script."""
     config = Config()
     config.parse_args()
@@ -53,6 +58,7 @@ async def async_main() -> None:
         token=config.token,
         timeout=config.timeout,
     )
+    embedder = Embedder(client)
     ui_handler = CLIHandler()
     agent = Agent(
         model=config.model,
@@ -62,6 +68,31 @@ async def async_main() -> None:
         client=client,
     )
 
+    for file_path in config.files:
+        try:
+            with Path.open(file_path, "rb") as f:
+                file_content = f.read()
+                if session.id is None:
+                    break
+                file_message = create_message(
+                    db=database,
+                    session_id=session.id,
+                    content=f"File: {file_path}",
+                    role="user",
+                    response_time=0.0,
+                )
+                if file_message.id is None:
+                    break
+                try:
+                    await ingest_document(
+                        database, embedder, file_message.id, file_content, file_path.name
+                    )
+                except ValueError:
+                    delete_message(database, file_message.id)
+                print(f"Successfully ingested file: {file_path}")  # noqa: T201
+        except Exception as e:  # noqa: BLE001
+            print(f"Error reading file {file_path}: {e}")  # noqa: T201
+
     try:
         print(  # noqa: T201
             "Hello "
@@ -70,7 +101,8 @@ async def async_main() -> None:
         )
         while True:
             user_input = await asyncio.to_thread(input, "Enter something (Ctrl+C to exit): ")
-            messages = build_messages(session, user_input)
+            retrieved = await retrieve_chunks(database, embedder, session, user_input)
+            messages = build_messages(session, user_input, retrieved)
             sent_prefix_length = len(messages) - 1
             response = await agent.run(messages=messages)
             session = update_session(database, session, response, sent_prefix_length)

@@ -8,8 +8,11 @@ from sensai.client import OllamaClient, Response
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
+from sensai.data.session.chunk import EMBEDDING_DIMENSIONS, Chunk, create_chunk
+from sensai.data.session.document import create_document
 from sensai.data.session.manager import (
     HISTORY_CONTEXT_NOTE,
+    RETRIEVED_CONTEXT_NOTE,
     SessionManager,
     add_message_to_current_session,
     build_messages,
@@ -20,12 +23,14 @@ from sensai.data.session.manager import (
     get_current_session_id,
     is_current_session,
     maybe_compress_session,
+    retrieve_chunks,
     set_current_session,
     update_session,
 )
 from sensai.data.session.message import Message, create_message
 from sensai.data.session.message import Message as SessionMessage
 from sensai.data.session.session import Session, create_session, get_session, set_session_summary
+from sensai.embedder import Embedder
 
 TEST_BASE_URL = "http://localhost:11434/api/chat"
 TEST_TOKEN = "test-token"  # noqa: S105
@@ -613,3 +618,91 @@ async def test_maybe_compress_session_compresses_when_over_threshold(
 
     assert result.summary == "hi"
     assert result.summarized_message_id == last_message.id
+
+
+def _unit_vector(dimension: int) -> list[float]:
+    return [1.0 if i == dimension else 0.0 for i in range(EMBEDDING_DIMENSIONS)]
+
+
+class EmbedClient(OllamaClient):
+    """Ollama client embedding every input as the same fixed vector, recording requests."""
+
+    def __init__(self, vector: list[float]) -> None:
+        """Initialize EmbedClient with the vector to answer."""
+        super().__init__(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+        self.vector = vector
+        self.requests: list[list[str]] = []
+
+    async def embed(self, inputs: list[str], model: str) -> list[list[float]]:  # noqa: ARG002
+        self.requests.append(inputs)
+        return [self.vector for _ in inputs]
+
+
+def test_build_messages_places_retrieved_chunks_right_before_the_prompt() -> None:
+    session = Session(
+        profile_id=1,
+        id=1,
+        messages=[SessionMessage(session_id=1, content="hi", role="user", response_time=1.0)],
+    )
+    retrieved = [
+        Chunk(document_id=7, position=2, content="Le serveur redémarre à minuit."),
+        Chunk(document_id=8, position=0, content="Le café est en salle 3."),
+    ]
+
+    messages = build_messages(session, "quand redémarre le serveur ?", retrieved)
+
+    assert messages[:-2] == [
+        {"role": "user", "content": "hi"},
+        {"role": "system", "content": HISTORY_CONTEXT_NOTE},
+    ]
+    assert messages[-2] == {
+        "role": "system",
+        "content": f"{RETRIEVED_CONTEXT_NOTE}\n\n"
+        "[Document 7, excerpt 3]\nLe serveur redémarre à minuit.\n\n"
+        "[Document 8, excerpt 1]\nLe café est en salle 3.",
+    }
+    assert messages[-1] == {"role": "user", "content": "quand redémarre le serveur ?"}
+
+
+def test_build_messages_without_retrieved_chunks_adds_nothing() -> None:
+    session = Session(profile_id=1, id=1)
+
+    assert build_messages(session, "hello", []) == [{"role": "user", "content": "hello"}]
+
+
+@pytest.mark.asyncio
+async def test_retrieve_chunks_without_documents_does_not_embed(
+    db: Database, profile_id: int
+) -> None:
+    session = create_session(db, profile_id)
+    client = EmbedClient(_unit_vector(0))
+
+    assert await retrieve_chunks(db, Embedder(client), session, "hello") == []
+    assert client.requests == []
+
+
+@pytest.mark.asyncio
+async def test_retrieve_chunks_only_searches_the_sessions_documents(
+    db: Database, profile_id: int
+) -> None:
+    session = create_session(db, profile_id)
+    other_session = create_session(db, profile_id)
+    assert session.id is not None
+    assert other_session.id is not None
+    message = create_message(db, session.id, "voici le doc", "user", 1.0)
+    other_message = create_message(db, other_session.id, "autre doc", "user", 1.0)
+    assert message.id is not None
+    assert other_message.id is not None
+    document = create_document(db, message.id, b"doc")
+    other_document = create_document(db, other_message.id, b"other")
+    assert document.id is not None
+    assert other_document.id is not None
+    create_chunk(db, document.id, 0, "proche", _unit_vector(0))
+    create_chunk(db, document.id, 1, "loin", _unit_vector(1))
+    create_chunk(db, other_document.id, 0, "autre session", _unit_vector(0))
+    client = EmbedClient(_unit_vector(0))
+
+    chunks = await retrieve_chunks(db, Embedder(client), session, "question", k=1)
+
+    assert [chunk.content for chunk in chunks] == ["proche"]
+    assert client.requests == [["search_query: question"]]
