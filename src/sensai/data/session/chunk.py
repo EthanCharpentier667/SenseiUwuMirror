@@ -177,10 +177,36 @@ def search_chunks(
     Returns:
         list[Chunk]: The closest chunks, most similar first, each with its cosine `distance`.
     """
-    if document_ids == []:
-        return []
-    document_filter, filter_params = _document_filter("document_id", document_ids)
-    params: list[object] = [sqlite_vec.serialize_float32(embedding), k, *filter_params]
+    serialized = sqlite_vec.serialize_float32(embedding)
+    if document_ids is None:
+        return _nearest_chunks(db, serialized, k, None)
+    chunks = [
+        chunk
+        for document_id in dict.fromkeys(document_ids)
+        for chunk in _nearest_chunks(db, serialized, k, document_id)
+    ]
+    chunks.sort(key=lambda chunk: chunk.distance if chunk.distance is not None else float("inf"))
+    return chunks[:k]
+
+
+def _nearest_chunks(
+    db: "Database", serialized_embedding: bytes, k: int, document_id: int | None
+) -> list[Chunk]:
+    """Run one KNN query on `chunk_vec`, optionally restricted to a single document.
+
+    Args:
+        db (Database): The database to read from.
+        serialized_embedding (bytes): The query's embedding, serialized for sqlite-vec.
+        k (int): The maximum number of chunks to return.
+        document_id (int | None): Only search this document's chunks, or None for every chunk.
+
+    Returns:
+        list[Chunk]: The closest chunks, most similar first, each with its cosine `distance`.
+    """
+    document_filter = "" if document_id is None else "AND document_id = ?"
+    params: list[object] = [serialized_embedding, k]
+    if document_id is not None:
+        params.append(document_id)
     query = f"""
         SELECT chunk.*, nearest.distance
         FROM (
