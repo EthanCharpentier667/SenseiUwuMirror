@@ -68,4 +68,5 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - MCP server: mcp-server.md
   - API Reference: reference/
