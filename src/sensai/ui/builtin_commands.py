@@ -20,6 +20,7 @@ async def _help_execute(context: CommandContext, _args: list[str]) -> None:
     table.add_row("/logout", "Log out and clear saved credentials.")
     table.add_row("/prefs", "Manage preferences (list, add, remove, edit).")
     table.add_row("/inst", "Manage system instructions (list, add, remove, edit).")
+    table.add_row("/exit or /quit", "Exit the application.")
 
     await context.ui.on_system_message(table)
 
