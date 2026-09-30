@@ -32,11 +32,12 @@ async def _handle_create_profile(
     if choice.strip().lower() in {"y", "yes", "o", "oui"}:
         try:
             profile = create_new_profile(database, username, password)
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[bold red]Failed to create profile: {e}[/bold red]")
+        else:
             console.print(f"[bold green]✓ Profile '{profile.name}' created![/bold green]")
             save_credentials(username, password)
             return profile
-        except Exception as e:
-            console.print(f"[bold red]Failed to create profile: {e}[/bold red]")
     return None
 
 

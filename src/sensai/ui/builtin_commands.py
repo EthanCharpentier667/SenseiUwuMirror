@@ -27,8 +27,12 @@ async def _help_execute(context: CommandContext, _args: list[str]) -> None:
 async def _logout_execute(context: CommandContext, _args: list[str]) -> None:
     """Execute the /logout command."""
     clear_credentials()
-    await context.ui.on_system_message("[bold green]Successfully logged out. Credentials cleared from local state.[/bold green]")
-    await context.ui.on_system_message("[dim]Exiting application... Please restart to log in again.[/dim]")
+    await context.ui.on_system_message(
+        "[bold green]Successfully logged out. Credentials cleared from local state.[/bold green]"
+    )
+    await context.ui.on_system_message(
+        "[dim]Exiting application... Please restart to log in again.[/dim]"
+    )
     sys.exit(0)
 
 
@@ -40,7 +44,9 @@ async def _handle_list(context: CommandContext, lines: list[str], name: str) -> 
         await context.ui.on_system_message(f"  [cyan]{i}[/cyan]: {line}")
 
 
-async def _handle_add(context: CommandContext, args: list[str], lines: list[str], name: str) -> bool:
+async def _handle_add(
+    context: CommandContext, args: list[str], lines: list[str], name: str
+) -> bool:
     text = " ".join(args[1:])
     if not text:
         await context.ui.on_system_message(f"[red]Usage: /{name[:5]} add <text>[/red]")
@@ -49,8 +55,10 @@ async def _handle_add(context: CommandContext, args: list[str], lines: list[str]
     return True
 
 
-async def _handle_remove(context: CommandContext, args: list[str], lines: list[str], name: str) -> bool:
-    if len(args) < 2 or not args[1].isdigit():
+async def _handle_remove(
+    context: CommandContext, args: list[str], lines: list[str], name: str
+) -> bool:
+    if len(args) < 2 or not args[1].isdigit():  # noqa: PLR2004
         await context.ui.on_system_message(f"[red]Usage: /{name[:5]} remove <index>[/red]")
         return False
     idx = int(args[1])
@@ -62,8 +70,10 @@ async def _handle_remove(context: CommandContext, args: list[str], lines: list[s
     return True
 
 
-async def _handle_edit(context: CommandContext, args: list[str], lines: list[str], name: str) -> bool:
-    if len(args) < 3 or not args[1].isdigit():
+async def _handle_edit(
+    context: CommandContext, args: list[str], lines: list[str], name: str
+) -> bool:
+    if len(args) < 3 or not args[1].isdigit():  # noqa: PLR2004
         await context.ui.on_system_message(f"[red]Usage: /{name[:5]} edit <index> <new text>[/red]")
         return False
     idx = int(args[1])
@@ -76,7 +86,9 @@ async def _handle_edit(context: CommandContext, args: list[str], lines: list[str
     return True
 
 
-async def _manage_list_command(context: CommandContext, args: list[str], lines: list[str], name: str) -> list[str] | None:
+async def _manage_list_command(
+    context: CommandContext, args: list[str], lines: list[str], name: str
+) -> list[str] | None:
     """Helper to manage list, add, remove, edit for preferences and instructions."""
     if not args or args[0] == "list":
         await _handle_list(context, lines, name)
@@ -92,7 +104,9 @@ async def _manage_list_command(context: CommandContext, args: list[str], lines: 
     elif subcmd == "edit":
         changed = await _handle_edit(context, args, lines, name)
     else:
-        await context.ui.on_system_message(f"[red]Unknown subcommand: {subcmd}. Use list, add, remove, or edit.[/red]")
+        await context.ui.on_system_message(
+            f"[red]Unknown subcommand: {subcmd}. Use list, add, remove, or edit.[/red]"
+        )
         return None
 
     return lines if changed else None
@@ -113,7 +127,9 @@ async def _prefs_execute(context: CommandContext, args: list[str]) -> None:
         new_prefs = "\n".join(new_lines)
         update_profile_preferences(context.database, profile.id, new_prefs)
         profile.preferences = new_prefs
-        await context.ui.on_system_message("[bold green]Preferences updated successfully.[/bold green]")
+        await context.ui.on_system_message(
+            "[bold green]Preferences updated successfully.[/bold green]"
+        )
 
 
 async def _inst_execute(context: CommandContext, args: list[str]) -> None:
@@ -131,7 +147,9 @@ async def _inst_execute(context: CommandContext, args: list[str]) -> None:
         new_inst = "\n".join(new_lines)
         update_profile_instructions(context.database, profile.id, new_inst)
         profile.instructions = new_inst
-        await context.ui.on_system_message("[bold green]Instructions updated successfully.[/bold green]")
+        await context.ui.on_system_message(
+            "[bold green]Instructions updated successfully.[/bold green]"
+        )
 
 
 async def _exit_execute(context: CommandContext, _args: list[str]) -> None:
@@ -146,5 +164,19 @@ def setup_builtin_commands(registry: CommandRegistry) -> None:
     registry.register(Command("/logout", "Log out and clear saved credentials.", _logout_execute))
     registry.register(Command("/exit", "Exit the application.", _exit_execute))
     registry.register(Command("/quit", "Exit the application.", _exit_execute))
-    registry.register(Command("/prefs", "Manage preferences.", _prefs_execute, subcommands=["list", "add", "remove", "edit"]))
-    registry.register(Command("/inst", "Manage system instructions.", _inst_execute, subcommands=["list", "add", "remove", "edit"]))
+    registry.register(
+        Command(
+            "/prefs",
+            "Manage preferences.",
+            _prefs_execute,
+            subcommands=["list", "add", "remove", "edit"],
+        )
+    )
+    registry.register(
+        Command(
+            "/inst",
+            "Manage system instructions.",
+            _inst_execute,
+            subcommands=["list", "add", "remove", "edit"],
+        )
+    )

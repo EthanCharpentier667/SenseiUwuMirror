@@ -38,7 +38,7 @@ def test_state_management(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
     save_credentials("testuser", "testpass")
     user, pwd = get_saved_credentials()
     assert user == "testuser"
-    assert pwd == "testpass"
+    assert pwd == "testpass"  # noqa: S105
 
     clear_credentials()
     user, pwd = get_saved_credentials()

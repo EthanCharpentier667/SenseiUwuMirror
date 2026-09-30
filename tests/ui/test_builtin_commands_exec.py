@@ -14,10 +14,17 @@ class MockUIHandler:
     async def on_system_message(self, message: Any) -> None:
         pass
 
-    async def on_stream_chunk(self, chunk: str) -> None: pass
-    async def on_tool_call_request(self, name: str, args: dict[str, Any]) -> bool: return True
-    async def on_tool_call_result(self, name: str, result: Any) -> None: pass
-    async def on_error(self, error: Exception) -> None: pass
+    async def on_stream_chunk(self, chunk: str) -> None:
+        pass
+
+    async def on_tool_call_request(self, _name: str, _args: dict[str, Any]) -> bool:
+        return True
+
+    async def on_tool_call_result(self, name: str, result: Any) -> None:
+        pass
+
+    async def on_error(self, error: Exception) -> None:
+        pass
 
 
 @pytest.mark.asyncio
@@ -52,12 +59,15 @@ async def test_prefs_full(monkeypatch: pytest.MonkeyPatch) -> None:
     ProfileManager.current_profile = None
     await _prefs_execute(ctx, ["list"])
 
+
 @pytest.mark.asyncio
 async def test_inst_full(monkeypatch: pytest.MonkeyPatch) -> None:
     profile = Profile(name="test", password="test", id=1, instructions="Inst 0\nInst 1")  # noqa: S106
     ProfileManager.current_profile = profile
 
-    monkeypatch.setattr("sensai.ui.builtin_commands.update_profile_instructions", lambda *args: None)
+    monkeypatch.setattr(
+        "sensai.ui.builtin_commands.update_profile_instructions", lambda *args: None
+    )
 
     ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
 
@@ -84,11 +94,13 @@ async def test_inst_full(monkeypatch: pytest.MonkeyPatch) -> None:
     ProfileManager.current_profile = None
     await _inst_execute(ctx, ["list"])
 
+
 @pytest.mark.asyncio
 async def test_help_execute() -> None:
     ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
 
-    from sensai.ui.builtin_commands import _help_execute
+    from sensai.ui.builtin_commands import _help_execute  # noqa: PLC0415
+
     await _help_execute(ctx, [])
 
 
@@ -98,8 +110,9 @@ async def test_logout_execute(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
 
+    from sensai.ui.builtin_commands import _logout_execute  # noqa: PLC0415
+
     with pytest.raises(SystemExit):
-        from sensai.ui.builtin_commands import _logout_execute
         await _logout_execute(ctx, [])
 
 
@@ -107,6 +120,7 @@ async def test_logout_execute(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_exit_execute() -> None:
     ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
 
+    from sensai.ui.builtin_commands import _exit_execute  # noqa: PLC0415
+
     with pytest.raises(SystemExit):
-        from sensai.ui.builtin_commands import _exit_execute
         await _exit_execute(ctx, [])

@@ -29,14 +29,14 @@ class Command:
     subcommands: list[str] = field(default_factory=list)
 
 
-class SlashCommandCompleter(Completer):
+class SlashCommandCompleter(Completer):  # type: ignore[misc,unused-ignore]
     """Completer for slash commands."""
 
     def __init__(self, commands: dict[str, Command]) -> None:
         """Initialize the completer with available commands."""
         self.commands = commands
 
-    def get_completions(self, document: Document, complete_event: CompleteEvent) -> Any:
+    def get_completions(self, document: Document, _complete_event: CompleteEvent) -> Any:
         """Yield completions if the text starts with a slash."""
         text = document.text_before_cursor
         if not text.startswith("/"):
@@ -55,7 +55,7 @@ class SlashCommandCompleter(Completer):
                         display_meta=cmd.description,
                     )
 
-        elif len(words) == 2:
+        elif len(words) == 2:  # noqa: PLR2004
             cmd_name = words[0]
             if cmd_name in self.commands:
                 cmd = self.commands[cmd_name]
@@ -103,7 +103,10 @@ class CommandRegistry:
         args = parts[1:]
 
         if command_name not in self._commands:
-            await context.ui.on_system_message(f"[bold red]Unknown command:[/bold red] {command_name}. Type /help to see available commands.")
+            await context.ui.on_system_message(
+                f"[bold red]Unknown command:[/bold red] {command_name}. "
+                "Type /help to see available commands."
+            )
             return
 
         command = self._commands[command_name]
@@ -111,7 +114,7 @@ class CommandRegistry:
             await command.execute(context, args)
         except SystemExit:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             await context.ui.on_error(e)
 
     def get_all_commands(self) -> list[Command]:

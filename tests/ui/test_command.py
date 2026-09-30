@@ -24,11 +24,13 @@ async def test_command_registry() -> None:
     class MockUIHandler:
         async def on_system_message(self, message: Any) -> None:
             pass
+
         async def on_error(self, error: Exception) -> None:
             pass
 
-    from sensai.ui.command import CommandContext
-    ctx = CommandContext(database=None, ui=MockUIHandler())
+    from sensai.ui.command import CommandContext  # noqa: PLC0415
+
+    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
 
     await registry.execute("/test arg1 arg2", ctx)
 
@@ -38,10 +40,11 @@ async def test_command_registry() -> None:
     await registry.execute("/unknown", ctx)
     assert len(calls) == 1
 
-def test_slash_command_completer() -> None:
-    from prompt_toolkit.document import Document
 
-    from sensai.ui.command import SlashCommandCompleter
+def test_slash_command_completer() -> None:
+    from prompt_toolkit.document import Document  # noqa: PLC0415
+
+    from sensai.ui.command import SlashCommandCompleter  # noqa: PLC0415
 
     async def dummy_cmd(c: Any, a: Any) -> None:
         pass
@@ -52,19 +55,19 @@ def test_slash_command_completer() -> None:
     completer = SlashCommandCompleter({"/test": cmd1, "/taco": cmd2})
 
     # Not starting with slash
-    comps = list(completer.get_completions(Document("hello"), None))
+    comps = list(completer.get_completions(Document("hello"), None))  # type: ignore[arg-type]
     assert len(comps) == 0
 
     # Starting with slash, matching multiple
-    comps = list(completer.get_completions(Document("/t"), None))
+    comps = list(completer.get_completions(Document("/t"), None))  # type: ignore[arg-type]
     assert len(comps) == 2
     assert {c.text for c in comps} == {"/test", "/taco"}
 
     # Subcommand completion
-    comps = list(completer.get_completions(Document("/test a"), None))
+    comps = list(completer.get_completions(Document("/test a"), None))  # type: ignore[arg-type]
     assert len(comps) == 1
     assert comps[0].text == "add"
 
     # Subcommand completion empty match
-    comps = list(completer.get_completions(Document("/taco a"), None))
+    comps = list(completer.get_completions(Document("/taco a"), None))  # type: ignore[arg-type]
     assert len(comps) == 0
