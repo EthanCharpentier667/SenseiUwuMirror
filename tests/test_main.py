@@ -206,3 +206,34 @@ def test_main_warns_when_personas_file_is_malformed(
     main()
 
     assert "Warning: invalid personas file:" in capsys.readouterr().out
+
+
+def test_main_list_personas_prints_keys_and_exits(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({
+            "teacher": {"name": "Teacher", "description": "Explains things.", "system_prompt": "You teach."},
+            "coder": {"name": "Coder", "description": "Writes code.", "system_prompt": "You code."},
+        }),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("sys.argv", ["sensai", "--list-personas", "--personas-file", str(personas_file)])
+
+    main()
+
+    out = capsys.readouterr().out
+    assert "coder" in out
+    assert "teacher" in out
+
+
+def test_main_list_personas_warns_when_file_not_found(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("sys.argv", ["sensai", "--list-personas", "--personas-file", "nonexistent.json"])
+
+    main()
+
+    assert "Warning: personas file not found: nonexistent.json" in capsys.readouterr().out

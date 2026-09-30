@@ -98,6 +98,12 @@ class Config:
             default=DEFAULT_PERSONAS_FILE,
             help=f"Path to the personas JSON file. Default: {DEFAULT_PERSONAS_FILE}.",
         )
+        self.add_argument(
+            "--list-personas",
+            action="store_true",
+            default=False,
+            help="List available personas from the personas file and exit.",
+        )
 
     def add_argument(self, *args: Any, **kwargs: Any) -> None:
         """Add a command-line argument to the parser."""
@@ -175,3 +181,8 @@ class Config:
     def personas_file(self) -> str:
         """Path to the personas JSON file."""
         return str(self._parsed().personas_file)
+
+    @property
+    def list_personas(self) -> bool:
+        """Whether to list available personas and exit."""
+        return bool(self._parsed().list_personas)

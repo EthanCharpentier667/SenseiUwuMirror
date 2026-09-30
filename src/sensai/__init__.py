@@ -14,7 +14,7 @@ from .data.session.manager import (
     maybe_compress_session,
     update_session,
 )
-from .persona.manager import get_persona, load_personas
+from .persona.manager import get_persona, list_personas, load_personas
 from .tools.registry import get_all_tools
 from .ui import AsyncUIHandler, CLIHandler
 
@@ -28,6 +28,21 @@ async def async_main() -> None:
     """Async entry point for the ``sensai`` console script."""
     config = Config()
     config.parse_args()
+
+    if config.list_personas:
+        try:
+            personas = load_personas(config.personas_file)
+            keys = list_personas(personas)
+            if keys:
+                print("Available personas:")  # noqa: T201
+                for key in keys:
+                    p = personas[key]
+                    print(f"  {key}: {p.name} — {p.description}")  # noqa: T201
+            else:
+                print("No personas found.")  # noqa: T201
+        except FileNotFoundError:
+            print(f"Warning: personas file not found: {config.personas_file}")  # noqa: T201
+        return
 
     database = Database(config.db_path, config.db_name)
     database.initialize()
