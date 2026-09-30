@@ -27,16 +27,3 @@ async def get_mcp_tools(client: Client) -> list[Tool]:
     """
     result = await client.list_tools()
     return [MCPTools(client, definition) for definition in result.tools]
-
-
-async def get_all_tools(*, mcp_mode: bool = False, client: Client | None = None) -> list[Tool]:
-    """Create all tools that can be passed to the language model.
-
-    Returns:
-        list[Tool]: Instantiated tools ready to be defined and executed.
-    """
-    tools = get_tools()
-    if mcp_mode and client is not None:
-        mcp_tools = await get_mcp_tools(client)
-        tools.extend(mcp_tools)
-    return tools

@@ -7,14 +7,13 @@ from mcp import Client
 from mcp.types import CallToolResult, ListToolsResult, TextContent
 from mcp.types import Tool as MCPToolDefinition
 
-from sensai.tools.registry import get_all_tools
+from sensai.tools.registry import get_mcp_tools, get_tools
 from sensai.tools.temperature_example import TempToolExample
 from sensai.tools.web_search import WebSearch
 
 
-@pytest.mark.asyncio
-async def test_get_all_tools_returns_tool_instances() -> None:
-    tools = await get_all_tools()
+def test_get_tools_returns_tool_instances() -> None:
+    tools = get_tools()
 
     assert len(tools) == 3
     assert isinstance(tools[0], WebSearch)
@@ -38,10 +37,13 @@ async def test_mcp_tools_are_discovered_and_executed_remotely() -> None:
     client.list_tools = AsyncMock(return_value=ListToolsResult(tools=[definition]))
     client.call_tool = AsyncMock(return_value=result)
 
-    tools = await get_all_tools(mcp_mode=True, client=client)
+    remote_tools = await get_mcp_tools(client)
+    tools = get_tools() + remote_tools
 
     assert len(tools) == 4
-    adapter = tools[-1]
+    assert len(remote_tools) == 1
+    client.call_tool.assert_not_awaited()
+    adapter = remote_tools[0]
     assert adapter.define()["function"]["name"] == "add"
     assert adapter.define()["function"]["parameters"] == definition.input_schema
     output = await adapter.execute(a=2, b=3)

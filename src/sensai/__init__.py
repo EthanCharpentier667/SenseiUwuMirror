@@ -1,9 +1,7 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
 import asyncio
-from typing import TYPE_CHECKING
-
-from sensai.mcp.sensai_client import activate_mcp_client
+import os
 
 from .agent import Agent
 from .client import OllamaClient
@@ -16,13 +14,17 @@ from .data.session.manager import (
     maybe_compress_session,
     update_session,
 )
-from .tools.registry import get_all_tools
+from .data.session.session import Session
+from .mcp.sensai_client import activate_github_mcp_client, activate_mcp_client
+from .tools.registry import get_mcp_tools, get_tools
 from .ui import AsyncUIHandler, CLIHandler
 
-__all__ = ["Agent", "AsyncUIHandler", "CLIHandler", "OllamaClient", "main"]
+# Temporary MCP settings until configuration is available.
+USE_MCP_MODE = True
+USE_GITHUB_MCP = True
+MCP_SERVER_URL = "https://docs.mcp.cloudflare.com/mcp"
 
-if TYPE_CHECKING:
-    from .data.session.session import Session
+__all__ = ["Agent", "AsyncUIHandler", "CLIHandler", "OllamaClient", "main"]
 
 
 async def async_main() -> None:
@@ -56,37 +58,56 @@ async def async_main() -> None:
         timeout=config.timeout,
     )
     ui_handler = CLIHandler()
-    async with activate_mcp_client(
-        "https://docs.mcp.cloudflare.com/mcp"
-    ) as mcp_client:  # TEMP : MCP client is always active for testing purposes
-        agent = Agent(
-            model=config.model,
-            tools=await get_all_tools(mcp_mode=True, client=mcp_client),
-            human_in_the_loop=True,
-            ui_handler=ui_handler,
-            client=ollama_client,
-        )
-        print(  # noqa: T201
-            "Hello "
-            + profile.name
-            + "! Welcome to Sensai. You can start chatting now. (Press Ctrl+C to exit.)\n"
-        )
-        while True:
+    agent = Agent(
+        model=config.model,
+        tools=get_tools(),
+        human_in_the_loop=True,
+        ui_handler=ui_handler,
+        client=ollama_client,
+    )
+    print(  # noqa: T201
+        "Hello "
+        + profile.name
+        + "! Welcome to Sensai. You can start chatting now. (Press Ctrl+C to exit.)\n"
+    )
+    while True:
+        try:
             user_input = await asyncio.to_thread(input, "Enter something (Ctrl+C to exit): ")
-            messages = build_messages(session, user_input)
-            sent_prefix_length = len(messages) - 1
-            response = await agent.run(messages=messages)
-            session = update_session(database, session, response, sent_prefix_length)
-            if session is None:
-                raise ValueError("Failed to update the session after the first response.")
-            session = await maybe_compress_session(
-                database,
-                session,
-                response,
-                threshold=config.compression_threshold,
-                client=ollama_client,
-            )
-            print("\n")  # noqa: T201
+        except EOFError:
+            break
+        if USE_MCP_MODE and USE_GITHUB_MCP and os.environ.get("GITHUB_MCP_TOKEN", None) is not None:
+            async with activate_github_mcp_client() as mcp_client:
+                agent.tools = get_tools() + await get_mcp_tools(mcp_client)
+                await loop(user_input, database, session, agent, config)
+        elif USE_MCP_MODE and MCP_SERVER_URL:
+            async with activate_mcp_client(MCP_SERVER_URL) as mcp_client:
+                agent.tools = get_tools() + await get_mcp_tools(mcp_client)
+                await loop(user_input, database, session, agent, config)
+        else:
+            await loop(user_input, database, session, agent, config)
+
+
+async def loop(
+    user_input: str,
+    database: Database,
+    session: Session,
+    agent: Agent,
+    config: Config,
+) -> None:
+    messages = build_messages(session, user_input)
+    sent_prefix_length = len(messages) - 1
+    response = await agent.run(messages=messages)
+    updated_session = update_session(database, session, response, sent_prefix_length)
+    if updated_session is None:
+        raise ValueError("Failed to update the session after the first response.")
+    await maybe_compress_session(
+        database,
+        updated_session,
+        response,
+        threshold=config.compression_threshold,
+        client=agent.client,
+    )
+    print("\n")  # noqa: T201
 
 
 def main() -> None:
