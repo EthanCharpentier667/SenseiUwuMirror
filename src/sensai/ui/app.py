@@ -12,6 +12,8 @@ from sensai.config import Config
 from sensai.data.database.database import Database
 from sensai.data.session.manager import build_messages, maybe_compress_session, update_session
 from sensai.data.session.session import Session
+from sensai.ui.builtin_commands import setup_builtin_commands
+from sensai.ui.command import CommandContext, CommandRegistry
 
 
 class CLIApp:
@@ -43,8 +45,10 @@ class CLIApp:
         self.config = config
         self.profile_name = profile_name
         self.console = Console()
-        self.prompt_session: PromptSession[str] | None = None
 
+        self.command_registry = CommandRegistry()
+        setup_builtin_commands(self.command_registry)
+        self.prompt_session: PromptSession[str] | None = None
         self._setup_prompt_session()
 
     def _setup_prompt_session(self) -> None:
@@ -67,13 +71,44 @@ class CLIApp:
             message="Vous > ",
             multiline=True,
             key_bindings=kb,
+            completer=self.command_registry.get_completer(),
+        )
+
+    async def _handle_command(self, user_input: str) -> None:
+        """Execute a built-in slash command."""
+        if self.agent.ui_handler is None:
+            raise ValueError("UI handler is not set on the agent.")
+        ctx = CommandContext(database=self.database, ui=self.agent.ui_handler)
+        await self.command_registry.execute(user_input, ctx)
+
+    async def _handle_chat(self, user_input: str) -> None:
+        """Process a standard chat message with the AI."""
+        messages = build_messages(self.session, user_input)
+        sent_prefix_length = len(messages) - 1
+
+        response = await self.agent.run(messages=messages)
+
+        updated_session = update_session(self.database, self.session, response, sent_prefix_length)
+        if updated_session is None:
+            msg = "Failed to update the session after the response."
+            raise ValueError(msg)
+
+        self.session = updated_session
+
+        self.session = await maybe_compress_session(
+            self.database,
+            self.session,
+            response,
+            threshold=self.config.compression_threshold,
+            client=self.client,
         )
 
     async def run(self) -> None:
         """Run the interactive REPL loop."""
         self.console.print(f"[bold cyan]Hello {self.profile_name}! Welcome to Sensai.[/bold cyan]")
         self.console.print(
-            "[dim](Press Enter to submit, Alt+Enter/Esc+Enter for new line, Ctrl+C to exit)[/dim]\n"
+            "[dim](Type /help for commands, Press Enter to submit, "
+            "Alt+Enter for new line, Ctrl+C to exit)[/dim]\n"
         )
 
         if self.prompt_session is None:
@@ -85,29 +120,11 @@ class CLIApp:
                 if not user_input.strip():
                     continue
 
-                messages = build_messages(self.session, user_input)
-                sent_prefix_length = len(messages) - 1
-
-                response = await self.agent.run(messages=messages)
-
-                updated_session = update_session(
-                    self.database, self.session, response, sent_prefix_length
-                )
-                if updated_session is None:
-                    msg = "Failed to update the session after the response."
-                    raise ValueError(msg)
-
-                self.session = updated_session
-
-                self.session = await maybe_compress_session(
-                    self.database,
-                    self.session,
-                    response,
-                    threshold=self.config.compression_threshold,
-                    client=self.client,
-                )
-
-                self.console.print("\n")
+                if user_input.startswith("/"):
+                    await self._handle_command(user_input)
+                else:
+                    await self._handle_chat(user_input)
+                    self.console.print("\n")
 
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n[bold red]Program terminated by user.[/bold red]")

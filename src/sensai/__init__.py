@@ -2,14 +2,16 @@
 
 import asyncio
 
+from rich.console import Console
+
 from sensai.config import Config
 from sensai.core.setup import (
-    ensure_dev_profile,
     get_or_create_session,
     setup_ai_engine,
     setup_database,
 )
 from sensai.ui.app import CLIApp
+from sensai.ui.auth import authenticate_user
 
 __all__ = ["CLIApp", "main"]
 
@@ -22,7 +24,8 @@ async def async_main() -> None:
     database = setup_database(config)
     client, agent = setup_ai_engine(config)
 
-    profile = ensure_dev_profile(database)
+    console = Console()
+    profile = await authenticate_user(database, console)
     session = get_or_create_session(database, profile)
 
     app = CLIApp(

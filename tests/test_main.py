@@ -57,9 +57,12 @@ async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
 
 
 def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _mock_auth(*args: Any, **kwargs: Any) -> Profile:
+        return _make_profile()
+
     monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.setup_database", lambda *args, **kwargs: _FakeDatabase())
-    monkeypatch.setattr("sensai.ensure_dev_profile", lambda *args, **kwargs: _make_profile())
+    monkeypatch.setattr("sensai.authenticate_user", _mock_auth)
     monkeypatch.setattr("sensai.get_or_create_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.maybe_compress_session", _fake_maybe_compress_session)

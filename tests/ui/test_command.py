@@ -55,19 +55,19 @@ def test_slash_command_completer() -> None:
     completer = SlashCommandCompleter({"/test": cmd1, "/taco": cmd2})
 
     # Not starting with slash
-    comps = list(completer.get_completions(Document("hello"), None))  # type: ignore[arg-type]
+    comps = list(completer.get_completions(Document("hello"), None))
     assert len(comps) == 0
 
     # Starting with slash, matching multiple
-    comps = list(completer.get_completions(Document("/t"), None))  # type: ignore[arg-type]
+    comps = list(completer.get_completions(Document("/t"), None))
     assert len(comps) == 2
     assert {c.text for c in comps} == {"/test", "/taco"}
 
     # Subcommand completion
-    comps = list(completer.get_completions(Document("/test a"), None))  # type: ignore[arg-type]
+    comps = list(completer.get_completions(Document("/test a"), None))
     assert len(comps) == 1
     assert comps[0].text == "add"
 
     # Subcommand completion empty match
-    comps = list(completer.get_completions(Document("/taco a"), None))  # type: ignore[arg-type]
+    comps = list(completer.get_completions(Document("/taco a"), None))
     assert len(comps) == 0
