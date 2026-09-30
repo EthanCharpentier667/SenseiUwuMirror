@@ -16,8 +16,6 @@ class Document(BaseModel):
     message_id = IntegerField(
         index=True, constraints=[SQL('REFERENCES "message" ("id") ON DELETE CASCADE')]
     )
-    # TODO: raw blob, needs RAG (convert + vectorize + retrieve relevant chunks)
-    # before use as LLM context
     content = BlobField()
     timestamp = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
@@ -35,6 +33,24 @@ def create_document(db: "Database", message_id: int, content: bytes) -> Document
     """
     with db.database.bind_ctx([Document]):
         return Document.create(message_id=message_id, content=content)
+
+
+def get_document_id(document: Document) -> int:
+    """Get the ID of a document, raising an error if it doesn't have one.
+
+    Args:
+        document (Document): The document to get the ID from.
+
+    Returns:
+        int: The document's ID.
+
+    Raises:
+        ValueError: If the document doesn't have an ID.
+    """
+    if document.id is None:
+        msg = "Document has no ID; it may not have been created in the database yet."
+        raise ValueError(msg)
+    return document.id
 
 
 def get_document(db: "Database", document_id: int) -> Document | None:

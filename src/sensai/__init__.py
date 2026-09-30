@@ -7,9 +7,11 @@ from rich.console import Console
 from sensai.config import Config
 from sensai.core.setup import (
     get_or_create_session,
+    ingest_initial_files,
     setup_ai_engine,
     setup_database,
 )
+from sensai.embedder import Embedder
 from sensai.ui.app import CLIApp
 from sensai.ui.auth import authenticate_user
 
@@ -23,10 +25,13 @@ async def async_main() -> None:
 
     database = setup_database(config)
     client, agent = setup_ai_engine(config)
+    embedder = Embedder(client)
 
     console = Console()
     profile = await authenticate_user(database, console)
     session = get_or_create_session(database, profile)
+
+    await ingest_initial_files(database, embedder, session, config.files, console)
 
     app = CLIApp(
         agent=agent,
@@ -35,6 +40,7 @@ async def async_main() -> None:
         client=client,
         config=config,
         profile_name=profile.name,
+        embedder=embedder,
     )
     await app.run()
 

@@ -10,8 +10,14 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient
 from sensai.config import Config
 from sensai.data.database.database import Database
-from sensai.data.session.manager import build_messages, maybe_compress_session, update_session
+from sensai.data.session.manager import (
+    build_messages,
+    maybe_compress_session,
+    retrieve_chunks,
+    update_session,
+)
 from sensai.data.session.session import Session
+from sensai.embedder import Embedder
 from sensai.ui.builtin_commands import setup_builtin_commands
 from sensai.ui.command import CommandContext, CommandRegistry
 
@@ -27,6 +33,7 @@ class CLIApp:
         client: OllamaClient,
         config: Config,
         profile_name: str,
+        embedder: Embedder | None = None,
     ) -> None:
         """Initialize the CLI Application.
 
@@ -37,6 +44,7 @@ class CLIApp:
             client: The Ollama client.
             config: The application configuration.
             profile_name: The name of the user profile.
+            embedder: Optional embedder for document chunk retrieval.
         """
         self.agent = agent
         self.database = database
@@ -44,6 +52,7 @@ class CLIApp:
         self.client = client
         self.config = config
         self.profile_name = profile_name
+        self.embedder = embedder or Embedder(client)
         self.console = Console()
 
         self.command_registry = CommandRegistry()
@@ -83,7 +92,8 @@ class CLIApp:
 
     async def _handle_chat(self, user_input: str) -> None:
         """Process a standard chat message with the AI."""
-        messages = build_messages(self.session, user_input)
+        retrieved = await retrieve_chunks(self.database, self.embedder, self.session, user_input)
+        messages = build_messages(self.session, user_input, retrieved)
         sent_prefix_length = len(messages) - 1
 
         response = await self.agent.run(messages=messages)

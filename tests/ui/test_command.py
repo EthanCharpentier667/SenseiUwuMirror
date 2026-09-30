@@ -42,6 +42,7 @@ async def test_command_registry() -> None:
 
 
 def test_slash_command_completer() -> None:
+    from prompt_toolkit.completion import CompleteEvent  # noqa: PLC0415
     from prompt_toolkit.document import Document  # noqa: PLC0415
 
     from sensai.ui.command import SlashCommandCompleter  # noqa: PLC0415
@@ -53,21 +54,22 @@ def test_slash_command_completer() -> None:
     cmd2 = Command("/taco", "Test 2", dummy_cmd)
 
     completer = SlashCommandCompleter({"/test": cmd1, "/taco": cmd2})
+    event = CompleteEvent()
 
     # Not starting with slash
-    comps = list(completer.get_completions(Document("hello"), None))
+    comps = list(completer.get_completions(Document("hello"), event))
     assert len(comps) == 0
 
     # Starting with slash, matching multiple
-    comps = list(completer.get_completions(Document("/t"), None))
+    comps = list(completer.get_completions(Document("/t"), event))
     assert len(comps) == 2
     assert {c.text for c in comps} == {"/test", "/taco"}
 
     # Subcommand completion
-    comps = list(completer.get_completions(Document("/test a"), None))
+    comps = list(completer.get_completions(Document("/test a"), event))
     assert len(comps) == 1
     assert comps[0].text == "add"
 
     # Subcommand completion empty match
-    comps = list(completer.get_completions(Document("/taco a"), None))
+    comps = list(completer.get_completions(Document("/taco a"), event))
     assert len(comps) == 0

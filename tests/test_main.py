@@ -52,6 +52,10 @@ class _FakeDatabase:
         pass
 
 
+async def _fake_retrieve_chunks(*_args: Any, **_kwargs: Any) -> list[Any]:
+    return []
+
+
 async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
     return _make_session()
 
@@ -66,6 +70,7 @@ def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sensai.get_or_create_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.maybe_compress_session", _fake_maybe_compress_session)
+    monkeypatch.setattr("sensai.ui.app.retrieve_chunks", _fake_retrieve_chunks)
 
 
 def test_main_greets_the_profile_and_exits_on_keyboard_interrupt(
@@ -118,11 +123,11 @@ def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) ->
     assert calls[0]["prompt"] is None
     assert calls[0]["messages"] == [{"role": "user", "content": "hello there"}]
     first_turn_tools = calls[0]["tools"]
-    assert len(first_turn_tools) == 2
+    assert len(first_turn_tools) == 3
     assert isinstance(first_turn_tools[0], WebSearch)
     assert isinstance(first_turn_tools[1], TempToolExample)
 
     assert calls[1]["prompt"] is None
     assert calls[1]["messages"] == [{"role": "user", "content": "second question"}]
     second_turn_tools = calls[1]["tools"]
-    assert len(second_turn_tools) == 2
+    assert len(second_turn_tools) == 3
