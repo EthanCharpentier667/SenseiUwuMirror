@@ -71,6 +71,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_thinking_chunk(self, chunk: str) -> None:
         self.thinking.append(chunk)
 
+    async def on_system_message(self, message: Any) -> None:
+        pass
+
 
 class FakeTool:
     """Fake tool for agent tests."""

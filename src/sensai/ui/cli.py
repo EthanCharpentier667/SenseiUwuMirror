@@ -1,8 +1,12 @@
 """CLI implementation of the AsyncUIHandler protocol."""
 
-import asyncio
 import json
 from typing import Any
+
+from prompt_toolkit import PromptSession
+from rich.console import Console
+from rich.panel import Panel
+from rich.syntax import Syntax
 
 from .protocol import AsyncUIHandler
 
@@ -10,25 +14,40 @@ from .protocol import AsyncUIHandler
 class CLIHandler(AsyncUIHandler):
     """CLI implementation of the Event Manager."""
 
+    def __init__(self) -> None:
+        """Initialize the CLI Handler with a rich console."""
+        self.console = Console()
+
     async def on_stream_chunk(self, chunk: str) -> None:
         """Called when a new piece of text is streamed from the model."""
-        print(chunk, end="", flush=True)  # noqa: T201
+        self.console.out(chunk, end="")
 
     async def on_tool_call_request(self, name: str, arguments: dict[str, Any]) -> bool:
         """Ask the user to approve a tool call via the terminal."""
-        print(f"\n\nThe AI wants to call '{name}' with the following arguments:")  # noqa: T201
-        print(json.dumps(arguments, indent=2, ensure_ascii=False))  # noqa: T201
+        json_str = json.dumps(arguments, indent=2, ensure_ascii=False)
+        syntax = Syntax(json_str, "json", theme="monokai", word_wrap=True)
+        panel = Panel(
+            syntax, title=f"[bold blue]Tool Call Request: {name}[/bold blue]", border_style="blue"
+        )
+        self.console.print("\n")
+        self.console.print(panel)
 
-        choice = await asyncio.to_thread(input, "Approve? [y/n] : ")
+        session = PromptSession[str]()
+        choice = await session.prompt_async("Approve this action? [Y/n]: ")
         return choice.strip().lower() in {"y", "yes", "o", "oui", ""}
 
-    async def on_tool_call_result(self, name: str, result: Any) -> None:
+    async def on_tool_call_result(self, name: str, result: Any) -> None:  # noqa: ARG002
         """Called when a tool has finished executing."""
+        self.console.print(f"[bold green]✓ Tool '{name}' executed successfully.[/bold green]\n")
 
     async def on_error(self, error: Exception) -> None:
         """Called when an error occurs in the pipeline."""
-        print(f"\n[Error]: {error}")  # noqa: T201
+        self.console.print(f"\n[bold red][Error]: {error}[/bold red]")
 
     async def on_thinking_chunk(self, chunk: str) -> None:
         """Called when a new piece of text is streamed from the model during the thinking phase."""
-        print(f"\033[2m{chunk}\033[0m", end="", flush=True)  # noqa: T201
+        self.console.print(f"\033[2m{chunk}\033[0m", end="", flush=True)
+
+    async def on_system_message(self, message: Any) -> None:
+        """Display a system message (like a command output)."""
+        self.console.print(message)

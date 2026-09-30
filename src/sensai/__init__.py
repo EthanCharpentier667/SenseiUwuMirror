@@ -1,120 +1,48 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
 import asyncio
-from pathlib import Path
-from typing import TYPE_CHECKING
 
-from .agent import Agent
-from .client import OllamaClient
-from .config import Config
-from .data.database.database import Database
-from .data.profile.manager import add_instruction, add_preference, create_new_profile, login
-from .data.session.manager import (
-    build_messages,
-    create_new_session,
-    maybe_compress_session,
-    retrieve_chunks,
-    update_session,
+from rich.console import Console
+
+from sensai.config import Config
+from sensai.core.setup import (
+    get_or_create_session,
+    ingest_initial_files,
+    setup_ai_engine,
+    setup_database,
 )
-from .data.session.message import create_message, delete_message
-from .embedder import Embedder
-from .rag import ingest_document
-from .tools.registry import get_all_tools
-from .ui import AsyncUIHandler, CLIHandler
+from sensai.embedder import Embedder
+from sensai.ui.app import CLIApp
+from sensai.ui.auth import authenticate_user
 
-__all__ = ["Agent", "AsyncUIHandler", "CLIHandler", "OllamaClient", "main"]
-
-if TYPE_CHECKING:
-    from .data.session.session import Session
+__all__ = ["CLIApp", "main"]
 
 
-async def async_main() -> None:  # noqa: C901 PLR0915
+async def async_main() -> None:
     """Async entry point for the ``sensai`` console script."""
     config = Config()
     config.parse_args()
 
-    database = Database(config.db_path, config.db_name)
-    database.initialize()
-
-    profile_name = "Ethan"
-    profile_secret_not_secret = "667"  # noqa: S105
-    profile = login(profile_name, profile_secret_not_secret, database)
-
-    if profile is None:
-        profile = create_new_profile(database, profile_name, profile_secret_not_secret)
-        add_preference(database, "User prefer French language.")
-        add_instruction(database, 'replace all the ponctuation by "uwu"')
-        if profile is None:
-            raise ValueError("Failed to create or login to the default profile.")
-    if profile.id is None:
-        raise ValueError("Failed to create the default profile; no ID was returned.")
-
-    session: Session | None = create_new_session(database, profile.id, "test_session")
-    if session is None:
-        raise ValueError("Failed to create the default session.")
-
-    client = OllamaClient(
-        base_url=config.url,
-        token=config.token,
-        timeout=config.timeout,
-    )
+    database = setup_database(config)
+    client, agent = setup_ai_engine(config)
     embedder = Embedder(client)
-    ui_handler = CLIHandler()
-    agent = Agent(
-        model=config.model,
-        tools=get_all_tools(),
-        human_in_the_loop=True,
-        ui_handler=ui_handler,
+
+    console = Console()
+    profile = await authenticate_user(database, console)
+    session = get_or_create_session(database, profile)
+
+    await ingest_initial_files(database, embedder, session, config.files, console)
+
+    app = CLIApp(
+        agent=agent,
+        database=database,
+        session=session,
         client=client,
+        config=config,
+        profile_name=profile.name,
+        embedder=embedder,
     )
-
-    for file_path in config.files:
-        try:
-            with Path.open(file_path, "rb") as f:
-                file_content = f.read()
-                if session.id is None:
-                    break
-                file_message = create_message(
-                    db=database,
-                    session_id=session.id,
-                    content=f"File: {file_path}",
-                    role="user",
-                    response_time=0.0,
-                )
-                if file_message.id is None:
-                    break
-                try:
-                    await ingest_document(
-                        database, embedder, file_message.id, file_content, file_path.name
-                    )
-                except ValueError:
-                    delete_message(database, file_message.id)
-                print(f"Successfully ingested file: {file_path}")  # noqa: T201
-        except Exception as e:  # noqa: BLE001
-            print(f"Error reading file {file_path}: {e}")  # noqa: T201
-
-    try:
-        print(  # noqa: T201
-            "Hello "
-            + profile.name
-            + "! Welcome to Sensai. You can start chatting now. (Press Ctrl+C to exit.)\n"
-        )
-        while True:
-            user_input = await asyncio.to_thread(input, "Enter something (Ctrl+C to exit): ")
-            retrieved = await retrieve_chunks(database, embedder, session, user_input)
-            messages = build_messages(session, user_input, retrieved)
-            sent_prefix_length = len(messages) - 1
-            response = await agent.run(messages=messages)
-            session = update_session(database, session, response, sent_prefix_length)
-            if session is None:
-                raise ValueError("Failed to update the session after the first response.")
-            session = await maybe_compress_session(
-                database, session, response, threshold=config.compression_threshold, client=client
-            )
-            print("\n")  # noqa: T201
-
-    except KeyboardInterrupt:
-        print("\nProgram terminated by user.")  # noqa: T201
+    await app.run()
 
 
 def main() -> None:

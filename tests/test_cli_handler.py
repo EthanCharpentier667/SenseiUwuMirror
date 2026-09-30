@@ -1,6 +1,5 @@
 """Tests for the ``sensai.cli_handler`` module."""
 
-import asyncio
 from typing import Any
 
 import pytest
@@ -22,26 +21,26 @@ async def test_on_stream_chunk(capsys: pytest.CaptureFixture[str]) -> None:
 async def test_on_tool_call_request_approved(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    async def mock_to_thread(func: Any, prompt: str) -> str:
+    async def mock_prompt_async(*args: Any, **kwargs: Any) -> str:
         return "y"
 
-    monkeypatch.setattr(asyncio, "to_thread", mock_to_thread)
+    monkeypatch.setattr("sensai.ui.cli.PromptSession.prompt_async", mock_prompt_async)
 
     handler = CLIHandler()
     result = await handler.on_tool_call_request("my_tool", {"arg": "value"})
 
     assert result is True
     captured = capsys.readouterr()
-    assert "The AI wants to call 'my_tool'" in captured.out
+    assert "Tool Call Request: my_tool" in captured.out
     assert '"arg": "value"' in captured.out
 
 
 @pytest.mark.asyncio
 async def test_on_tool_call_request_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def mock_to_thread(func: Any, prompt: str) -> str:
+    async def mock_prompt_async(*args: Any, **kwargs: Any) -> str:
         return "n"
 
-    monkeypatch.setattr(asyncio, "to_thread", mock_to_thread)
+    monkeypatch.setattr("sensai.ui.cli.PromptSession.prompt_async", mock_prompt_async)
 
     handler = CLIHandler()
     result = await handler.on_tool_call_request("my_tool", {})

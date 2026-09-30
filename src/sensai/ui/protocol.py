@@ -29,3 +29,7 @@ class AsyncUIHandler(Protocol):
     async def on_thinking_chunk(self, chunk: str) -> None:
         """Called when a new piece of text is streamed from the model during the thinking phase."""
         ...  # pragma: no cover
+
+    async def on_system_message(self, message: Any) -> None:
+        """Called when the system needs to display a generic message to the user."""
+        ...  # pragma: no cover

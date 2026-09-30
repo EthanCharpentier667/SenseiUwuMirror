@@ -37,6 +37,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_thinking_chunk(self, chunk: str) -> None:
         pass
 
+    async def on_system_message(self, message: Any) -> None:
+        pass
+
 
 @pytest.mark.asyncio
 async def test_client_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
