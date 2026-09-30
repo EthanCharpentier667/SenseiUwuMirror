@@ -43,3 +43,7 @@ class CLIHandler(AsyncUIHandler):
     async def on_error(self, error: Exception) -> None:
         """Called when an error occurs in the pipeline."""
         self.console.print(f"\n[bold red][Error]: {error}[/bold red]")
+
+    async def on_system_message(self, message: Any) -> None:
+        """Display a system message (like a command output)."""
+        self.console.print(message)
