@@ -60,3 +60,11 @@ async def test_on_error(capsys: pytest.CaptureFixture[str]) -> None:
 
     captured = capsys.readouterr()
     assert "[Error]: Oups" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_on_thinking_chunk_is_dimmed(capsys: pytest.CaptureFixture[str]) -> None:
+    handler = CLIHandler()
+    await handler.on_thinking_chunk("Hmm")
+    captured = capsys.readouterr()
+    assert captured.out == "\033[2mHmm\033[0m"
