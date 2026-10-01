@@ -14,6 +14,7 @@ DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
+DEFAULT_NUM_CTX = 16384
 
 
 class Config:
@@ -63,6 +64,13 @@ class Config:
             type=float,
             default=DEFAULT_TIMEOUT,
             help=f"The timeout for the Ollama API requests. Default: {DEFAULT_TIMEOUT} seconds.",
+        )
+        self.add_argument(
+            "--num-ctx",
+            type=int,
+            default=DEFAULT_NUM_CTX,
+            help="Context window size (in tokens) requested from Ollama. "
+            f"Default: {DEFAULT_NUM_CTX}.",
         )
         self.add_argument(
             "--db-path",
@@ -151,6 +159,11 @@ class Config:
     def timeout(self) -> float:
         """The timeout for the Ollama API requests."""
         return float(self._parsed().timeout)
+
+    @property
+    def num_ctx(self) -> int:
+        """Context window size (in tokens) requested from Ollama."""
+        return int(self._parsed().num_ctx)
 
     @property
     def files(self) -> list[Path]:

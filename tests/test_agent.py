@@ -518,3 +518,41 @@ async def test_agent_think_prompt_lists_available_tools(tools: list[Any], expect
 
     think_prompt = client.calls[0][1][-1]["content"]
     assert think_prompt.endswith(expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("thought", "expected_names"),
+    [
+        ("No tool needed.\nDECISION: ANSWER", []),
+        ("Need the weather.\nDECISION: TOOL get_temperature", ["get_temperature"]),
+        ("Need it.\ndecision: tool `calculator`", ["calculator"]),
+        ("DECISION: TOOL calculator\nActually no.\nDECISION: ANSWER", []),
+        ("Need it.\nDECISION: TOOL unknown_tool", ["calculator", "get_temperature"]),
+        ("No decision line.", ["calculator", "get_temperature"]),
+    ],
+)
+async def test_agent_act_tools_follow_think_decision(
+    thought: str, expected_names: list[str]
+) -> None:
+    received_tools: list[list[dict[str, Any]]] = []
+
+    class MockClient(OllamaClient):
+        async def chat(
+            self, messages: list[dict[str, Any]], *_args: Any, **kwargs: Any
+        ) -> Response:
+            if messages[-1]["content"].startswith(THINK_PREFIX):
+                return _make_response(thought)
+            if kwargs.get("stream") is False:
+                return _make_response("YES")
+            received_tools.append(kwargs.get("tools") or [])
+            return _make_response("Done.")
+
+    agent = Agent(
+        tools=[FakeTool(), TemperatureTool()],
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+    )
+
+    await agent.run("Hi")
+
+    assert [t["function"]["name"] for t in received_tools[0]] == expected_names

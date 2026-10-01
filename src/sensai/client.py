@@ -129,6 +129,7 @@ class OllamaClient:
         base_url: str,
         token: str | None,
         timeout: float,
+        num_ctx: int | None = None,
     ) -> None:
         """Initialize the Ollama client.
 
@@ -136,10 +137,14 @@ class OllamaClient:
             base_url: Base endpoint URL for the chat API.
             token: Bearer authentication token of the Ollama API.
             timeout: HTTP request timeout in seconds.
+            num_ctx: Context window size (in tokens) for chat requests. When None, Ollama
+                uses its own default, small enough to silently drop the oldest messages
+                (often the user's question) once tool results pile up.
         """
         self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
+        self.num_ctx = num_ctx
 
     def _build_headers(self) -> dict[str, str]:
         """Construct authorization and content-type headers."""
@@ -251,12 +256,14 @@ class OllamaClient:
         if on_chunk is None and ui_handler is not None:
             on_chunk = ui_handler.on_stream_chunk
         headers = self._build_headers()
-        payload = {
+        payload: dict[str, Any] = {
             "messages": messages,
             "model": model,
             "tools": tools or [],
             "stream": stream,
         }
+        if self.num_ctx is not None:
+            payload["options"] = {"num_ctx": self.num_ctx}
 
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:

@@ -10,6 +10,7 @@ from sensai.config import (
     DEFAULT_DB_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_MODEL,
+    DEFAULT_NUM_CTX,
     Config,
 )
 
@@ -22,6 +23,7 @@ def test_config_uses_defaults_when_no_arguments_are_given() -> None:
     assert config.db_path == DEFAULT_DB_PATH
     assert config.db_name == DEFAULT_DB_NAME
     assert config.compression_threshold == DEFAULT_COMPRESSION_TOKEN_THRESHOLD
+    assert config.num_ctx == DEFAULT_NUM_CTX
 
 
 def test_config_parses_provided_arguments(tmp_path: Path) -> None:
@@ -37,6 +39,8 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
             "custom.db",
             "--compression-threshold",
             "42",
+            "--num-ctx",
+            "8192",
         ]
     )
 
@@ -44,6 +48,7 @@ def test_config_parses_provided_arguments(tmp_path: Path) -> None:
     assert config.db_path == str(db_path)
     assert config.db_name == "custom.db"
     assert config.compression_threshold == 42
+    assert config.num_ctx == 8192
 
 
 def test_config_get_args_returns_none_before_parsing() -> None:

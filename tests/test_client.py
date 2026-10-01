@@ -381,3 +381,41 @@ async def test_client_embed_raises_on_ollama_error(monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(RuntimeError, match="model not found"):
         await client.embed(["hello"], "missing")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("num_ctx", "expected_options"), [(None, None), (8192, {"num_ctx": 8192})])
+async def test_client_chat_sends_num_ctx_option(
+    monkeypatch: pytest.MonkeyPatch, num_ctx: int | None, expected_options: dict[str, int] | None
+) -> None:
+    sent: dict[str, Any] = {}
+
+    class MockResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return {"message": {"content": "ok"}, "done_reason": "stop"}
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        async def post(self, *_args: Any, **kwargs: Any) -> MockResponse:
+            sent.update(kwargs["json"])
+            return MockResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    monkeypatch.setenv("TOKEN", "test_env_token")
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT, num_ctx=num_ctx)
+    await client.chat(messages=[{"role": "user", "content": "hi"}], stream=False)
+
+    assert sent.get("options") == expected_options

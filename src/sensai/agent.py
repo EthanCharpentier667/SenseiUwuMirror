@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 import json
+import re
 from typing import Any
 
 from sensai.client import OllamaClient, Response
@@ -11,15 +12,16 @@ from sensai.ui.protocol import AsyncUIHandler
 DEFAULT_MAX_TURNS = 10
 
 THINK_PROMPT = (
-    "For thinking, reason in english without ANY preferences or instructions given by the user. "
     "Before acting, reason step by step about the conversation so far. "
     "What does the user actually want? What do you already know from the tool results? "
-    "What is the single next step: call a tool (which one, with what), or answer? "
-    "Reflect about which tools are available and what they can do, "
-    "and ONLY call a tool if you are SURE it will be useful to answer the user. "
-    "Do NOT write the final answer. Only your reasoning.\n\n"
+    "What is the single next step: call a tool (which one, with what, and why "
+    "(is it useful ? Justify your choice)), or answer? "
+    "If a tool result above already answers the question, answer. "
+    "Do NOT write the final answer. Only your reasoning.\n"
+    "End with exactly one line: 'DECISION: ANSWER' or 'DECISION: TOOL <tool name>'.\n\n"
     "Available tools:\n{tools}"
 )
+DECISION_PATTERN = re.compile(r"DECISION:\s*(ANSWER|TOOL\s+[`'\"]?([\w-]+))", re.IGNORECASE)
 ACT_PROMPT = (
     "Your private reasoning:\n{thought}\n\n"
     "Now execute the next step: call a tool or answer the user."
@@ -49,6 +51,24 @@ def _describe_tools(tools: list[Any]) -> str:
         description = " ".join(function.get("description", "").split())
         lines.append(f"- {function.get('name', '')}: {description}")
     return "\n".join(lines)
+
+
+def _tools_for_decision(
+    thought: str, formatted_tools: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Restrict ACT's tools to what THINK decided, so the model cannot ignore its reasoning.
+
+    'ANSWER' gives no tool, 'TOOL <name>' only that tool. Without a usable decision (missing
+    or unknown tool name), every tool stays available.
+    """
+    decisions = DECISION_PATTERN.findall(thought)
+    if not decisions:
+        return formatted_tools
+    decision, name = decisions[-1]
+    if decision.upper() == "ANSWER":
+        return []
+    chosen = [t for t in formatted_tools if t.get("function", {}).get("name") == name]
+    return chosen or formatted_tools
 
 
 def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Response:
@@ -197,7 +217,9 @@ class Agent:
         """Reason about the next step without calling tools, streaming it as thinking."""
         on_chunk = self.ui_handler.on_thinking_chunk if self.ui_handler else None
         response = await self._chat(
-            [*current_messages, _ephemeral("user", self._think_prompt())], [], on_chunk=on_chunk
+            [*current_messages, _ephemeral("assistant", self._think_prompt())],
+            [],
+            on_chunk=on_chunk,
         )
         if on_chunk:
             await on_chunk("\n\n")
@@ -229,7 +251,7 @@ class Agent:
         """Execute a single turn: think, then act. Returns (is_done, response)."""
         thought = await self._think(current_messages)
         payload = [*current_messages, _ephemeral("user", ACT_PROMPT.format(thought=thought))]
-        response = await self._step(payload, formatted_tools)
+        response = await self._step(payload, _tools_for_decision(thought, formatted_tools))
         tool_calls = response.tool_calls
         if not tool_calls:
             return True, response
