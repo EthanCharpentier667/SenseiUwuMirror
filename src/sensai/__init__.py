@@ -5,6 +5,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from sensai.mcp.github_mcp import GitHubMCP
+from sensai.mcp.sensai_client import SensAIClient
+
 from .agent import Agent
 from .client import OllamaClient
 from .config import Config
@@ -20,7 +23,6 @@ from .data.session.manager import (
 from .data.session.message import create_message, delete_message
 from .data.session.session import Session
 from .embedder import Embedder
-from .mcp.sensai_client import activate_github_mcp_client, activate_mcp_client
 from .rag import ingest_document
 from .tools.registry import get_mcp_tools, get_tools
 from .ui import AsyncUIHandler, CLIHandler
@@ -130,11 +132,11 @@ async def async_main() -> None:
         except EOFError:
             break
         if USE_MCP_MODE and USE_GITHUB_MCP and os.environ.get("GITHUB_MCP_TOKEN") is not None:
-            async with activate_github_mcp_client() as mcp_client:
+            async with GitHubMCP().activate() as mcp_client:
                 agent.tools = get_tools() + await get_mcp_tools(mcp_client)
                 session = await loop(user_input, session, runtime)
         elif USE_MCP_MODE and MCP_SERVER_URL:
-            async with activate_mcp_client(MCP_SERVER_URL) as mcp_client:
+            async with SensAIClient(MCP_SERVER_URL).activate() as mcp_client:
                 agent.tools = get_tools() + await get_mcp_tools(mcp_client)
                 session = await loop(user_input, session, runtime)
         else:

@@ -63,6 +63,10 @@ class _FakeMCPClient:
         self.closed = False
         self.listed = 0
 
+    def activate(self) -> Self:
+        """Return the context entered by the refactored MCP clients."""
+        return self
+
     async def __aenter__(self) -> Self:
         self.connected = True
         return self
@@ -183,8 +187,8 @@ def test_main_calls_agent_run_for_each_input(
     monkeypatch.delenv("GITHUB_MCP_TOKEN", raising=False)
     if mode == "github":
         monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
-    monkeypatch.setattr("sensai.activate_github_mcp_client", fake_github_client)
-    monkeypatch.setattr("sensai.activate_mcp_client", fake_public_client)
+    monkeypatch.setattr("sensai.GitHubMCP", fake_github_client)
+    monkeypatch.setattr("sensai.SensAIClient", fake_public_client)
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("builtins.input", fake_input)
 
@@ -247,7 +251,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         except StopIteration as exc:
             raise EOFError from exc
 
-    monkeypatch.setattr("sensai.activate_github_mcp_client", fake_github_client)
+    monkeypatch.setattr("sensai.GitHubMCP", fake_github_client)
     monkeypatch.setattr("sensai.retrieve_chunks", fake_retrieve)
     monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: updated_session)
     monkeypatch.setattr(Agent, "run", mock_run)

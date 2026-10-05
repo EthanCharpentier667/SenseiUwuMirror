@@ -6,8 +6,9 @@ from unittest.mock import Mock
 import httpx2
 import pytest
 
-import sensai.mcp.sensai_client as mcp_module
-from sensai.mcp.sensai_client import activate_github_mcp_client, activate_mcp_client
+import sensai.mcp.github_mcp as github_module
+from sensai.mcp.github_mcp import GITHUB_MCP_HOST, GitHubMCP
+from sensai.mcp.sensai_client import SensAIClient
 
 
 class FakeContext:
@@ -53,17 +54,17 @@ async def test_github_token_reaches_http_transport_only_during_connection(
 
     monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
     monkeypatch.setattr(httpx2, "AsyncClient", fake_http_client)
-    monkeypatch.setattr(mcp_module, "streamable_http_client", fake_transport)
-    monkeypatch.setattr(mcp_module, "Client", fake_client)
+    monkeypatch.setattr(github_module, "streamable_http_client", fake_transport)
+    monkeypatch.setattr(github_module, "Client", fake_client)
 
-    async with activate_github_mcp_client() as client:
+    async with GitHubMCP().activate() as client:
         assert client is client_context.value
         assert http_context.entered
         assert client_context.entered
 
     assert captured == {
         "headers": {"Authorization": "Bearer test-token"},
-        "url": mcp_module.GITHUB_MCP_HOST,
+        "url": GITHUB_MCP_HOST,
         "http_client": http_context,
         "transport": transport,
     }
@@ -73,18 +74,29 @@ async def test_github_token_reaches_http_transport_only_during_connection(
 
 @pytest.mark.asyncio
 async def test_public_server_uses_plain_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_client = FakeContext()
-    create = Mock(return_value=fake_client)
-    monkeypatch.setattr(mcp_module, "SensAIClient", create)
-    url = "https://docs.mcp.cloudflare.com/mcp"
+    """The public client yields itself and closes its connection on exit."""
+    entered = False
+    exited = False
 
-    async with activate_mcp_client(url) as client:
-        assert client is fake_client.value
-        assert fake_client.entered
-        assert not fake_client.exited
+    async def fake_enter(self: SensAIClient) -> SensAIClient:
+        nonlocal entered
+        entered = True
+        return self
 
-    create.assert_called_once_with(url)
-    assert fake_client.exited
+    async def fake_exit(self: SensAIClient, *_args: object) -> None:
+        nonlocal exited
+        exited = True
+
+    monkeypatch.setattr(SensAIClient, "__aenter__", fake_enter)
+    monkeypatch.setattr(SensAIClient, "__aexit__", fake_exit)
+    client = SensAIClient("https://docs.mcp.cloudflare.com/mcp")
+
+    async with client.activate() as active_client:
+        assert active_client is client
+        assert entered
+        assert not exited
+
+    assert exited
 
 
 @pytest.mark.asyncio
@@ -94,7 +106,7 @@ async def test_github_connection_requires_token(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(httpx2, "AsyncClient", create_http_client)
 
     with pytest.raises(ValueError, match="GITHUB_MCP_TOKEN is required"):
-        async with activate_github_mcp_client():
+        async with GitHubMCP().activate():
             pytest.fail("A connection without a token must be rejected")
 
     create_http_client.assert_not_called()
