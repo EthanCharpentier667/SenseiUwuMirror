@@ -238,6 +238,8 @@ class OllamaClient:
         stream: bool = True,
         ui_handler: AsyncUIHandler | None = None,
         on_chunk: ChunkCallback | None = None,
+        response_format: dict[str, Any] | str | None = None,
+        options: dict[str, Any] | None = None,
     ) -> Response:
         """Send a chat completion request to Ollama.
 
@@ -249,6 +251,10 @@ class OllamaClient:
             ui_handler: Optional event handler for progressive streaming chunks.
             on_chunk: Callback receiving each streamed text piece. Defaults to
                 ``ui_handler.on_stream_chunk`` when a handler is given.
+            response_format: Ollama's ``format``: "json", or a JSON schema the reply is
+                constrained to.
+            options: Extra Ollama model options (e.g. ``temperature``), merged over the
+                client's own (``num_ctx``).
 
         Returns:
             Response: The parsed response, including metadata and token usage.
@@ -262,8 +268,14 @@ class OllamaClient:
             "tools": tools or [],
             "stream": stream,
         }
-        if self.num_ctx is not None:
-            payload["options"] = {"num_ctx": self.num_ctx}
+        if response_format is not None:
+            payload["format"] = response_format
+        merged_options = {
+            **({"num_ctx": self.num_ctx} if self.num_ctx is not None else {}),
+            **(options or {}),
+        }
+        if merged_options:
+            payload["options"] = merged_options
 
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:

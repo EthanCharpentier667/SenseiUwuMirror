@@ -384,9 +384,20 @@ async def test_client_embed_raises_on_ollama_error(monkeypatch: pytest.MonkeyPat
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("num_ctx", "expected_options"), [(None, None), (8192, {"num_ctx": 8192})])
-async def test_client_chat_sends_num_ctx_option(
-    monkeypatch: pytest.MonkeyPatch, num_ctx: int | None, expected_options: dict[str, int] | None
+@pytest.mark.parametrize(
+    ("num_ctx", "options", "expected_options"),
+    [
+        (None, None, None),
+        (8192, None, {"num_ctx": 8192}),
+        (8192, {"temperature": 0}, {"num_ctx": 8192, "temperature": 0}),
+        (None, {"temperature": 0}, {"temperature": 0}),
+    ],
+)
+async def test_client_chat_sends_options(
+    monkeypatch: pytest.MonkeyPatch,
+    num_ctx: int | None,
+    options: dict[str, Any] | None,
+    expected_options: dict[str, Any] | None,
 ) -> None:
     sent: dict[str, Any] = {}
 
@@ -416,6 +427,13 @@ async def test_client_chat_sends_num_ctx_option(
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT, num_ctx=num_ctx)
-    await client.chat(messages=[{"role": "user", "content": "hi"}], stream=False)
+    schema = {"type": "object"}
+    await client.chat(
+        messages=[{"role": "user", "content": "hi"}],
+        stream=False,
+        response_format=schema,
+        options=options,
+    )
 
     assert sent.get("options") == expected_options
+    assert sent["format"] == schema

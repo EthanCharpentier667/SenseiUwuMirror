@@ -1,74 +1,20 @@
-"""Agent abstraction managing reasoning loops and tool execution."""
+"""Agent abstraction running a constrained ReAct loop over the available tools."""
 
 import asyncio
 import inspect
 import json
-import re
 from typing import Any
 
 from sensai.client import OllamaClient, Response
+from sensai.react import DEFAULT_MAX_STEPS, Decision, ReActController
 from sensai.ui.protocol import AsyncUIHandler
 
-DEFAULT_MAX_TURNS = 10
-
-THINK_PROMPT = (
-    "Before acting, reason step by step about the conversation so far. "
-    "What does the user actually want? What do you already know from the tool results? "
-    "What is the single next step: call a tool (which one, with what, and why "
-    "(is it useful ? Justify your choice)), or answer? "
-    "If a tool result above already answers the question, answer. "
-    "Do NOT write the final answer. Only your reasoning.\n"
-    "End with exactly one line: 'DECISION: ANSWER' or 'DECISION: TOOL <tool name>'.\n\n"
-    "Available tools:\n{tools}"
-)
-DECISION_PATTERN = re.compile(r"DECISION:\s*(ANSWER|TOOL\s+[`'\"]?([\w-]+))", re.IGNORECASE)
-ACT_PROMPT = (
-    "Your private reasoning:\n{thought}\n\n"
-    "Now execute the next step: call a tool or answer the user."
-)
-CHECK_PROMPT = (
-    "User request:\n{question}\n\nProposed answer:\n{answer}\n\n"
-    "Reply 'NO: <what is missing>' only if the user asked for specific information "
-    "that the answer does not give. Greetings, small talk and opinions are always fine. "
-    "Otherwise reply 'YES'."
-)
-RETRY_PROMPT = "Your answer is incomplete: {missing}. Continue."
-MAX_REFLECT_RETRIES = 1
+PLAN_OPTIONS = {"temperature": 0}
 
 
 def _ephemeral(role: str, content: str) -> dict[str, Any]:
     """A message only meant for the model's current reasoning, never for the session history."""
     return {"role": role, "content": content, "ephemeral": True}
-
-
-def _describe_tools(tools: list[Any]) -> str:
-    """One line per tool (name and description), for THINK to reason about in plain text."""
-    if not tools:
-        return "(none)"
-    lines = []
-    for tool in tools:
-        function = tool.define().get("function", {})
-        description = " ".join(function.get("description", "").split())
-        lines.append(f"- {function.get('name', '')}: {description}")
-    return "\n".join(lines)
-
-
-def _tools_for_decision(
-    thought: str, formatted_tools: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    """Restrict ACT's tools to what THINK decided, so the model cannot ignore its reasoning.
-
-    'ANSWER' gives no tool, 'TOOL <name>' only that tool. Without a usable decision (missing
-    or unknown tool name), every tool stays available.
-    """
-    decisions = DECISION_PATTERN.findall(thought)
-    if not decisions:
-        return formatted_tools
-    decision, name = decisions[-1]
-    if decision.upper() == "ANSWER":
-        return []
-    chosen = [t for t in formatted_tools if t.get("function", {}).get("name") == name]
-    return chosen or formatted_tools
 
 
 def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Response:
@@ -86,7 +32,12 @@ def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Respo
 
 
 class Agent:
-    """Autonomous agent executing a ReAct reasoning and tool-use loop."""
+    """Autonomous agent running a constrained ReAct loop.
+
+    Each step, the model only proposes a JSON action constrained to the allowed ones
+    (see ``ReActController``); the code validates it, runs the tool, and decides when
+    to stop. The reply is then written in a separate call, without tools.
+    """
 
     def __init__(
         self,
@@ -111,7 +62,7 @@ class Agent:
         self.human_in_the_loop = human_in_the_loop
         self.ui_handler = ui_handler
         self.client = client
-        self.max_turns = DEFAULT_MAX_TURNS
+        self.max_turns = DEFAULT_MAX_STEPS
         self.system_prompt: str | None = None
 
     def _prepare_messages(
@@ -152,42 +103,30 @@ class Agent:
                 return True, res
         return False, None
 
-    async def _execute_single_tool_call(self, tool_call: dict[str, Any]) -> str:
-        """Process approval and execution for a single tool call."""
-        func = tool_call.get("function", {})
-        fn_name = func.get("name", "")
-        fn_args = func.get("arguments", {})
+    async def _run_tool(self, decision: Decision) -> tuple[str, str]:
+        """Ask approval for and run the tool of a validated step. Returns (status, observation).
 
+        A failing tool doesn't stop the loop: its error becomes the observation, so the
+        model can try something else or answer with what it has.
+        """
         if self.human_in_the_loop and self.ui_handler:
-            approved = await self.ui_handler.on_tool_call_request(fn_name, fn_args)
+            approved = await self.ui_handler.on_tool_call_request(decision.action, decision.args)
             if not approved:
-                return "Action cancelled by user."
+                return "refused", "The user refused this action."
 
         try:
-            found, res = await self._dispatch_single_tool(fn_name, fn_args)
-        except Exception as e:
+            found, res = await self._dispatch_single_tool(decision.action, decision.args)
+        except Exception as e:  # noqa: BLE001 - any tool failure is reported back to the model
             if self.ui_handler:
                 await self.ui_handler.on_error(e)
-            raise
+            return "failed", f"Error: {e}"
 
         if not found:
-            return f"Tool '{fn_name}' not found."
+            return "failed", f"Tool '{decision.action}' not found."
 
         if self.ui_handler:
-            await self.ui_handler.on_tool_call_result(fn_name, res)
-
-        return res if isinstance(res, str) else json.dumps(res)
-
-    async def _process_tool_calls(
-        self,
-        tool_calls: list[dict[str, Any]],
-        current_messages: list[dict[str, Any]],
-    ) -> None:
-        """Execute all tool calls in the turn and append outputs to history."""
-        for tool_call in tool_calls:
-            content = await self._execute_single_tool_call(tool_call)
-            tool_name = tool_call.get("function", {}).get("name", "")
-            current_messages.append({"role": "tool", "content": content, "tool_name": tool_name})
+            await self.ui_handler.on_tool_call_result(decision.action, res)
+        return "done", res if isinstance(res, str) else json.dumps(res, ensure_ascii=False)
 
     async def _chat(
         self,
@@ -205,66 +144,33 @@ class Agent:
                 await self.ui_handler.on_error(e)
             raise
 
-    def _think_prompt(self) -> str:
-        """The THINK instruction, listing the available tools in plain text.
+    async def _plan(self, messages: list[dict[str, Any]], controller: ReActController) -> Decision:
+        """Have the model propose the next step, as JSON constrained to the allowed actions.
 
-        THINK is called without tools (it must not call any), so it only knows which ones
-        exist from this list.
+        The planning instructions are a system message, so the model never mistakes them
+        for something the user said.
         """
-        return THINK_PROMPT.format(tools=_describe_tools(self.tools))
-
-    async def _think(self, current_messages: list[dict[str, Any]]) -> str:
-        """Reason about the next step without calling tools, streaming it as thinking."""
-        on_chunk = self.ui_handler.on_thinking_chunk if self.ui_handler else None
+        payload = [*messages, _ephemeral("system", controller.plan_instructions())]
         response = await self._chat(
-            [*current_messages, _ephemeral("assistant", self._think_prompt())],
+            payload,
             [],
-            on_chunk=on_chunk,
+            stream=False,
+            response_format=controller.schema(),
+            options=PLAN_OPTIONS,
         )
-        if on_chunk:
-            await on_chunk("\n\n")
-        return response.response
+        decision = controller.parse(response.response)
+        if self.ui_handler and decision.thought:
+            await self.ui_handler.on_thinking_chunk(f"{decision.thought}\n\n")
+        return decision
 
-    async def _check(self, question: str, answer: str) -> str | None:
-        """Return what the answer is missing to address the question, or None if it does."""
-        prompt = CHECK_PROMPT.format(question=question, answer=answer)
-        response = await self._chat([{"role": "user", "content": prompt}], [], stream=False)
-        verdict = response.response.strip()
-        return None if verdict.upper().startswith("YES") else verdict
-
-    async def _step(
-        self,
-        current_messages: list[dict[str, Any]],
-        formatted_tools: list[dict[str, Any]],
+    async def _answer(
+        self, messages: list[dict[str, Any]], controller: ReActController
     ) -> Response:
-        """Execute a single model inference step with error reporting."""
-        response = await self._chat(
-            current_messages, formatted_tools, stream=True, ui_handler=self.ui_handler
-        )
-        return _strip_ephemeral(response, current_messages)
-
-    async def _execute_turn(
-        self,
-        current_messages: list[dict[str, Any]],
-        formatted_tools: list[dict[str, Any]],
-    ) -> tuple[bool, Response]:
-        """Execute a single turn: think, then act. Returns (is_done, response)."""
-        thought = await self._think(current_messages)
-        payload = [*current_messages, _ephemeral("user", ACT_PROMPT.format(thought=thought))]
-        response = await self._step(payload, _tools_for_decision(thought, formatted_tools))
-        tool_calls = response.tool_calls
-        if not tool_calls:
-            return True, response
-
-        current_messages.append(
-            {
-                "role": "assistant",
-                "content": response.response,
-                "tool_calls": tool_calls,
-            }
-        )
-        await self._process_tool_calls(tool_calls, current_messages)
-        return False, response
+        """Stream the reply to the user, without tools, from what the steps gathered."""
+        instructions = controller.answer_instructions()
+        payload = [*messages, *([_ephemeral("system", instructions)] if instructions else [])]
+        response = await self._chat(payload, [], stream=True, ui_handler=self.ui_handler)
+        return _strip_ephemeral(response, payload)
 
     async def run(
         self,
@@ -273,7 +179,11 @@ class Agent:
         messages: list[dict[str, Any]] | None = None,
         system_prompt: str | None = None,
     ) -> Response:
-        """Run the ReAct loop until completion or max iterations reached.
+        """Run the ReAct loop, then answer.
+
+        At most ``max_turns`` steps are planned; the code, not the model, decides when the
+        loop ends: on a final-answer step, a step missing nothing more, or once that budget
+        is spent.
 
         Args:
             prompt: User message prompt.
@@ -281,33 +191,23 @@ class Agent:
             system_prompt: Optional system prompt to override default.
 
         Returns:
-            Final completion response from the model.
+            The response carrying the reply to the user.
         """
         if self.max_turns < 1:
             msg = "max_turns must be at least 1."
             raise ValueError(msg)
 
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
-        formatted_tools = [tool.define() for tool in self.tools]
-
-        question = next(
-            (m["content"] for m in reversed(current_messages) if m["role"] == "user"), ""
-        )
-        retries = 0
+        controller = ReActController([tool.define() for tool in self.tools])
 
         for _ in range(self.max_turns):
-            is_done, response = await self._execute_turn(current_messages, formatted_tools)
-            if not is_done:
+            decision = await self._plan(current_messages, controller)
+            if controller.finishes(decision):
+                break
+            if reason := controller.check(decision):
+                controller.record(decision, "rejected", f"Rejected: {reason}")
                 continue
-            if retries < MAX_REFLECT_RETRIES:
-                missing = await self._check(question, response.response)
-                if missing:
-                    retries += 1
-                    current_messages.append(_ephemeral("assistant", response.response))
-                    current_messages.append(
-                        _ephemeral("user", RETRY_PROMPT.format(missing=missing))
-                    )
-                    continue
-            return response
+            status, observation = await self._run_tool(decision)
+            controller.record(decision, status, observation)
 
-        return await self._step(current_messages, formatted_tools=[])
+        return await self._answer(current_messages, controller)
