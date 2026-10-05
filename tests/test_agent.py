@@ -56,6 +56,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_error(self, error: Exception) -> None:
         self.errors.append(error)
 
+    async def on_system_message(self, message: Any) -> None:
+        pass
+
 
 class FakeTool:
     """Fake tool for agent tests."""

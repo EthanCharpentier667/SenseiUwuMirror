@@ -3,18 +3,24 @@
 from types import TracebackType
 from typing import Self
 
+import sqlite_vec
 from peewee import Model, SqliteDatabase
 
 from sensai.data.profile.profile import Profile
+from sensai.data.session.chunk import Chunk, create_chunk_search_tables
 from sensai.data.session.document import Document
 from sensai.data.session.message import Message
 from sensai.data.session.session import Session
 
-_MODELS: list[type[Model]] = [Profile, Session, Message, Document]
+_MODELS: list[type[Model]] = [Profile, Session, Message, Document, Chunk]
 
 
 class Database:
-    """A SQLite database connection wrapper, backed by peewee, lazily connected."""
+    """A SQLite database connection wrapper, backed by peewee, lazily connected.
+
+    The sqlite-vec extension is loaded on every connection, exposing the ``vec0`` virtual
+    table and the ``vec_*`` SQL functions for storing and searching embeddings.
+    """
 
     def __init__(self, path: str, name: str, timeout: float = 10.0):
         """Initialize the database with a path and a name.
@@ -30,6 +36,7 @@ class Database:
             pragmas={"foreign_keys": 1},
             timeout=timeout,
         )
+        self._db.load_extension(sqlite_vec.loadable_path())
 
     @property
     def database(self) -> SqliteDatabase:
@@ -49,6 +56,7 @@ class Database:
         """Create the project's tables if they don't already exist."""
         with self._db.bind_ctx(_MODELS):
             self._db.create_tables(_MODELS)
+        create_chunk_search_tables(self)
 
     def clear(self) -> None:
         """Delete all rows from the project's tables, children before parents."""
@@ -80,3 +88,5 @@ class Database:
             exc_tb: The traceback object, if an exception occurred.
         """
         self.close()
+
+    Session = None

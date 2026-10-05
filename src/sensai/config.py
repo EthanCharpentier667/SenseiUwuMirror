@@ -1,6 +1,7 @@
 """Configuration for the Sensai CLI."""
 
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -89,6 +90,13 @@ class Config:
             f"Default: {DEFAULT_COMPRESSION_TOKEN_THRESHOLD}.",
         )
         self.add_argument(
+            "--files",
+            nargs="*",
+            type=Path,
+            default=[],
+            help="Files to attach to the session. Default: none.",
+        )
+        self.add_argument(
             "--persona",
             default=None,
             help="Persona key to use from the personas file (e.g. 'sensei_wu').",
@@ -117,6 +125,9 @@ class Config:
                 Default is None, which parses ``sys.argv``.
         """
         self.args = self.parser.parse_args(args)
+        for path in self.args.files:
+            if not path.is_file():
+                self.parser.error(f"file not found: {path}")
         return self.args
 
     def get_args(self) -> Namespace | None:
@@ -170,6 +181,11 @@ class Config:
     def timeout(self) -> float:
         """The timeout for the Ollama API requests."""
         return float(self._parsed().timeout)
+
+    @property
+    def files(self) -> list[Path]:
+        """Files to attach to the session, as given on the command line."""
+        return list(self._parsed().files)
 
     @property
     def persona(self) -> str | None:

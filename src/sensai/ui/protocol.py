@@ -25,3 +25,7 @@ class AsyncUIHandler(Protocol):
     async def on_error(self, error: Exception) -> None:
         """Called when an error occurs in the pipeline."""
         ...  # pragma: no cover
+
+    async def on_system_message(self, message: Any) -> None:
+        """Called when the system needs to display a generic message to the user."""
+        ...  # pragma: no cover

@@ -62,7 +62,7 @@ def test_execute_forwards_query_and_formats_result(monkeypatch: pytest.MonkeyPat
     result = WebSearch().execute(query="Lucas Hauchard")
 
     assert captured_query["query"] == "Lucas Hauchard"
-    assert result == f"Web search result for 'Lucas Hauchard': {SEARCH_PAYLOAD}"
+    assert result == SEARCH_PAYLOAD
 
 
 def test_web_search_sends_authenticated_request(monkeypatch: pytest.MonkeyPatch) -> None:

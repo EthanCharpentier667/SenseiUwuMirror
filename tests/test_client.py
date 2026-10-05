@@ -34,6 +34,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_error(self, error: Exception) -> None:
         self.errors.append(error)
 
+    async def on_system_message(self, message: Any) -> None:
+        pass
+
 
 @pytest.mark.asyncio
 async def test_client_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,3 +305,76 @@ async def test_client_chat_stream_invalid_json(monkeypatch: pytest.MonkeyPatch) 
     )
     assert res.response == "ok"
     assert len(res.tool_calls) == 1
+
+
+class MockEmbedResponse:
+    """Mock response of Ollama's embed endpoint."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        """Initialize MockEmbedResponse with the JSON body to return."""
+        self.data = data
+
+    def raise_for_status(self) -> None:
+        pass
+
+    def json(self) -> dict[str, Any]:
+        return self.data
+
+
+def _mock_embed_endpoint(
+    monkeypatch: pytest.MonkeyPatch, data: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """Replace httpx.AsyncClient with one answering every POST with ``data``.
+
+    If ``data`` is None, it answers with one fake embedding per input instead.
+    Returns the list the sent requests (url and json) get appended to.
+    """
+    sent: list[dict[str, Any]] = []
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        async def post(self, url: httpx.URL, **kwargs: Any) -> MockEmbedResponse:
+            sent.append({"url": str(url), "json": kwargs["json"]})
+            if data is not None:
+                return MockEmbedResponse(data)
+            inputs = kwargs["json"]["input"]
+            return MockEmbedResponse({"embeddings": [[float(i)] for i in range(len(inputs))]})
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    monkeypatch.setenv("TOKEN", "test_env_token")
+    return sent
+
+
+@pytest.mark.asyncio
+async def test_client_embed_posts_inputs_to_embed_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent = _mock_embed_endpoint(monkeypatch)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
+
+    embeddings = await client.embed(["a", "b"], "nomic-embed-text")
+
+    assert embeddings == [[0.0], [1.0]]
+    assert sent == [
+        {
+            "url": "http://localhost:11434/api/embed",
+            "json": {"model": "nomic-embed-text", "input": ["a", "b"]},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_client_embed_raises_on_ollama_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_embed_endpoint(monkeypatch, {"error": "model not found"})
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
+
+    with pytest.raises(RuntimeError, match="model not found"):
+        await client.embed(["hello"], "missing")

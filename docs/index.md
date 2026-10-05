@@ -7,6 +7,7 @@
 ## Features
 
 - **Real-time Streaming**: Supports streaming responses for instant token output.
+- **Event-Driven Architecture**: Decoupled UI presentation via an async event manager (see [Event System & UI](events.md)).
 - **Tools Support**: Extensible via custom tool schemas and function calling.
 - **Modern uv Workflow**: Fast, deterministic package management and virtual environment handling.
 - **Strict Code Quality**: Ruff for formatting & linting, strict Mypy typing, and Pytest coverage suite.
