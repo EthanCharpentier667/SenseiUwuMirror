@@ -20,6 +20,7 @@ from sensai.data.session.session import Session
 from sensai.embedder import Embedder
 from sensai.ui.builtin_commands import setup_builtin_commands
 from sensai.ui.command import CommandContext, CommandRegistry
+from sensai.ui.mcp_commands import MCPCommands
 
 
 class CLIApp:
@@ -57,6 +58,8 @@ class CLIApp:
 
         self.command_registry = CommandRegistry()
         setup_builtin_commands(self.command_registry)
+        self.mcp_commands = MCPCommands(agent)
+        self.mcp_commands.register(self.command_registry)
         self.prompt_session: PromptSession[str] | None = None
         self._setup_prompt_session()
 
@@ -141,3 +144,5 @@ class CLIApp:
 
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n[bold red]Program terminated by user.[/bold red]")
+        finally:
+            await self.mcp_commands.aclose()
