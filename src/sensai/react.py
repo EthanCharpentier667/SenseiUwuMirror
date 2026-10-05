@@ -24,8 +24,9 @@ PLAN_PROMPT = (
     "Rules:\n"
     '- "thought": one or two sentences, in English, on what the conversation and the '
     "results below already give. Never write the reply here.\n"
-    '- "missing": the information still needed to reply that is in neither the '
-    'conversation nor the results below, or "nothing".\n'
+    '- "missing": the information you still need to reply, that is in neither the '
+    'conversation nor the results below. Write "nothing" only if you can already give '
+    "the full reply.\n"
     '- If "missing" is "nothing", or no tool can help, choose "{final}".\n'
     '- Otherwise choose one tool and fill "args" with its parameters only.\n'
     "- Never repeat a call already listed in the steps below.\n\n"
@@ -39,7 +40,7 @@ ANSWER_PROMPT = (
 )
 FINDINGS_NOTE = "Information gathered with tools:\n{findings}"
 DRAFT_NOTE = "Draft written while planning (check it against the information above):\n{draft}"
-NOTHING_MISSING = {"", "nothing", "none", "nothing missing", "n/a", "na", "rien"}
+NOTHING_MISSING = {"", "nothing", "none", "nothing missing", "n/a", "na"}
 
 _JSON_TYPES: dict[str, type | tuple[type, ...]] = {
     "string": str,
@@ -171,13 +172,16 @@ class ReActController:
     def finishes(self, decision: Decision) -> bool:
         """Whether this step ends the loop, decided by the code rather than the model.
 
-        It does when the model chose the final answer, but also when it says nothing is
-        missing anymore while still picking a tool: that step's thought then often holds
-        the answer already, so it's kept as a draft for the reply.
+        It does when the model chose the final answer, but also when, with tool results
+        already in hand, it says nothing is missing while still picking a tool: that step's
+        thought then often holds the answer already, so it's kept as a draft for the reply.
+        Before any result, "nothing missing" with a tool is just the model copying the
+        prompt's default value, so the tool call wins.
         """
         if decision.action == FINAL_ANSWER:
             return True
-        if _nothing_missing(decision.missing):
+        has_results = any(step.status == "done" for step in self.steps)
+        if has_results and _nothing_missing(decision.missing):
             self.draft = decision.thought or None
             return True
         return False

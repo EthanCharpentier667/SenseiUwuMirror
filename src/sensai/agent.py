@@ -17,6 +17,19 @@ def _ephemeral(role: str, content: str) -> dict[str, Any]:
     return {"role": role, "content": content, "ephemeral": True}
 
 
+def _with_instructions(messages: list[dict[str, Any]], instructions: str) -> list[dict[str, Any]]:
+    """Add an ephemeral system message with instructions, just before the latest message.
+
+    It must not be the last message: chat templates like llama3.2's only open the
+    assistant's turn after a user or tool message, so a trailing system message makes the
+    model write that turn header itself (an "assistant" line in the reply). Such templates
+    move every system message to the top anyway; others read it right before the message.
+    """
+    if not messages or messages[-1].get("role") == "system":
+        return [*messages, _ephemeral("system", instructions)]
+    return [*messages[:-1], _ephemeral("system", instructions), messages[-1]]
+
+
 def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Response:
     """Drop the messages built from ephemeral payload entries out of ``response.messages``.
 
@@ -150,7 +163,7 @@ class Agent:
         The planning instructions are a system message, so the model never mistakes them
         for something the user said.
         """
-        payload = [*messages, _ephemeral("system", controller.plan_instructions())]
+        payload = _with_instructions(messages, controller.plan_instructions())
         response = await self._chat(
             payload,
             [],
@@ -159,8 +172,10 @@ class Agent:
             options=PLAN_OPTIONS,
         )
         decision = controller.parse(response.response)
-        if self.ui_handler and decision.thought:
-            await self.ui_handler.on_thinking_chunk(f"{decision.thought}\n\n")
+        if self.ui_handler:
+            await self.ui_handler.on_thinking_chunk(
+                f"{decision.thought}\n→ {decision.action} (missing: {decision.missing or '-'})\n\n"
+            )
         return decision
 
     async def _answer(
@@ -168,7 +183,7 @@ class Agent:
     ) -> Response:
         """Stream the reply to the user, without tools, from what the steps gathered."""
         instructions = controller.answer_instructions()
-        payload = [*messages, *([_ephemeral("system", instructions)] if instructions else [])]
+        payload = _with_instructions(messages, instructions) if instructions else messages
         response = await self._chat(payload, [], stream=True, ui_handler=self.ui_handler)
         return _strip_ephemeral(response, payload)
 

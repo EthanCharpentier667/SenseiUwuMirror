@@ -175,16 +175,29 @@ def test_finishes_when_final_answer_or_nothing_missing(
     draft: str | None,
 ) -> None:
     controller = ReActController([SEARCH])
+    controller.record(Decision("t", "web_search", {"query": "first"}), "done", "result")
 
     assert controller.finishes(decision) is finishes
     assert controller.draft == draft
 
 
+@pytest.mark.parametrize("status", [None, "failed", "refused", "rejected"])
+def test_nothing_missing_does_not_stop_a_tool_call_before_any_result(status: str | None) -> None:
+    controller = ReActController([SEARCH])
+    if status:
+        controller.record(Decision("t", "web_search", {"query": "first"}), status, "no result")
+
+    assert not controller.finishes(Decision("Need more.", "web_search", {"query": "a"}, "nothing"))
+    assert controller.draft is None
+
+
 def test_answer_instructions_carry_the_draft() -> None:
     controller = ReActController([SEARCH])
+    controller.record(Decision("t", "web_search", {"query": "names"}), "done", "A, B, C.")
     controller.finishes(Decision("Ten names: A, B.", "web_search", {"query": "a"}, "nothing"))
 
     instructions = controller.answer_instructions() or ""
 
-    assert "Ten names: A, B." in instructions
-    assert "Information gathered with tools" not in instructions
+    assert "Information gathered with tools:\n- web_search" in instructions
+    assert "Draft written while planning" in instructions
+    assert instructions.index("A, B, C.") < instructions.index("Ten names: A, B.")

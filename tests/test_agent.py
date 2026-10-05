@@ -158,6 +158,10 @@ class BrokenTool(FakeTool):
         raise RuntimeError("Tool execution failed unexpectedly")
 
 
+def _instructions(call: dict[str, Any]) -> str:
+    return str(next(m["content"] for m in call["messages"] if m.get("ephemeral")))
+
+
 def _system_texts(call: dict[str, Any]) -> str:
     return "\n".join(m["content"] for m in call["messages"] if m["role"] == "system")
 
@@ -190,7 +194,7 @@ async def test_agent_answers_directly_without_tools() -> None:
     assert len(client.plans) == 1
     assert len(client.answers) == 1
     assert client.answers[0]["tools"] == []
-    assert ui.thinking == ["thinking\n\n"]
+    assert ui.thinking == ["thinking\n→ final_answer (missing: nothing)\n\n"]
     assert [(m.role, m.content) for m in result.messages] == [
         ("user", "Hi"),
         ("assistant", "Hello!"),
@@ -236,7 +240,8 @@ async def test_agent_plan_is_constrained_and_never_sent_as_user() -> None:
     assert plan["tools"] == []
     assert plan["options"] == {"temperature": 0}
     assert plan["response_format"]["properties"]["action"]["enum"] == ["calculator", FINAL_ANSWER]
-    assert plan["messages"][-1]["role"] == "system"
+    assert plan["messages"][-1] == {"role": "user", "content": "Hi"}
+    assert plan["messages"][-2]["role"] == "system"
     assert [m for m in plan["messages"] if m["role"] == "user"] == [
         {"role": "user", "content": "Hi"}
     ]
@@ -254,7 +259,7 @@ async def test_agent_runs_tool_then_answers_with_its_result() -> None:
     assert ui.tool_requests == [("calculator", {"expr": "2+2"})]
     assert ui.tool_results == [("calculator", "result: 2+2")]
     assert len(client.plans) == 2
-    assert "result: 2+2" in client.plans[1]["messages"][-1]["content"]
+    assert "result: 2+2" in _instructions(client.plans[1])
     assert "result: 2+2" in _system_texts(client.answers[0])
     assert [(m.role, m.content) for m in result.messages] == [
         ("user", "What is 2+2?"),
@@ -282,7 +287,7 @@ async def test_agent_tool_denied_by_user() -> None:
     await agent.run("What is 2+2?")
 
     assert ui.tool_results == []
-    assert "The user refused this action." in client.plans[1]["messages"][-1]["content"]
+    assert "The user refused this action." in _instructions(client.plans[1])
     assert len(client.answers[0]["messages"]) == 1
 
 
@@ -295,7 +300,7 @@ async def test_agent_rejects_invalid_step_without_running_it() -> None:
     await agent.run("Hi")
 
     assert ui.tool_requests == []
-    planning = client.plans[2]["messages"][-1]["content"]
+    planning = _instructions(client.plans[2])
     assert "'unknown' is not available now" in planning
     assert "missing argument(s): expr" in planning
 
@@ -310,7 +315,7 @@ async def test_agent_rejects_repeated_call() -> None:
     await agent.run("What is 2+2?")
 
     assert ui.tool_results == [("calculator", "result: 2+2")]
-    assert "already made at step 1" in client.plans[2]["messages"][-1]["content"]
+    assert "already made at step 1" in _instructions(client.plans[2])
 
 
 @pytest.mark.asyncio
@@ -323,7 +328,7 @@ async def test_agent_tool_error_becomes_observation() -> None:
 
     assert result.response == "Sorry."
     assert [str(e) for e in ui.errors] == ["Tool execution failed unexpectedly"]
-    assert "Error: Tool execution failed unexpectedly" in client.plans[1]["messages"][-1]["content"]
+    assert "Error: Tool execution failed unexpectedly" in _instructions(client.plans[1])
 
 
 @pytest.mark.asyncio
@@ -400,3 +405,16 @@ async def test_agent_drops_undeclared_arguments() -> None:
     await agent.run("What is 2+2?")
 
     assert ui.tool_requests == [("calculator", {"expr": "2+2"})]
+
+
+@pytest.mark.asyncio
+async def test_agent_instructions_never_come_last() -> None:
+    client = ScriptedClient(steps=[_step("calculator", {"expr": "2+2"})])
+    agent = Agent(tools=[FakeTool()], client=client)
+    agent.system_prompt = "Be nice."
+
+    await agent.run("What is 2+2?")
+
+    for call in [*client.plans, *client.answers]:
+        assert call["messages"][-1] == {"role": "user", "content": "What is 2+2?"}
+    assert client.answers[0]["messages"][1]["ephemeral"] is True
