@@ -131,7 +131,6 @@ def _assert_agent_calls(calls: list[dict[str, Any]], expected_route: str | None)
     ("mode", "expected_route"),
     [
         ("local", None),
-        ("github", "github"),
         ("public", "public"),
     ],
 )
@@ -143,12 +142,6 @@ def test_main_calls_agent_run_for_each_input(
     clients: list[_FakeMCPClient] = []
     routes: list[str] = []
     server_url = "https://docs.mcp.cloudflare.com/mcp"
-
-    def fake_github_client() -> _FakeMCPClient:
-        routes.append("github")
-        client = _FakeMCPClient()
-        clients.append(client)
-        return client
 
     def fake_public_client(url: str) -> _FakeMCPClient:
         assert url == server_url
@@ -173,7 +166,7 @@ def test_main_calls_agent_run_for_each_input(
             assert not clients[-1].closed
         return _make_response()
 
-    commands = {"local": [], "github": ["/mcp-github"], "public": [f"/mcp {server_url}"]}
+    commands = {"local": [], "public": [f"/mcp {server_url}"]}
     inputs = iter(["hello there", *commands[mode], "second question"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
@@ -183,10 +176,6 @@ def test_main_calls_agent_run_for_each_input(
             raise EOFError from exc
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.delenv("GITHUB_MCP_TOKEN", raising=False)
-    if mode == "github":
-        monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
-    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", fake_github_client)
     monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", fake_public_client)
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
@@ -202,10 +191,9 @@ def test_main_calls_agent_run_for_each_input(
 def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     """An MCP-enabled turn receives RAG excerpts and the next turn sees the updated session."""
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
     clients: list[_FakeMCPClient] = []
 
-    def fake_github_client() -> _FakeMCPClient:
+    def fake_public_client(_url: str) -> _FakeMCPClient:
         client = _FakeMCPClient()
         clients.append(client)
         return client
@@ -240,7 +228,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         calls.append((messages, list(self.tools)))
         return _make_response()
 
-    inputs = iter(["/mcp-github", "question about the project", "follow-up"])
+    inputs = iter(["/mcp http://127.0.0.1:8000/mcp", "question about the project", "follow-up"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
@@ -248,7 +236,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         except StopIteration as exc:
             raise EOFError from exc
 
-    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", fake_github_client)
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", fake_public_client)
     monkeypatch.setattr("sensai.ui.app.retrieve_chunks", fake_retrieve)
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: updated_session)
     monkeypatch.setattr(Agent, "run", mock_run)
@@ -312,14 +300,13 @@ def test_main_closes_mcp_connection_after_cli_exit_command(
 ) -> None:
     """Slash commands remain usable and /exit closes the active MCP session."""
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
     client = _FakeMCPClient()
-    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", lambda: client)
-    inputs = iter(["/mcp-github", "/help", "/exit"])
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", lambda _url: client)
+    inputs = iter(["/mcp http://127.0.0.1:8000/mcp", "/help", "/exit"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         command = next(inputs)
-        if command != "/mcp-github":
+        if command != "/mcp http://127.0.0.1:8000/mcp":
             assert client.connected
         return command
 

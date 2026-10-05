@@ -52,7 +52,7 @@ def setup_commands() -> tuple[MCPCommands, CommandRegistry, CommandContext]:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "command",
-    ["/mcp", "/mcp invalid", "/mcp ftp://host", "/mcp https://host extra", "/mcp-github extra"],
+    ["/mcp", "/mcp invalid", "/mcp ftp://host", "/mcp https://host extra"],
 )
 async def test_invalid_arguments_do_not_connect(
     monkeypatch: pytest.MonkeyPatch, command: str
@@ -60,19 +60,8 @@ async def test_invalid_arguments_do_not_connect(
     commands, registry, context = setup_commands()
     factory = Mock()
     monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
-    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", factory)
     await registry.execute(command, context)
     factory.assert_not_called()
-    context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
-    assert len(commands.agent.tools) == 1
-    await commands.aclose()
-
-
-@pytest.mark.asyncio
-async def test_missing_github_token_reports_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GITHUB_MCP_TOKEN", raising=False)
-    commands, registry, context = setup_commands()
-    await registry.execute("/mcp-github", context)
     context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
     assert len(commands.agent.tools) == 1
     await commands.aclose()
@@ -124,3 +113,77 @@ async def test_failed_connection_keeps_existing_tools(
     context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
     await commands.aclose()
     assert events[-1] == "close first_tool"
+
+
+@pytest.mark.asyncio
+async def test_add_json_connects_with_headers_and_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    commands, registry, context = setup_commands()
+    events: list[str] = []
+    connection = Connection("remote_tool", events)
+    captured = {}
+
+    def activate_json(*, headers):
+        captured.update(headers)
+        return connection.activate()
+
+    monkeypatch.setattr(connection, "activate_json", activate_json, raising=False)
+    factory = Mock(return_value=connection)
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    command = (
+        '/mcp add-json github \'{"type": "http", "url": "https://example.com/mcp", '
+        '"headers": {"Authorization": "Bearer test-pat"}}\''
+    )
+    await registry.execute(command, context)
+    assert captured == {"Authorization": "Bearer test-pat"}
+    assert len(commands.agent.tools) == 2
+    context.ui.on_error.assert_not_called()  # type: ignore[attr-defined]
+    await registry.execute(command, context)
+    context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
+    assert events == ["open remote_tool"]
+    await commands.aclose()
+    assert events == ["open remote_tool", "close remote_tool"]
+    assert len(commands.agent.tools) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "config",
+    [
+        "not-json",
+        "[]",
+        '{"type":"stdio"}',
+        '{"type":"http"}',
+        '{"type":"http","url":"ftp://host"}',
+        '{"type":"http","url":"https://host","headers":[]}',
+        '{"type":"http","url":"https://host","headers":{"Authorization":42}}',
+        '{"type":"http","url":"https\\://host"}',
+    ],
+)
+async def test_add_json_invalid_config_does_not_connect(monkeypatch, config):
+    commands, registry, context = setup_commands()
+    factory = Mock()
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    await registry.execute(f"/mcp add-json example '{config}'", context)
+    factory.assert_not_called()
+    context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
+    assert len(commands.agent.tools) == 1
+    await commands.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "command",
+    [
+        "/mcp add-json",
+        "/mcp add-json github",
+        "/mcp add-json github '{broken",
+    ],
+)
+async def test_add_json_invalid_arguments_report_error(monkeypatch, command):
+    commands, registry, context = setup_commands()
+    factory = Mock()
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    await registry.execute(command, context)
+    factory.assert_not_called()
+    context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
+    await commands.aclose()

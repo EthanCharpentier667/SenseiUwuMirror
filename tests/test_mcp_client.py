@@ -1,75 +1,13 @@
-"""Tests for MCP client authentication and connection lifetime."""
+"""Tests for MCP client connection lifetime."""
 
-from typing import Any
+from contextlib import asynccontextmanager
 from unittest.mock import Mock
 
 import httpx2
 import pytest
 
-import sensai.mcp.github_mcp as github_module
-from sensai.mcp.github_mcp import GITHUB_MCP_HOST, GitHubMCP
+import sensai.mcp.sensai_client as module
 from sensai.mcp.sensai_client import SensAIClient
-
-
-class FakeContext:
-    """Record entry and exit of an asynchronous resource."""
-
-    def __init__(self, value: Any = None) -> None:
-        """Store the optional value returned on entry."""
-        self.value = value if value is not None else self
-        self.entered = False
-        self.exited = False
-
-    async def __aenter__(self) -> Any:
-        """Record entry and provide the configured value."""
-        self.entered = True
-        return self.value
-
-    async def __aexit__(self, *_args: object) -> None:
-        """Record exit."""
-        self.exited = True
-
-
-@pytest.mark.asyncio
-async def test_github_token_reaches_http_transport_only_during_connection(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
-    http_context = FakeContext()
-    client_context = FakeContext(value=object())
-    transport = object()
-
-    def fake_http_client(*, headers: dict[str, str]) -> FakeContext:
-        captured["headers"] = headers
-        return http_context
-
-    def fake_transport(url: str, *, http_client: Any) -> object:
-        captured["url"] = url
-        captured["http_client"] = http_client
-        return transport
-
-    def fake_client(value: object) -> FakeContext:
-        captured["transport"] = value
-        return client_context
-
-    monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
-    monkeypatch.setattr(httpx2, "AsyncClient", fake_http_client)
-    monkeypatch.setattr(github_module, "streamable_http_client", fake_transport)
-    monkeypatch.setattr(github_module, "Client", fake_client)
-
-    async with GitHubMCP().activate() as client:
-        assert client is client_context.value
-        assert http_context.entered
-        assert client_context.entered
-
-    assert captured == {
-        "headers": {"Authorization": "Bearer test-token"},
-        "url": GITHUB_MCP_HOST,
-        "http_client": http_context,
-        "transport": transport,
-    }
-    assert client_context.exited
-    assert http_context.exited
 
 
 @pytest.mark.asyncio
@@ -100,13 +38,39 @@ async def test_public_server_uses_plain_client(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.asyncio
-async def test_github_connection_requires_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GITHUB_MCP_TOKEN", raising=False)
-    create_http_client = Mock()
-    monkeypatch.setattr(httpx2, "AsyncClient", create_http_client)
+async def test_json_headers_reach_transport_and_resources_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events = []
+    http_client = object()
+    transport = object()
+    active_client = object()
 
-    with pytest.raises(ValueError, match="GITHUB_MCP_TOKEN is required"):
-        async with GitHubMCP().activate():
-            pytest.fail("A connection without a token must be rejected")
+    @asynccontextmanager
+    async def fake_http_client(*, headers):
+        assert headers == {"Authorization": "Bearer test-pat"}
+        events.append("open http")
+        try:
+            yield http_client
+        finally:
+            events.append("close http")
 
-    create_http_client.assert_not_called()
+    @asynccontextmanager
+    async def fake_client(value):
+        assert value is transport
+        events.append("open mcp")
+        try:
+            yield active_client
+        finally:
+            events.append("close mcp")
+
+    make_transport = Mock(return_value=transport)
+    monkeypatch.setattr(httpx2, "AsyncClient", fake_http_client)
+    monkeypatch.setattr(module, "streamable_http_client", make_transport)
+    monkeypatch.setattr(module, "Client", fake_client)
+    client = SensAIClient("https://example.com/mcp")
+    async with client.activate_json(headers={"Authorization": "Bearer test-pat"}) as connected:
+        assert connected is active_client
+        assert events == ["open http", "open mcp"]
+    make_transport.assert_called_once_with("https://example.com/mcp", http_client=http_client)
+    assert events == ["open http", "open mcp", "close mcp", "close http"]
