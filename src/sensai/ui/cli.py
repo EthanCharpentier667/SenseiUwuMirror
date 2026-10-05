@@ -46,7 +46,7 @@ class CLIHandler(AsyncUIHandler):
 
     async def on_thinking_chunk(self, chunk: str) -> None:
         """Called when a new piece of text is streamed from the model during the thinking phase."""
-        self.console.print(f"[dim]{chunk}[/dim]", end="")
+        self.console.print(chunk, style="dim", end="", markup=False, highlight=False)
 
     async def on_system_message(self, message: Any) -> None:
         """Display a system message (like a command output)."""
