@@ -49,8 +49,17 @@ Start `uv run sensai`, then connect from the chat prompt:
 /mcp http://127.0.0.1:8000/mcp
 ```
 
-For the official GitHub server, set `GITHUB_MCP_TOKEN` in your environment before
-starting Sensai, then enter:
+To use the official GitHub server, create a GitHub personal access token (PAT):
+
+1. In GitHub, open **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. See [GitHub's token creation guide](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for the full steps.
+2. Select the repositories you need and grant only the permissions required by the GitHub tools you intend to use. GitHub may require organization approval before a token can access private repositories.
+3. Copy the token into `GITHUB_MCP_TOKEN` in your local `.env` file (created with `cp .env.exemple .env`). Keep the token private; `.env` is ignored by Git.
+
+```dotenv
+GITHUB_MCP_TOKEN="your_github_pat_here"
+```
+
+Start `uv run sensai`, then enter:
 
 ```text
 /mcp-github
