@@ -140,7 +140,7 @@ async def test_agent_system_prompt_not_duplicated() -> None:
     await agent.run(messages=existing, system_prompt="Different system prompt")
 
     assert len(captured["messages"]) == 2
-    assert captured["messages"][0]["content"] == "Custom system prompt."
+    assert captured["messages"][0]["content"] == "Different system prompt\n\nCustom system prompt."
 
 
 @pytest.mark.asyncio

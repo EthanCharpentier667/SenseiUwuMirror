@@ -15,6 +15,7 @@ DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 REASONING_MODES = ["plan", "reflect"]
 DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
+DEFAULT_PERSONAS_FILE = "personas.json"
 
 
 class Config:
@@ -95,6 +96,22 @@ class Config:
             default=[],
             help="Files to attach to the session. Default: none.",
         )
+        self.add_argument(
+            "--persona",
+            default=None,
+            help="Persona key to use from the personas file (e.g. 'sensei_wu').",
+        )
+        self.add_argument(
+            "--personas-file",
+            default=DEFAULT_PERSONAS_FILE,
+            help=f"Path to the personas JSON file. Default: {DEFAULT_PERSONAS_FILE}.",
+        )
+        self.add_argument(
+            "--list-personas",
+            action="store_true",
+            default=False,
+            help="List available personas from the personas file and exit.",
+        )
 
     def add_argument(self, *args: Any, **kwargs: Any) -> None:
         """Add a command-line argument to the parser."""
@@ -169,3 +186,19 @@ class Config:
     def files(self) -> list[Path]:
         """Files to attach to the session, as given on the command line."""
         return list(self._parsed().files)
+
+    @property
+    def persona(self) -> str | None:
+        """The persona key to use from the personas file."""
+        persona = self._parsed().persona
+        return str(persona) if persona is not None else None
+
+    @property
+    def personas_file(self) -> str:
+        """Path to the personas JSON file."""
+        return str(self._parsed().personas_file)
+
+    @property
+    def list_personas(self) -> bool:
+        """Whether to list available personas and exit."""
+        return bool(self._parsed().list_personas)

@@ -192,7 +192,7 @@ def update_session(
     )
     new_messages = response.messages[prefix_length:]
     for message in new_messages:
-        if message.role != "tool" and len(message.content.strip()) > 0:
+        if message.role not in {"tool", "system"} and len(message.content.strip()) > 0:
             create_message(db, session.id, message.content, message.role, message.response_time)
     add_session_usage(
         db, session.id, response.prompt_eval_count, response.eval_count, response.token_used

@@ -1,5 +1,7 @@
 """Tests for the ``sensai`` package entry point."""
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -131,3 +133,220 @@ def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) ->
     assert calls[1]["messages"] == [{"role": "user", "content": "second question"}]
     second_turn_tools = calls[1]["tools"]
     assert len(second_turn_tools) == 3
+
+
+def test_main_sets_agent_system_prompt_from_persona(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps(
+            {"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}
+        ),
+        encoding="utf-8",
+    )
+
+    captured_system_prompts: list[str | None] = []
+
+    async def mock_run(
+        self: Agent,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None,
+    ) -> Response:
+        captured_system_prompts.append(self.system_prompt)
+        raise KeyboardInterrupt
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        return "hello"
+
+    _patch_main_dependencies(monkeypatch)
+    argv = ["sensai", "--persona", "hero", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr(Agent, "run", mock_run)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+
+    main()
+
+    assert captured_system_prompts[0] == "You are a hero."
+
+
+def test_main_warns_when_persona_key_not_found(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps(
+            {"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}
+        ),
+        encoding="utf-8",
+    )
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        raise KeyboardInterrupt
+
+    _patch_main_dependencies(monkeypatch)
+    argv = ["sensai", "--persona", "unknown", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+
+    main()
+
+    assert "Warning: persona 'unknown' not found." in capsys.readouterr().out
+
+
+def test_main_warns_when_personas_file_not_found(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        raise KeyboardInterrupt
+
+    _patch_main_dependencies(monkeypatch)
+    argv = ["sensai", "--persona", "hero", "--personas-file", "nonexistent.json"]
+    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+
+    main()
+
+    assert "Warning: personas file not found: nonexistent.json" in capsys.readouterr().out
+
+
+def test_main_warns_when_personas_file_is_malformed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps({"bad": {"name": "Bad", "description": "Missing system_prompt"}}),
+        encoding="utf-8",
+    )
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        raise KeyboardInterrupt
+
+    _patch_main_dependencies(monkeypatch)
+    argv = ["sensai", "--persona", "bad", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+
+    main()
+
+    assert "Warning: invalid personas file:" in capsys.readouterr().out
+
+
+def test_main_list_personas_prints_keys_and_exits(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps(
+            {
+                "teacher": {
+                    "name": "Teacher",
+                    "description": "Explains things.",
+                    "system_prompt": "You teach.",
+                },
+                "coder": {
+                    "name": "Coder",
+                    "description": "Writes code.",
+                    "system_prompt": "You code.",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    argv = ["sensai", "--list-personas", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
+
+    main()
+
+    out = capsys.readouterr().out
+    assert "coder" in out
+    assert "teacher" in out
+
+
+def test_main_list_personas_warns_when_file_not_found(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    argv = ["sensai", "--list-personas", "--personas-file", "nonexistent.json"]
+    monkeypatch.setattr("sys.argv", argv)
+
+    main()
+
+    assert "Warning: personas file not found: nonexistent.json" in capsys.readouterr().out
+
+
+def test_main_switch_persona_updates_system_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps(
+            {
+                "teacher": {
+                    "name": "Teacher",
+                    "description": "Teaches.",
+                    "system_prompt": "You teach.",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured_system_prompts: list[str | None] = []
+
+    async def mock_run(
+        self: Agent,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None,
+    ) -> Response:
+        captured_system_prompts.append(self.system_prompt)
+        raise KeyboardInterrupt
+
+    inputs = iter(["/switch-persona teacher", "hello"])
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        try:
+            return next(inputs)
+        except StopIteration as exc:
+            raise KeyboardInterrupt from exc
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--personas-file", str(personas_file)])
+    monkeypatch.setattr(Agent, "run", mock_run)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+
+    main()
+
+    assert captured_system_prompts[0] == "You teach."
+
+
+def test_main_switch_persona_warns_when_key_not_found(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    personas_file = tmp_path / "personas.json"
+    personas_file.write_text(
+        json.dumps(
+            {"hero": {"name": "Hero", "description": "A hero.", "system_prompt": "You are a hero."}}
+        ),
+        encoding="utf-8",
+    )
+
+    inputs = iter(["/switch-persona unknown"])
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        try:
+            return next(inputs)
+        except StopIteration as exc:
+            raise KeyboardInterrupt from exc
+
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sys.argv", ["sensai", "--personas-file", str(personas_file)])
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+
+    main()
+
+    assert "Warning: persona 'unknown' not found." in capsys.readouterr().out
