@@ -46,7 +46,7 @@ The output should include `['add']` and `False ['5']`. `False` means the tool ca
 Start `uv run sensai`, then connect from the chat prompt:
 
 ```text
-/mcp http://127.0.0.1:8000/mcp
+/mcp add-json local '{"type":"http","url":"http://127.0.0.1:8000/mcp"}'
 ```
 
 To connect using an HTTP JSON configuration, including optional headers, enter:
@@ -61,7 +61,7 @@ Only `"type": "http"` is supported. `headers` is optional and must contain strin
 values. The connection name must be unique in the current session. Configurations
 are used for the current conversation and are not saved for the next launch.
 
-Sensai starts with local tools only. The `/mcp <url>` command adds remote tools to the current
+Sensai starts with local tools only. The `/mcp add-json` command adds remote tools to the current
 agent without resetting the conversation. Connections stay open until you exit the
 CLI. Repeating a connection does not add duplicate tools. Several servers can be
 connected if their tool names do not conflict. `/help` lists the available commands.

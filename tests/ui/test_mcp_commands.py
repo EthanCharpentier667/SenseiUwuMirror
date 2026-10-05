@@ -1,5 +1,6 @@
 """Tests for interactive MCP connections and resource cleanup."""
 
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -16,6 +17,11 @@ from sensai.tools.temperature_example import TempToolExample
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.mcp_commands import MCPCommands
 from sensai.ui.protocol import AsyncUIHandler
+
+
+def mcp_command(name: str, url: str) -> str:
+    config = json.dumps({"type": "http", "url": url})
+    return f"/mcp add-json {name} '{config}'"
 
 
 class Connection:
@@ -74,10 +80,12 @@ async def test_multiple_servers_and_repeated_command(monkeypatch: pytest.MonkeyP
     first = Connection("first_tool", events)
     second = Connection("second_tool", events)
     connections = {"https://first/mcp": first, "https://second/mcp": second}
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", connections.__getitem__)
-    await registry.execute("/mcp https://first/mcp", context)
-    await registry.execute("/mcp https://first/mcp", context)
-    await registry.execute("/mcp https://second/mcp", context)
+    monkeypatch.setattr(
+        "sensai.ui.mcp_commands.SensAIClient", lambda config: connections[config.url]
+    )
+    await registry.execute(mcp_command("first", "https://first/mcp"), context)
+    await registry.execute(mcp_command("first_again", "https://first/mcp"), context)
+    await registry.execute(mcp_command("second", "https://second/mcp"), context)
     assert len(commands.agent.tools) == 3
     first.client.list_tools.assert_awaited_once()
     assert events == ["open first_tool", "open second_tool"]
@@ -104,10 +112,12 @@ async def test_failed_connection_keeps_existing_tools(
     if failure == "discovery":
         second.client.list_tools.side_effect = RuntimeError("Discovery failed")
     connections = {"https://first/mcp": first, "https://second/mcp": second}
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", connections.__getitem__)
-    await registry.execute("/mcp https://first/mcp", context)
+    monkeypatch.setattr(
+        "sensai.ui.mcp_commands.SensAIClient", lambda config: connections[config.url]
+    )
+    await registry.execute(mcp_command("first", "https://first/mcp"), context)
     original_tools = list(commands.agent.tools)
-    await registry.execute("/mcp https://second/mcp", context)
+    await registry.execute(mcp_command("second", "https://second/mcp"), context)
     assert commands.agent.tools == original_tools
     assert events == ["open first_tool", "open first_tool", "close first_tool"]
     context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
@@ -120,13 +130,6 @@ async def test_add_json_connects_with_headers_and_closes(monkeypatch: pytest.Mon
     commands, registry, context = setup_commands()
     events: list[str] = []
     connection = Connection("remote_tool", events)
-    captured = {}
-
-    def activate_json(*, headers):
-        captured.update(headers)
-        return connection.activate()
-
-    monkeypatch.setattr(connection, "activate_json", activate_json, raising=False)
     factory = Mock(return_value=connection)
     monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
     command = (
@@ -134,7 +137,7 @@ async def test_add_json_connects_with_headers_and_closes(monkeypatch: pytest.Mon
         '"headers": {"Authorization": "Bearer test-pat"}}\''
     )
     await registry.execute(command, context)
-    assert captured == {"Authorization": "Bearer test-pat"}
+    assert factory.call_args.args[0].headers == {"Authorization": "Bearer test-pat"}
     assert len(commands.agent.tools) == 2
     context.ui.on_error.assert_not_called()  # type: ignore[attr-defined]
     await registry.execute(command, context)

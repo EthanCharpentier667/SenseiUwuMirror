@@ -7,30 +7,20 @@ import httpx2
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
+from sensai.mcp.config import MCPServerConfig
 
-class SensAIClient(Client):
+
+class SensAIClient:
     """Client for MCP servers with optional HTTP headers."""
 
-    def __init__(self, server_url: str) -> None:
-        """Configure the remote server address."""
-        self.server_url = server_url
-        super().__init__(server_url)
+    def __init__(self, config: MCPServerConfig) -> None:
+        """Store connection settings parsed from JSON."""
+        self.config = config
 
     @asynccontextmanager
     async def activate(self) -> AsyncGenerator[Client, None]:
-        """Activate the MCP client for SensAI."""
-        try:
-            async with self:
-                yield self
-        except Exception as e:
-            raise RuntimeError(f"Failed to connect to MCP server: {e}") from e
-
-    @asynccontextmanager
-    async def activate_json(
-        self, *, headers: dict[str, str] | None = None
-    ) -> AsyncGenerator[Client, None]:
         """Activate the HTTP transport using headers from a JSON configuration."""
-        async with httpx2.AsyncClient(headers=headers or {}) as http_client:
-            transport = streamable_http_client(self.server_url, http_client=http_client)
+        async with httpx2.AsyncClient(headers=self.config.headers) as http_client:
+            transport = streamable_http_client(self.config.url, http_client=http_client)
             async with Client(transport) as client:
                 yield client

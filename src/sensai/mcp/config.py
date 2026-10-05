@@ -1,7 +1,6 @@
 """Parsing and validation of HTTP MCP server configurations."""
 
 import json
-from dataclasses import dataclass, field
 from typing import Self
 from urllib.parse import urlparse
 
@@ -25,12 +24,13 @@ def _validate_headers(value: object) -> dict[str, str]:
     return dict(value)
 
 
-@dataclass(slots=True)
 class MCPServerConfig:
     """Validated connection settings independent of the CLI."""
 
-    url: str
-    headers: dict[str, str] = field(default_factory=dict, repr=False)
+    def __init__(self, url: str, headers: dict[str, str] | None = None) -> None:
+        """Store connection settings with independent headers for each instance."""
+        self.url = url
+        self.headers = dict(headers) if headers is not None else {}
 
     @classmethod
     def from_json(cls, raw_json: str) -> Self:

@@ -1,5 +1,6 @@
 """Tests for the ``sensai`` package entry point."""
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Self
@@ -13,6 +14,7 @@ from sensai.client import OllamaClient, Response
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
+from sensai.mcp.config import MCPServerConfig
 from sensai.tools.mcp_tools import MCPTools
 from sensai.tools.temperature_example import TempToolExample
 from sensai.tools.web_search import WebSearch
@@ -143,8 +145,8 @@ def test_main_calls_agent_run_for_each_input(
     routes: list[str] = []
     server_url = "https://docs.mcp.cloudflare.com/mcp"
 
-    def fake_public_client(url: str) -> _FakeMCPClient:
-        assert url == server_url
+    def fake_public_client(config: MCPServerConfig) -> _FakeMCPClient:
+        assert config.url == server_url
         routes.append("public")
         client = _FakeMCPClient()
         clients.append(client)
@@ -166,7 +168,10 @@ def test_main_calls_agent_run_for_each_input(
             assert not clients[-1].closed
         return _make_response()
 
-    commands = {"local": [], "public": [f"/mcp {server_url}"]}
+    commands = {
+        "local": [],
+        "public": [f"/mcp add-json public '{json.dumps({'type': 'http', 'url': server_url})}'"],
+    }
     inputs = iter(["hello there", *commands[mode], "second question"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
@@ -193,7 +198,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
     _patch_main_dependencies(monkeypatch)
     clients: list[_FakeMCPClient] = []
 
-    def fake_public_client(_url: str) -> _FakeMCPClient:
+    def fake_public_client(_config: MCPServerConfig) -> _FakeMCPClient:
         client = _FakeMCPClient()
         clients.append(client)
         return client
@@ -228,7 +233,13 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         calls.append((messages, list(self.tools)))
         return _make_response()
 
-    inputs = iter(["/mcp http://127.0.0.1:8000/mcp", "question about the project", "follow-up"])
+    inputs = iter(
+        [
+            '/mcp add-json local \'{"type":"http","url":"http://127.0.0.1:8000/mcp"}\'',
+            "question about the project",
+            "follow-up",
+        ]
+    )
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
@@ -301,12 +312,18 @@ def test_main_closes_mcp_connection_after_cli_exit_command(
     """Slash commands remain usable and /exit closes the active MCP session."""
     _patch_main_dependencies(monkeypatch)
     client = _FakeMCPClient()
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", lambda _url: client)
-    inputs = iter(["/mcp http://127.0.0.1:8000/mcp", "/help", "/exit"])
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", lambda _config: client)
+    inputs = iter(
+        [
+            '/mcp add-json local \'{"type":"http","url":"http://127.0.0.1:8000/mcp"}\'',
+            "/help",
+            "/exit",
+        ]
+    )
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         command = next(inputs)
-        if command != "/mcp http://127.0.0.1:8000/mcp":
+        if command != '/mcp add-json local \'{"type":"http","url":"http://127.0.0.1:8000/mcp"}\'':
             assert client.connected
         return command
 

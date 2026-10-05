@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 from sensai.agent import Agent
-from sensai.mcp.config import MCPServerConfig, validate_http_url
+from sensai.mcp.config import MCPServerConfig
 from sensai.mcp.sensai_client import SensAIClient
 from sensai.tools.registry import get_mcp_tools
 from sensai.ui.command import Command, CommandContext, CommandRegistry
@@ -29,20 +29,17 @@ class MCPCommands:
         registry.register(
             Command(
                 "/mcp",
-                "Connect: /mcp <url> or /mcp add-json <name> '<json>'.",
-                self._public,
+                "Connect: /mcp add-json <name> '<json>'.",
+                self._execute,
                 subcommands=["add-json"],
             )
         )
 
-    async def _public(self, context: CommandContext, args: list[str]) -> None:
-        if args and args[0] == "add-json":
-            await self._add_json(context, args[1:])
-            return
-        if len(args) != 1:
-            raise ValueError("Usage: /mcp <url>")
-        url = validate_http_url(args[0])
-        await self._connect(context, url, SensAIClient(url))
+    async def _execute(self, context: CommandContext, args: list[str]) -> None:
+        """Dispatch the JSON connection command."""
+        if not args or args[0] != "add-json":
+            raise ValueError("Usage: /mcp add-json <name> '<json>'")
+        await self._add_json(context, args[1:])
 
     async def _add_json(self, context: CommandContext, args: list[str]) -> None:
         """Connect a named server using validated JSON settings."""
@@ -52,30 +49,20 @@ class MCPCommands:
         config = MCPServerConfig.from_json(raw_json)
         if name in self._names:
             raise ValueError("This MCP server name is already connected.")
-        await self._connect(
-            context, config.url, SensAIClient(config.url), headers=config.headers, name=name
-        )
+        await self._connect(context, name, config)
 
     async def _connect(
         self,
         context: CommandContext,
-        url: str,
-        connection: SensAIClient,
-        *,
-        headers: dict[str, str] | None = None,
-        name: str | None = None,
+        name: str,
+        config: MCPServerConfig,
     ) -> None:
         """Discover tools before adding a successfully opened connection."""
-        if url in self._servers:
+        if config.url in self._servers:
             await context.ui.on_system_message("This MCP server is already connected.")
             return
         async with AsyncExitStack() as pending:
-            activation = (
-                connection.activate()
-                if headers is not None
-                else connection.activate_json(headers=headers)
-            )
-            client = await pending.enter_async_context(activation)
+            client = await pending.enter_async_context(SensAIClient(config).activate())
             tools = await get_mcp_tools(client)
             names = [tool.name for tool in tools]
             existing = {tool.name for tool in self.agent.tools}
@@ -86,9 +73,8 @@ class MCPCommands:
             self._stack.push_async_callback(pending.pop_all().aclose)
         self.agent.tools.extend(tools)
         self._tools.extend(tools)
-        self._servers.add(url)
-        if name is not None:
-            self._names.add(name)
+        self._servers.add(config.url)
+        self._names.add(name)
         await context.ui.on_system_message(f"MCP connected: {len(tools)} tool(s) added.")
 
     async def aclose(self) -> None:
