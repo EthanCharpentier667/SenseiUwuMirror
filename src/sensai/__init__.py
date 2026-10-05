@@ -1,8 +1,6 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
 import asyncio
-import os
-from contextlib import AsyncExitStack
 
 from rich.console import Console
 
@@ -14,16 +12,8 @@ from sensai.core.setup import (
     setup_database,
 )
 from sensai.embedder import Embedder
-from sensai.mcp.github_mcp import GitHubMCP
-from sensai.mcp.sensai_client import SensAIClient
-from sensai.tools.registry import get_mcp_tools
 from sensai.ui.app import CLIApp
 from sensai.ui.auth import authenticate_user
-
-# Temporary MCP settings until configuration is available.
-USE_MCP_MODE = True
-USE_GITHUB_MCP = True
-MCP_SERVER_URL = "https://docs.mcp.cloudflare.com/mcp"
 
 __all__ = ["CLIApp", "main"]
 
@@ -52,15 +42,7 @@ async def async_main() -> None:
         profile_name=profile.name,
         embedder=embedder,
     )
-    async with AsyncExitStack() as stack:
-        mcp_client = None
-        if USE_MCP_MODE and USE_GITHUB_MCP and os.environ.get("GITHUB_MCP_TOKEN") is not None:
-            mcp_client = await stack.enter_async_context(GitHubMCP().activate())
-        elif USE_MCP_MODE and MCP_SERVER_URL:
-            mcp_client = await stack.enter_async_context(SensAIClient(MCP_SERVER_URL).activate())
-        if mcp_client is not None:
-            agent.tools.extend(await get_mcp_tools(mcp_client))
-        await app.run()
+    await app.run()
 
 
 def main() -> None:
