@@ -118,10 +118,11 @@ def _assert_agent_calls(calls: list[dict[str, Any]], expected_route: str | None)
         assert call["prompt"] is None
         assert call["messages"] == [{"role": "user", "content": text}]
         tools = call["tools"]
-        assert len(tools) == (4 if expected_route else 3)
+        remote_enabled = expected_route is not None and text == "second question"
+        assert len(tools) == (4 if remote_enabled else 3)
         assert isinstance(tools[0], WebSearch)
         assert isinstance(tools[1], TempToolExample)
-        if expected_route:
+        if remote_enabled:
             assert isinstance(tools[-1], MCPTools)
             assert tools[-1].name == "remote_add"
 
@@ -132,13 +133,12 @@ def _assert_agent_calls(calls: list[dict[str, Any]], expected_route: str | None)
         ("local", None),
         ("github", "github"),
         ("public", "public"),
-        ("github_without_token", "public"),
     ],
 )
 def test_main_calls_agent_run_for_each_input(
     monkeypatch: pytest.MonkeyPatch, mode: str, expected_route: str | None
 ) -> None:
-    """Each turn uses local tools and any MCP connection selected by the flags."""
+    """A command connects MCP between two chat messages without resetting the agent."""
     calls: list[dict[str, Any]] = []
     clients: list[_FakeMCPClient] = []
     routes: list[str] = []
@@ -168,12 +168,13 @@ def test_main_calls_agent_run_for_each_input(
         assert isinstance(self.client, OllamaClient)
         assert self.model == "llama3.2"
         assert self.human_in_the_loop is True
-        if expected_route is not None:
+        if expected_route is not None and len(calls) == 2:
             assert clients[-1].connected
             assert not clients[-1].closed
         return _make_response()
 
-    inputs = iter(["hello there", "second question"])
+    commands = {"local": [], "github": ["/mcp-github"], "public": [f"/mcp {server_url}"]}
+    inputs = iter(["hello there", *commands[mode], "second question"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
@@ -182,14 +183,11 @@ def test_main_calls_agent_run_for_each_input(
             raise EOFError from exc
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.USE_MCP_MODE", mode != "local")
-    monkeypatch.setattr("sensai.USE_GITHUB_MCP", mode in {"github", "github_without_token"})
-    monkeypatch.setattr("sensai.MCP_SERVER_URL", server_url)
     monkeypatch.delenv("GITHUB_MCP_TOKEN", raising=False)
     if mode == "github":
         monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
-    monkeypatch.setattr("sensai.GitHubMCP", fake_github_client)
-    monkeypatch.setattr("sensai.SensAIClient", fake_public_client)
+    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", fake_github_client)
+    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", fake_public_client)
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
@@ -204,8 +202,6 @@ def test_main_calls_agent_run_for_each_input(
 def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     """An MCP-enabled turn receives RAG excerpts and the next turn sees the updated session."""
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.USE_MCP_MODE", True)
-    monkeypatch.setattr("sensai.USE_GITHUB_MCP", True)
     monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
     clients: list[_FakeMCPClient] = []
 
@@ -244,7 +240,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         calls.append((messages, list(self.tools)))
         return _make_response()
 
-    inputs = iter(["question about the project", "follow-up"])
+    inputs = iter(["/mcp-github", "question about the project", "follow-up"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
@@ -252,7 +248,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         except StopIteration as exc:
             raise EOFError from exc
 
-    monkeypatch.setattr("sensai.GitHubMCP", fake_github_client)
+    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", fake_github_client)
     monkeypatch.setattr("sensai.ui.app.retrieve_chunks", fake_retrieve)
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: updated_session)
     monkeypatch.setattr(Agent, "run", mock_run)
@@ -274,7 +270,6 @@ def test_main_ingests_cli_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     file_path.write_text("A project note")
     _patch_main_dependencies(monkeypatch)
     monkeypatch.setattr("sys.argv", ["sensai", "--files", str(file_path)])
-    monkeypatch.setattr("sensai.USE_MCP_MODE", False)
     monkeypatch.setattr(
         "sensai.core.setup.create_message", lambda *args, **kwargs: SimpleNamespace(id=17)
     )
@@ -301,7 +296,6 @@ def test_main_greets_the_profile_and_exits_on_eof(
 ) -> None:
     """The new CLI greets the authenticated profile and handles end of input."""
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.USE_MCP_MODE", False)
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         raise EOFError
@@ -318,16 +312,16 @@ def test_main_closes_mcp_connection_after_cli_exit_command(
 ) -> None:
     """Slash commands remain usable and /exit closes the active MCP session."""
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.USE_MCP_MODE", True)
-    monkeypatch.setattr("sensai.USE_GITHUB_MCP", True)
     monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
     client = _FakeMCPClient()
-    monkeypatch.setattr("sensai.GitHubMCP", lambda: client)
-    inputs = iter(["/help", "/exit"])
+    monkeypatch.setattr("sensai.ui.mcp_commands.GitHubMCP", lambda: client)
+    inputs = iter(["/mcp-github", "/help", "/exit"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
-        assert client.connected
-        return next(inputs)
+        command = next(inputs)
+        if command != "/mcp-github":
+            assert client.connected
+        return command
 
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
     with pytest.raises(SystemExit) as exc_info:
