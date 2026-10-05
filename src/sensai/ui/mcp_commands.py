@@ -66,9 +66,7 @@ class MCPCommands:
     async def aclose(self) -> None:
         """Remove remote tools and close connections in reverse order."""
         remote_ids = {id(tool) for tool in self._tools}
-        for tool in self.agent.tools:
-            if id(tool) in remote_ids:
-                self.agent.tools.remove(tool)
+        self.agent.tools[:] = [tool for tool in self.agent.tools if id(tool) not in remote_ids]
         self._tools.clear()
         self._servers.clear()
         await self._stack.aclose()
