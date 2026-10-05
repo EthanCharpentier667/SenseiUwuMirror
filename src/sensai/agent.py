@@ -50,8 +50,15 @@ class Agent:
         effective_system = system_prompt or self.system_prompt
         if messages is not None:
             formatted = list(messages)
-            if effective_system and not any(m.get("role") == "system" for m in formatted):
-                formatted.insert(0, {"role": "system", "content": effective_system})
+            if effective_system:
+                idx = next((i for i, m in enumerate(formatted) if m.get("role") == "system"), None)
+                if idx is not None:
+                    formatted[idx] = {
+                        **formatted[idx],
+                        "content": effective_system + "\n\n" + formatted[idx]["content"],
+                    }
+                else:
+                    formatted.insert(0, {"role": "system", "content": effective_system})
             return formatted
 
         if prompt is None:
