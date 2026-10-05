@@ -81,9 +81,7 @@ class CLIApp:
                         f"{new_persona.name}[/bold green]"
                     )
                 else:
-                    await context.ui.on_system_message(
-                        f"Warning: persona '{new_key}' not found."
-                    )
+                    await context.ui.on_system_message(f"Warning: persona '{new_key}' not found.")
             except (FileNotFoundError, ValueError) as exc:
                 await context.ui.on_system_message(
                     f"[red]Warning: could not switch persona: {exc}[/red]"

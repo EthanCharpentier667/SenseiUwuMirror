@@ -140,7 +140,9 @@ def test_main_sets_agent_system_prompt_from_persona(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),  # noqa: E501
+        json.dumps(
+            {"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}
+        ),
         encoding="utf-8",
     )
 
@@ -175,7 +177,9 @@ def test_main_warns_when_persona_key_not_found(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),  # noqa: E501
+        json.dumps(
+            {"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}
+        ),
         encoding="utf-8",
     )
 
@@ -235,10 +239,20 @@ def test_main_list_personas_prints_keys_and_exits(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({
-            "teacher": {"name": "Teacher", "description": "Explains things.", "system_prompt": "You teach."},  # noqa: E501
-            "coder": {"name": "Coder", "description": "Writes code.", "system_prompt": "You code."},
-        }),
+        json.dumps(
+            {
+                "teacher": {
+                    "name": "Teacher",
+                    "description": "Explains things.",
+                    "system_prompt": "You teach.",
+                },
+                "coder": {
+                    "name": "Coder",
+                    "description": "Writes code.",
+                    "system_prompt": "You code.",
+                },
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -268,7 +282,15 @@ def test_main_switch_persona_updates_system_prompt(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"teacher": {"name": "Teacher", "description": "Teaches.", "system_prompt": "You teach."}}),  # noqa: E501
+        json.dumps(
+            {
+                "teacher": {
+                    "name": "Teacher",
+                    "description": "Teaches.",
+                    "system_prompt": "You teach.",
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -307,7 +329,9 @@ def test_main_switch_persona_warns_when_key_not_found(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"hero": {"name": "Hero", "description": "A hero.", "system_prompt": "You are a hero."}}),  # noqa: E501
+        json.dumps(
+            {"hero": {"name": "Hero", "description": "A hero.", "system_prompt": "You are a hero."}}
+        ),
         encoding="utf-8",
     )
 
