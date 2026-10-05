@@ -43,7 +43,23 @@ The output should include `['add']` and `False ['5']`. `False` means the tool ca
 
 ## Use it with Sensai
 
-The CLI currently uses the `MCP_SERVER_URL` constant in `src/sensai/__init__.py`, which points to the Cloudflare documentation server. To try this local server with the CLI, set that URL to `http://127.0.0.1:8000/mcp` and set `USE_GITHUB_MCP = False`, then run `uv run sensai` in another terminal. The GitHub branch takes priority when it is enabled and `GITHUB_MCP_TOKEN` is present.
+Start `uv run sensai`, then connect from the chat prompt:
+
+```text
+/mcp http://127.0.0.1:8000/mcp
+```
+
+For the official GitHub server, set `GITHUB_MCP_TOKEN` in your environment before
+starting Sensai, then enter:
+
+```text
+/mcp-github
+```
+
+Sensai starts with local tools only. These commands add remote tools to the current
+agent without resetting the conversation. Connections stay open until you exit the
+CLI. Repeating a connection does not add duplicate tools. Several servers can be
+connected if their tool names do not conflict. `/help` lists both commands.
 
 If port 8000 is already occupied, check the process using it before starting another server:
 
