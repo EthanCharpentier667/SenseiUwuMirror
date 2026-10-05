@@ -49,26 +49,22 @@ Start `uv run sensai`, then connect from the chat prompt:
 /mcp http://127.0.0.1:8000/mcp
 ```
 
-To use the official GitHub server, create a GitHub personal access token (PAT):
-
-1. In GitHub, open **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. See [GitHub's token creation guide](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for the full steps.
-2. Select the repositories you need and grant only the permissions required by the GitHub tools you intend to use. GitHub may require organization approval before a token can access private repositories.
-3. Copy the token into `GITHUB_MCP_TOKEN` in your local `.env` file (created with `cp .env.exemple .env`). Keep the token private; `.env` is ignored by Git.
-
-```dotenv
-GITHUB_MCP_TOKEN="your_github_pat_here"
-```
-
-Start `uv run sensai`, then enter:
+To connect using an HTTP JSON configuration, including optional headers, enter:
 
 ```text
-/mcp-github
+/mcp add-json github '{"type":"http","url":"https://api.githubcopilot.com/mcp","headers":{"Authorization":"Bearer YOUR_GITHUB_PAT"}}'
 ```
 
-Sensai starts with local tools only. These commands add remote tools to the current
+Replace `YOUR_GITHUB_PAT` with your token. Enclose the JSON in single quotes to
+preserve its double quotes and spaces. Write `https://` without a backslash.
+Only `"type": "http"` is supported. `headers` is optional and must contain string
+values. The connection name must be unique in the current session. Configurations
+are used for the current conversation and are not saved for the next launch.
+
+Sensai starts with local tools only. The `/mcp <url>` command adds remote tools to the current
 agent without resetting the conversation. Connections stay open until you exit the
 CLI. Repeating a connection does not add duplicate tools. Several servers can be
-connected if their tool names do not conflict. `/help` lists both commands.
+connected if their tool names do not conflict. `/help` lists the available commands.
 
 If port 8000 is already occupied, check the process using it before starting another server:
 
