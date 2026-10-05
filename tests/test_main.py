@@ -7,7 +7,8 @@ from typing import Any, Self
 import pytest
 from mcp.types import Tool as MCPToolDefinition
 
-from sensai import Agent, main
+from sensai import main
+from sensai.agent import Agent
 from sensai.client import OllamaClient, Response
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
@@ -98,16 +99,16 @@ async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
 
 
 def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _mock_auth(*args: Any, **kwargs: Any) -> Profile:
+        return _make_profile()
+
     monkeypatch.setattr("sys.argv", ["sensai"])
-    monkeypatch.setattr("sensai.Database", _FakeDatabase)
-    monkeypatch.setattr("sensai.login", lambda *args, **kwargs: None)
-    monkeypatch.setattr("sensai.create_new_profile", _make_profile)
-    monkeypatch.setattr("sensai.add_preference", lambda *args, **kwargs: None)
-    monkeypatch.setattr("sensai.add_instruction", lambda *args, **kwargs: None)
-    monkeypatch.setattr("sensai.create_new_session", lambda *args, **kwargs: _make_session())
-    monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: _make_session())
-    monkeypatch.setattr("sensai.maybe_compress_session", _fake_maybe_compress_session)
-    monkeypatch.setattr("sensai.retrieve_chunks", _fake_retrieve_chunks)
+    monkeypatch.setattr("sensai.setup_database", lambda *args, **kwargs: _FakeDatabase())
+    monkeypatch.setattr("sensai.authenticate_user", _mock_auth)
+    monkeypatch.setattr("sensai.get_or_create_session", lambda *args, **kwargs: _make_session())
+    monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: _make_session())
+    monkeypatch.setattr("sensai.ui.app.maybe_compress_session", _fake_maybe_compress_session)
+    monkeypatch.setattr("sensai.ui.app.retrieve_chunks", _fake_retrieve_chunks)
 
 
 def _assert_agent_calls(calls: list[dict[str, Any]], expected_route: str | None) -> None:
@@ -174,7 +175,7 @@ def test_main_calls_agent_run_for_each_input(
 
     inputs = iter(["hello there", "second question"])
 
-    def fake_input(_prompt: str) -> str:
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
             return next(inputs)
         except StopIteration as exc:
@@ -190,12 +191,12 @@ def test_main_calls_agent_run_for_each_input(
     monkeypatch.setattr("sensai.GitHubMCP", fake_github_client)
     monkeypatch.setattr("sensai.SensAIClient", fake_public_client)
     monkeypatch.setattr(Agent, "run", mock_run)
-    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
 
-    assert routes == ([expected_route] * 2 if expected_route else [])
-    assert len(clients) == (2 if expected_route else 0)
+    assert routes == ([expected_route] if expected_route else [])
+    assert len(clients) == (1 if expected_route else 0)
     assert all(client.closed and not client.connected and client.listed == 1 for client in clients)
     _assert_agent_calls(calls, expected_route)
 
@@ -220,7 +221,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
     ) -> Session:
         return session
 
-    monkeypatch.setattr("sensai.maybe_compress_session", keep_updated_session)
+    monkeypatch.setattr("sensai.ui.app.maybe_compress_session", keep_updated_session)
     seen_sessions: list[Session] = []
     calls: list[tuple[list[dict[str, Any]], list[Any]]] = []
 
@@ -245,17 +246,17 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
 
     inputs = iter(["question about the project", "follow-up"])
 
-    def fake_input(_prompt: str) -> str:
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
             return next(inputs)
         except StopIteration as exc:
             raise EOFError from exc
 
     monkeypatch.setattr("sensai.GitHubMCP", fake_github_client)
-    monkeypatch.setattr("sensai.retrieve_chunks", fake_retrieve)
-    monkeypatch.setattr("sensai.update_session", lambda *args, **kwargs: updated_session)
+    monkeypatch.setattr("sensai.ui.app.retrieve_chunks", fake_retrieve)
+    monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: updated_session)
     monkeypatch.setattr(Agent, "run", mock_run)
-    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
 
@@ -263,7 +264,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
     assert any("Project fact" in message["content"] for message in calls[0][0])
     assert any(isinstance(tool, MCPTools) for tool in calls[0][1])
     assert seen_sessions[1] is updated_session
-    assert len(clients) == 2
+    assert len(clients) == 1
     assert all(client.closed and client.listed == 1 for client in clients)
 
 
@@ -274,7 +275,9 @@ def test_main_ingests_cli_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     _patch_main_dependencies(monkeypatch)
     monkeypatch.setattr("sys.argv", ["sensai", "--files", str(file_path)])
     monkeypatch.setattr("sensai.USE_MCP_MODE", False)
-    monkeypatch.setattr("sensai.create_message", lambda *args, **kwargs: SimpleNamespace(id=17))
+    monkeypatch.setattr(
+        "sensai.core.setup.create_message", lambda *args, **kwargs: SimpleNamespace(id=17)
+    )
     calls: list[tuple[int, bytes, str]] = []
 
     async def fake_ingest(
@@ -282,12 +285,56 @@ def test_main_ingests_cli_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     ) -> None:
         calls.append((message_id, content, name))
 
-    def fake_input(_prompt: str) -> str:
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         raise EOFError
 
-    monkeypatch.setattr("sensai.ingest_document", fake_ingest)
-    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("sensai.core.setup.ingest_document", fake_ingest)
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
 
     assert calls == [(17, b"A project note", "notes.txt")]
+
+
+def test_main_greets_the_profile_and_exits_on_eof(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The new CLI greets the authenticated profile and handles end of input."""
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sensai.USE_MCP_MODE", False)
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        raise EOFError
+
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+    main()
+    captured = capsys.readouterr()
+    assert "Hello Default Profile! Welcome to Sensai." in captured.out
+    assert "Program terminated by user." in captured.out
+
+
+def test_main_closes_mcp_connection_after_cli_exit_command(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Slash commands remain usable and /exit closes the active MCP session."""
+    _patch_main_dependencies(monkeypatch)
+    monkeypatch.setattr("sensai.USE_MCP_MODE", True)
+    monkeypatch.setattr("sensai.USE_GITHUB_MCP", True)
+    monkeypatch.setenv("GITHUB_MCP_TOKEN", "test-token")
+    client = _FakeMCPClient()
+    monkeypatch.setattr("sensai.GitHubMCP", lambda: client)
+    inputs = iter(["/help", "/exit"])
+
+    async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
+        assert client.connected
+        return next(inputs)
+
+    monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 0
+    assert "Available Commands" in capsys.readouterr().out
+    assert client.closed
+    assert not client.connected
+    assert client.listed == 1
