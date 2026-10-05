@@ -140,7 +140,7 @@ def test_main_sets_agent_system_prompt_from_persona(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),
+        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),  # noqa: E501
         encoding="utf-8",
     )
 
@@ -160,7 +160,8 @@ def test_main_sets_agent_system_prompt_from_persona(
         return "hello"
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "hero", "--personas-file", str(personas_file)])
+    argv = ["sensai", "--persona", "hero", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
@@ -174,7 +175,7 @@ def test_main_warns_when_persona_key_not_found(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),
+        json.dumps({"hero": {"name": "Hero", "description": "A hero", "system_prompt": "You are a hero."}}),  # noqa: E501
         encoding="utf-8",
     )
 
@@ -182,7 +183,8 @@ def test_main_warns_when_persona_key_not_found(
         raise KeyboardInterrupt
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "unknown", "--personas-file", str(personas_file)])
+    argv = ["sensai", "--persona", "unknown", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
@@ -197,7 +199,8 @@ def test_main_warns_when_personas_file_not_found(
         raise KeyboardInterrupt
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "hero", "--personas-file", "nonexistent.json"])
+    argv = ["sensai", "--persona", "hero", "--personas-file", "nonexistent.json"]
+    monkeypatch.setattr("sys.argv", argv)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
@@ -218,7 +221,8 @@ def test_main_warns_when_personas_file_is_malformed(
         raise KeyboardInterrupt
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "bad", "--personas-file", str(personas_file)])
+    argv = ["sensai", "--persona", "bad", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
@@ -232,13 +236,14 @@ def test_main_list_personas_prints_keys_and_exits(
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
         json.dumps({
-            "teacher": {"name": "Teacher", "description": "Explains things.", "system_prompt": "You teach."},
+            "teacher": {"name": "Teacher", "description": "Explains things.", "system_prompt": "You teach."},  # noqa: E501
             "coder": {"name": "Coder", "description": "Writes code.", "system_prompt": "You code."},
         }),
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("sys.argv", ["sensai", "--list-personas", "--personas-file", str(personas_file)])
+    argv = ["sensai", "--list-personas", "--personas-file", str(personas_file)]
+    monkeypatch.setattr("sys.argv", argv)
 
     main()
 
@@ -250,7 +255,8 @@ def test_main_list_personas_prints_keys_and_exits(
 def test_main_list_personas_warns_when_file_not_found(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("sys.argv", ["sensai", "--list-personas", "--personas-file", "nonexistent.json"])
+    argv = ["sensai", "--list-personas", "--personas-file", "nonexistent.json"]
+    monkeypatch.setattr("sys.argv", argv)
 
     main()
 
@@ -262,7 +268,7 @@ def test_main_switch_persona_updates_system_prompt(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"teacher": {"name": "Teacher", "description": "Teaches.", "system_prompt": "You teach."}}),
+        json.dumps({"teacher": {"name": "Teacher", "description": "Teaches.", "system_prompt": "You teach."}}),  # noqa: E501
         encoding="utf-8",
     )
 
@@ -301,7 +307,7 @@ def test_main_switch_persona_warns_when_key_not_found(
 ) -> None:
     personas_file = tmp_path / "personas.json"
     personas_file.write_text(
-        json.dumps({"hero": {"name": "Hero", "description": "A hero.", "system_prompt": "You are a hero."}}),
+        json.dumps({"hero": {"name": "Hero", "description": "A hero.", "system_prompt": "You are a hero."}}),  # noqa: E501
         encoding="utf-8",
     )
 

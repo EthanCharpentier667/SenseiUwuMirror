@@ -77,14 +77,17 @@ class CLIApp:
                 if new_persona is not None:
                     agent.system_prompt = new_persona.system_prompt
                     await context.ui.on_system_message(
-                        f"[bold green]Persona switched to '{new_key}': {new_persona.name}[/bold green]"
+                        f"[bold green]Persona switched to '{new_key}': "
+                        f"{new_persona.name}[/bold green]"
                     )
                 else:
                     await context.ui.on_system_message(
                         f"Warning: persona '{new_key}' not found."
                     )
             except (FileNotFoundError, ValueError) as exc:
-                await context.ui.on_system_message(f"[red]Warning: could not switch persona: {exc}[/red]")
+                await context.ui.on_system_message(
+                    f"[red]Warning: could not switch persona: {exc}[/red]"
+                )
 
         async def _list_personas_execute(context: CommandContext, _args: list[str]) -> None:
             try:
@@ -93,11 +96,15 @@ class CLIApp:
                 if keys:
                     for key in keys:
                         p = personas[key]
-                        await context.ui.on_system_message(f"  [cyan]{key}[/cyan]: {p.name} — {p.description}")
+                        await context.ui.on_system_message(
+                            f"  [cyan]{key}[/cyan]: {p.name} — {p.description}"
+                        )
                 else:
                     await context.ui.on_system_message("[dim]No personas found.[/dim]")
             except (FileNotFoundError, ValueError) as exc:
-                await context.ui.on_system_message(f"[red]Warning: could not load personas: {exc}[/red]")
+                await context.ui.on_system_message(
+                    f"[red]Warning: could not load personas: {exc}[/red]"
+                )
 
         self.command_registry.register(
             Command("/switch-persona", "Switch the active persona.", _switch_persona_execute)
