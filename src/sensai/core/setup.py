@@ -14,7 +14,7 @@ from sensai.data.session.message import create_message, delete_message
 from sensai.data.session.session import Session
 from sensai.embedder import Embedder
 from sensai.rag import ingest_document
-from sensai.tools.registry import get_all_tools
+from sensai.tools.registry import get_tools
 from sensai.ui.cli import CLIHandler
 
 
@@ -35,7 +35,7 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
     ui_handler = CLIHandler()
     agent = Agent(
         model=config.model,
-        tools=get_all_tools(),
+        tools=get_tools(),
         human_in_the_loop=True,
         ui_handler=ui_handler,
         client=client,

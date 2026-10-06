@@ -1,5 +1,6 @@
 """Command registry and management for the CLI."""
 
+import shlex
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -111,6 +112,8 @@ class CommandRegistry:
 
         command = self._commands[command_name]
         try:
+            if command_name == "/mcp":  # Only split the arguments for /mcp
+                args = shlex.split(user_input)[1:]  # to handle quoted JSON correctly
             await command.execute(context, args)
         except SystemExit:
             raise

@@ -134,6 +134,18 @@ class Agent:
                 await self.ui_handler.on_error(e)
             raise
 
+    def _format_tools(self) -> list[dict[str, Any]]:
+        """Format the tools for the model, filtering based on message content."""
+        formatted_tools: list[dict[str, Any]] = []
+        for tool in self.tools:
+            if not hasattr(tool, "define"):
+                continue
+            tool_def = tool.define()
+            if not isinstance(tool_def, dict):
+                continue
+            formatted_tools.append(tool_def)
+        return formatted_tools
+
     async def _execute_turn(
         self,
         current_messages: list[dict[str, Any]],
@@ -177,7 +189,7 @@ class Agent:
             raise ValueError(msg)
 
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
-        formatted_tools = [tool.define() for tool in self.tools]
+        formatted_tools = self._format_tools()
 
         response: Response | None = None
         for _ in range(self.max_turns):
