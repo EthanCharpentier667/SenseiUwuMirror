@@ -66,10 +66,12 @@ uv run sensai
 
 ---
 
-## Local MCP Server
+## MCP Connections
 
-The example server exposes an `add` tool over MCP. See the
-[MCP server guide](mcp-server.md) to start it and test the connection.
+Connect local or remote Streamable HTTP servers from the Sensai chat with
+`/mcp add-json <name> '<json>'`. The [MCP connection guide](mcp-server.md)
+includes step-by-step examples for the local calculator, GitHub with a token,
+and Gmail with OAuth, plus configuration fields and troubleshooting.
 
 ---
 
