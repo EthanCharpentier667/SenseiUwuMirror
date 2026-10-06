@@ -31,6 +31,23 @@ async def async_main() -> None:
     profile = await authenticate_user(database, console)
     session = get_or_create_session(database, profile)
 
+    if profile.settings:
+        import json
+        try:
+            settings = json.loads(profile.settings)
+            agent.trust_level = settings.get("trust_level", agent.trust_level)
+            agent.model = settings.get("model", agent.model)
+            # config doesn't have setters by default since it wraps Namespace, 
+            # but we can set attributes on config.args if we want, or just add setters.
+            # For simplicity, we just inject it into config.
+            if "compression_threshold" in settings:
+                config._parsed().compression_threshold = settings["compression_threshold"]
+            if "url" in settings:
+                config._parsed().url = settings["url"]
+                client.base_url = settings["url"]  # update client immediately
+        except json.JSONDecodeError:
+            pass
+
     await ingest_initial_files(database, embedder, session, config.files, console)
 
     app = CLIApp(

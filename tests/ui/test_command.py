@@ -30,7 +30,7 @@ async def test_command_registry() -> None:
 
     from sensai.ui.command import CommandContext  # noqa: PLC0415
 
-    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
+    ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 
     await registry.execute("/test arg1 arg2", ctx)
 

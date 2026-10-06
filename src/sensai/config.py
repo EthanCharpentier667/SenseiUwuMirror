@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+AVAILABLE_MODELS = ["gemma4:e4b", "qwen3.5:9b", "llama3.2:latest"]
 DEFAULT_MODEL = "llama3.2"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
