@@ -1,6 +1,6 @@
 """Tests for builtin commands."""
 
-from sensai.ui.builtin_commands import setup_builtin_commands
+from sensai.ui.commands import setup_builtin_commands
 from sensai.ui.command import CommandRegistry
 
 
