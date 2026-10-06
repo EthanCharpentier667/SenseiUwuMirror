@@ -19,7 +19,7 @@ class Agent:
         model: str = "llama3.2",
         tools: list[Any] | None = None,
         *,
-        human_in_the_loop: bool = False,
+        trust_level: str = "none",
         ui_handler: AsyncUIHandler | None = None,
         client: OllamaClient,
     ) -> None:
@@ -28,13 +28,13 @@ class Agent:
         Args:
             model: The Ollama model name to use.
             tools: List of available Tool instances.
-            human_in_the_loop: Whether tool calls require manual user approval.
+            trust_level: Tool execution trust level: "none", "partial", or "total".
             ui_handler: Event handler for UI presentation.
             client: Optional preconfigured OllamaClient instance.
         """
         self.model = model
         self.tools = tools or []
-        self.human_in_the_loop = human_in_the_loop
+        self.trust_level = trust_level
         self.ui_handler = ui_handler
         self.client = client
         self.max_turns = DEFAULT_MAX_TURNS
@@ -84,17 +84,32 @@ class Agent:
         fn_name = func.get("name", "")
         fn_args = func.get("arguments", {})
 
-        if self.human_in_the_loop and self.ui_handler:
+        tool = next((t for t in self.tools if getattr(t, "name", None) == fn_name), None)
+        requires_approval = True
+
+        if self.trust_level == "total":
+            requires_approval = False
+        elif self.trust_level == "partial" and tool and getattr(tool, "safe", False):
+            requires_approval = False
+
+        if requires_approval and self.ui_handler:
             approved = await self.ui_handler.on_tool_call_request(fn_name, fn_args)
             if not approved:
                 return "Action cancelled by user."
+
+        if self.ui_handler:
+            await self.ui_handler.start_spinner(f"Executing {fn_name}...")
 
         try:
             found, res = await self._dispatch_single_tool(fn_name, fn_args)
         except Exception as e:
             if self.ui_handler:
+                await self.ui_handler.stop_spinner()
                 await self.ui_handler.on_error(e)
             raise
+
+        if self.ui_handler:
+            await self.ui_handler.stop_spinner()
 
         if not found:
             return f"Tool '{fn_name}' not found."
@@ -140,7 +155,15 @@ class Agent:
         formatted_tools: list[dict[str, Any]],
     ) -> tuple[bool, Response]:
         """Execute a single turn. Returns (is_done, response)."""
-        response = await self._step(current_messages, formatted_tools)
+        if self.ui_handler:
+            await self.ui_handler.start_spinner("Thinking...")
+
+        try:
+            response = await self._step(current_messages, formatted_tools)
+        finally:
+            if self.ui_handler:
+                await self.ui_handler.stop_spinner()
+
         tool_calls = response.tool_calls
         if not tool_calls:
             return True, response

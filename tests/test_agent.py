@@ -161,7 +161,7 @@ async def test_agent_tool_loop_and_execution() -> None:
     tool = FakeTool()
     agent = Agent(
         tools=[tool],
-        human_in_the_loop=True,
+        trust_level="none",
         ui_handler=ui,
         client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
     )
@@ -196,7 +196,7 @@ async def test_agent_async_tool_execution() -> None:
     tool = AsyncFakeTool()
     agent = Agent(
         tools=[tool],
-        human_in_the_loop=False,
+        trust_level="total",
         ui_handler=ui,
         client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
     )
@@ -233,7 +233,7 @@ async def test_agent_tool_denied_by_user() -> None:
     tool = FakeTool()
     agent = Agent(
         tools=[tool],
-        human_in_the_loop=True,
+        trust_level="none",
         ui_handler=ui,
         client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
     )
