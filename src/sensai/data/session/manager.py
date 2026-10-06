@@ -6,6 +6,7 @@ from sensai.client import OllamaClient, Response
 from sensai.data.database.database import Database
 from sensai.data.profile.manager import get_current_profile
 from sensai.data.session.chunk import Chunk, search_chunks_hybrid
+from sensai.ui.protocol import AsyncUIHandler
 
 from .message import Message, create_message, get_document_ids_by_session
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
@@ -337,6 +338,7 @@ async def maybe_compress_session(
     response: Response,
     threshold: int,
     client: OllamaClient,
+    ui_handler: AsyncUIHandler | None = None,
 ) -> Session:
     """Compress a session's history once its last prompt exceeded a token threshold.
 
@@ -349,17 +351,24 @@ async def maybe_compress_session(
         threshold (int): The prompt token count above which compression triggers.
             Callers get the default from ``Config.compression_threshold``.
         client (OllamaClient): The preconfigured client to summarize with.
+        ui_handler (AsyncUIHandler | None): Optional UI handler to display a spinner.
 
     Returns:
         Session: The session, compressed if the threshold was exceeded.
     """
     if response.prompt_eval_count <= threshold:
         return session
-    print(  # noqa: T201
-        f"Prompt token count {response.prompt_eval_count} exceeded threshold {threshold}; "
-        "compressing session history."
-    )
-    return await compress_session(db, session, client, model=response.model)
+        
+    if ui_handler:
+        await ui_handler.start_spinner(
+            f"Compressing session history (token count {response.prompt_eval_count} > {threshold})..."
+        )
+        
+    try:
+        return await compress_session(db, session, client, model=response.model)
+    finally:
+        if ui_handler:
+            await ui_handler.stop_spinner()
 
 
 def get_current_session_id() -> int | None:

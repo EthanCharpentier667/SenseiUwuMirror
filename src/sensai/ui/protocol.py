@@ -29,3 +29,11 @@ class AsyncUIHandler(Protocol):
     async def on_system_message(self, message: Any) -> None:
         """Called when the system needs to display a generic message to the user."""
         ...  # pragma: no cover
+
+    async def start_spinner(self, message: str) -> None:
+        """Start a loading spinner with a message."""
+        ...  # pragma: no cover
+
+    async def stop_spinner(self) -> None:
+        """Stop the currently active loading spinner."""
+        ...  # pragma: no cover

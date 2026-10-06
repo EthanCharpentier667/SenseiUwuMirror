@@ -17,9 +17,24 @@ class CLIHandler(AsyncUIHandler):
     def __init__(self) -> None:
         """Initialize the CLI Handler with a rich console."""
         self.console = Console()
+        self._spinner_status = None
+
+    async def start_spinner(self, message: str) -> None:
+        """Start a loading spinner with a message."""
+        if self._spinner_status is not None:
+            self._spinner_status.stop()
+        self._spinner_status = self.console.status(f"[cyan]{message}[/cyan]")
+        self._spinner_status.start()
+
+    async def stop_spinner(self) -> None:
+        """Stop the currently active loading spinner."""
+        if self._spinner_status is not None:
+            self._spinner_status.stop()
+            self._spinner_status = None
 
     async def on_stream_chunk(self, chunk: str) -> None:
         """Called when a new piece of text is streamed from the model."""
+        await self.stop_spinner()
         self.console.out(chunk, end="")
 
     async def on_tool_call_request(self, name: str, arguments: dict[str, Any]) -> bool:

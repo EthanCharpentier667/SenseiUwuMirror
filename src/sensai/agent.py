@@ -87,9 +87,9 @@ class Agent:
         tool = next((t for t in self.tools if getattr(t, "name", None) == fn_name), None)
         requires_approval = True
 
-        if self.trust_level == "total":
-            requires_approval = False
-        elif self.trust_level == "partial" and tool and getattr(tool, "safe", False):
+        if self.trust_level == "total" or (
+            self.trust_level == "partial" and tool and getattr(tool, "safe", False)
+        ):
             requires_approval = False
 
         if requires_approval and self.ui_handler:
