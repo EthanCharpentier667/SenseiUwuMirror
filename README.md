@@ -63,7 +63,13 @@ To add a development dependency:
 uv add --dev package-name
 ```
 
-## Local MCP server
+## MCP connections
+
+Connect servers from the Sensai chat using `/mcp add-json <name> '<json>'`.
+The [MCP connection guide](docs/mcp-server.md) explains the JSON format and
+provides detailed examples for local tools, GitHub tokens and Gmail OAuth.
+
+### Local example server
 
 The example MCP server exposes an `add` tool, a greeting resource, and a prompt.
 Start it from the repository root:
@@ -73,7 +79,7 @@ uv run python src/sensai_mcp/sensai_server.py
 ```
 
 It listens on `http://127.0.0.1:8000/mcp`. See the
-[MCP server guide](docs/mcp-server.md) for a connection check and instructions
+[MCP connection guide](docs/mcp-server.md) for a connection check and instructions
 for using it with Sensai.
 
 ## Code quality
