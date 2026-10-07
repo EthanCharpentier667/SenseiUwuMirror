@@ -37,6 +37,8 @@ async def _handle_comp_setting(settings: dict[str, Any], context: CommandContext
 async def _handle_url_setting(settings: dict[str, Any], context: CommandContext) -> None:
     new_url = await context.ui.prompt_input(title="Ollama URL", text="Enter Ollama API URL:")
     if new_url:
+        if not new_url.endswith("/api/chat"):
+            new_url = new_url.rstrip("/") + "/api/chat"
         settings["url"] = new_url
         args = context.config.get_args()
         if args:
@@ -87,7 +89,10 @@ async def settings_execute(context: CommandContext, _args: list[str]) -> None:
         await context.ui.on_system_message("[red]No active profile found.[/red]")
         return
 
-    settings = json.loads(profile.settings) if profile.settings else {}
+    try:
+        settings = json.loads(profile.settings) if profile.settings else {}
+    except json.JSONDecodeError:
+        settings = {}
 
     while True:
         choice = await _prompt_settings_menu(context, settings)
