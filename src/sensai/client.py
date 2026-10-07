@@ -255,7 +255,13 @@ class OllamaClient:
         }
 
         if self.verbose:
-            print(f"Sending request to Ollama: {payload}")  # noqa: T201
+            safe_payload = payload.copy()
+            if "messages" in safe_payload:
+                messages_list = cast("list[dict[str, Any]]", safe_payload["messages"])
+                safe_payload["messages"] = [
+                    {k: v for k, v in msg.items() if k != "content"} for msg in messages_list
+                ]
+            print(f"Sending request to Ollama: {safe_payload}")  # noqa: T201
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:
             if not stream:
