@@ -24,7 +24,10 @@ async def _apply_model_to_context(context: CommandContext, model_name: str) -> N
 def _save_model_to_profile(context: CommandContext, model_name: str) -> None:
     profile = ProfileManager.current_profile
     if profile and profile.id:
-        settings = json.loads(profile.settings) if profile.settings else {}
+        try:
+            settings = json.loads(profile.settings) if profile.settings else {}
+        except json.JSONDecodeError:
+            settings = {}
         settings["model"] = model_name
         settings_str = json.dumps(settings)
         update_profile_settings(context.database, profile.id, settings_str)
