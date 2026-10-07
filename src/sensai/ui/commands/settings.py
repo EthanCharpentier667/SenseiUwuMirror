@@ -44,6 +44,42 @@ async def _handle_url_setting(settings: dict[str, Any], context: CommandContext)
         context.agent.client.base_url = new_url
 
 
+async def _prompt_settings_menu(context: CommandContext, settings: dict[str, Any]) -> str | None:
+    trust = settings.get("trust_level", context.agent.trust_level)
+    comp = settings.get("compression_threshold", context.config.compression_threshold)
+    url = settings.get("url", context.config.url)
+
+    return await context.ui.prompt_choice(
+        title="Settings Menu",
+        text="Choose a setting to modify:",
+        choices=[
+            ("trust", f"Tool Trust Level (Current: {trust})"),
+            ("comp", f"Compression Threshold (Current: {comp})"),
+            ("url", f"Ollama URL (Current: {url})"),
+            ("exit", "Exit Menu"),
+        ],
+    )
+
+
+async def _process_settings_choice(
+    choice: str, settings: dict[str, Any], context: CommandContext
+) -> None:
+    if choice == "trust":
+        await _handle_trust_setting(settings, context)
+    elif choice == "comp":
+        await _handle_comp_setting(settings, context)
+    elif choice == "url":
+        await _handle_url_setting(settings, context)
+
+
+def _save_settings_to_profile(
+    context: CommandContext, settings: dict[str, Any], profile_id: int
+) -> str:
+    settings_str = json.dumps(settings)
+    update_profile_settings(context.database, profile_id, settings_str)
+    return settings_str
+
+
 async def settings_execute(context: CommandContext, _args: list[str]) -> None:
     """Execute the /settings command."""
     profile = ProfileManager.current_profile
@@ -54,32 +90,12 @@ async def settings_execute(context: CommandContext, _args: list[str]) -> None:
     settings = json.loads(profile.settings) if profile.settings else {}
 
     while True:
-        trust = settings.get("trust_level", context.agent.trust_level)
-        comp = settings.get("compression_threshold", context.config.compression_threshold)
-        url = settings.get("url", context.config.url)
-
-        choice = await context.ui.prompt_choice(
-            title="Settings Menu",
-            text="Choose a setting to modify:",
-            choices=[
-                ("trust", f"Tool Trust Level (Current: {trust})"),
-                ("comp", f"Compression Threshold (Current: {comp})"),
-                ("url", f"Ollama URL (Current: {url})"),
-                ("exit", "Exit Menu"),
-            ],
-        )
+        choice = await _prompt_settings_menu(context, settings)
 
         if choice == "exit" or choice is None:
             break
 
-        if choice == "trust":
-            await _handle_trust_setting(settings, context)
-        elif choice == "comp":
-            await _handle_comp_setting(settings, context)
-        elif choice == "url":
-            await _handle_url_setting(settings, context)
+        await _process_settings_choice(choice, settings, context)
 
-    settings_str = json.dumps(settings)
-    update_profile_settings(context.database, profile.id, settings_str)
-    profile.settings = settings_str
+    profile.settings = _save_settings_to_profile(context, settings, profile.id)
     await context.ui.on_system_message("[bold green]Settings saved.[/bold green]")
