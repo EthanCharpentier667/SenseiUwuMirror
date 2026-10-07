@@ -40,6 +40,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_error(self, error: Exception) -> None:
         self.errors.append(error)
 
+    async def on_thinking_chunk(self, chunk: str) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         pass
 
@@ -392,3 +395,59 @@ async def test_client_embed_raises_on_ollama_error(monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(RuntimeError, match="model not found"):
         await client.embed(["hello"], "missing")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("num_ctx", "options", "expected_options"),
+    [
+        (None, None, None),
+        (8192, None, {"num_ctx": 8192}),
+        (8192, {"temperature": 0}, {"num_ctx": 8192, "temperature": 0}),
+        (None, {"temperature": 0}, {"temperature": 0}),
+    ],
+)
+async def test_client_chat_sends_options(
+    monkeypatch: pytest.MonkeyPatch,
+    num_ctx: int | None,
+    options: dict[str, Any] | None,
+    expected_options: dict[str, Any] | None,
+) -> None:
+    sent: dict[str, Any] = {}
+
+    class MockResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return {"message": {"content": "ok"}, "done_reason": "stop"}
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        async def post(self, *_args: Any, **kwargs: Any) -> MockResponse:
+            sent.update(kwargs["json"])
+            return MockResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    monkeypatch.setenv("TOKEN", "test_env_token")
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT, num_ctx=num_ctx)
+    schema = {"type": "object"}
+    await client.chat(
+        messages=[{"role": "user", "content": "hi"}],
+        stream=False,
+        response_format=schema,
+        options=options,
+    )
+
+    assert sent.get("options") == expected_options
+    assert sent["format"] == schema

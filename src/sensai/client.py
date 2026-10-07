@@ -3,6 +3,7 @@
 import json
 import os
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -13,6 +14,8 @@ from sensai.data.session.message import Message
 from sensai.ui.protocol import AsyncUIHandler
 
 dotenv.load_dotenv()
+
+ChunkCallback = Callable[[str], Awaitable[None]]
 
 
 @dataclass
@@ -127,6 +130,7 @@ class OllamaClient:
         token: str | None,
         timeout: float,
         *,
+        num_ctx: int | None = None,
         verbose: bool = False,
     ) -> None:
         """Initialize the Ollama client.
@@ -135,12 +139,16 @@ class OllamaClient:
             base_url: Base endpoint URL for the chat API.
             token: Bearer authentication token of the Ollama API.
             timeout: HTTP request timeout in seconds.
+            num_ctx: Context window size (in tokens) for chat requests. When None, Ollama
+                uses its own default, small enough to silently drop the oldest messages
+                (often the user's question) once tool results pile up.
             verbose: Whether to print debug information.
         """
         self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
         self.verbose = verbose
+        self.num_ctx = num_ctx
 
     def _build_headers(self) -> dict[str, str]:
         """Construct authorization and content-type headers."""
@@ -156,15 +164,15 @@ class OllamaClient:
         self,
         chunk: dict[str, Any],
         result: ChatResult,
-        ui_handler: AsyncUIHandler | None,
+        on_chunk: ChunkCallback | None,
     ) -> None:
         """Process an individual streaming chunk and update the accumulated result."""
         message = chunk.get("message", {})
         text = message.get("content", "")
         if text:
             result.text += text
-            if ui_handler:
-                await ui_handler.on_stream_chunk(text)
+            if on_chunk:
+                await on_chunk(text)
 
         if message.get("tool_calls"):
             result.tool_calls.extend(message["tool_calls"])
@@ -178,7 +186,7 @@ class OllamaClient:
     async def _parse_stream(
         self,
         response: httpx.Response,
-        ui_handler: AsyncUIHandler | None,
+        on_chunk: ChunkCallback | None,
     ) -> ChatResult:
         """Parse line-delimited JSON stream from the Ollama response."""
         result = ChatResult(status_code=response.status_code)
@@ -196,7 +204,7 @@ class OllamaClient:
                 msg = f"Ollama error: {chunk['error']}"
                 raise RuntimeError(msg)
 
-            await self._consume_chunk(chunk, result, ui_handler)
+            await self._consume_chunk(chunk, result, on_chunk)
             if chunk.get("done"):
                 is_done = True
                 break
@@ -225,7 +233,7 @@ class OllamaClient:
             status_code=response.status_code,
         )
 
-    async def chat(
+    async def chat(  # noqa: PLR0913
         self,
         messages: list[dict[str, Any]],
         model: str = "llama3.2",
@@ -233,6 +241,9 @@ class OllamaClient:
         *,
         stream: bool = True,
         ui_handler: AsyncUIHandler | None = None,
+        on_chunk: ChunkCallback | None = None,
+        response_format: dict[str, Any] | str | None = None,
+        options: dict[str, Any] | None = None,
     ) -> Response:
         """Send a chat completion request to Ollama.
 
@@ -242,17 +253,33 @@ class OllamaClient:
             tools: Formatted tool definitions to pass to the model.
             stream: Whether to stream the response progressively.
             ui_handler: Optional event handler for progressive streaming chunks.
+            on_chunk: Callback receiving each streamed text piece. Defaults to
+                ``ui_handler.on_stream_chunk`` when a handler is given.
+            response_format: Ollama's ``format``: "json", or a JSON schema the reply is
+                constrained to.
+            options: Extra Ollama model options (e.g. ``temperature``), merged over the
+                client's own (``num_ctx``).
 
         Returns:
             Response: The parsed response, including metadata and token usage.
         """
+        if on_chunk is None and ui_handler is not None:
+            on_chunk = ui_handler.on_stream_chunk
         headers = self._build_headers()
-        payload = {
+        payload: dict[str, Any] = {
             "messages": messages,
             "model": model,
             "tools": tools or [],
             "stream": stream,
         }
+        if response_format is not None:
+            payload["format"] = response_format
+        merged_options = {
+            **({"num_ctx": self.num_ctx} if self.num_ctx is not None else {}),
+            **(options or {}),
+        }
+        if merged_options:
+            payload["options"] = merged_options
 
         if self.verbose:
             safe_payload = payload.copy()
@@ -273,7 +300,7 @@ class OllamaClient:
                     "POST", self.base_url, headers=headers, json=payload
                 ) as response:
                     response.raise_for_status()
-                    parsed = await self._parse_stream(response, ui_handler)
+                    parsed = await self._parse_stream(response, on_chunk)
 
         respond_time = time.time()
         return Response(

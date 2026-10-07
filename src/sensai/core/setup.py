@@ -32,6 +32,7 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         token=config.token,
         timeout=config.timeout,
         verbose=config.verbose,
+        num_ctx=config.num_ctx,
     )
     ui_handler = CLIHandler()
     agent = Agent(
