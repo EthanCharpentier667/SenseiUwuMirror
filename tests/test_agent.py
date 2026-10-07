@@ -285,7 +285,9 @@ async def test_agent_tool_not_found() -> None:
             return _make_response("Fixed.")
 
     agent = Agent(
-        tools=[], client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+        tools=[],
+        client=MockClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT),
+        trust_level="total",
     )
     result = await agent.run("Run unknown tool")
 

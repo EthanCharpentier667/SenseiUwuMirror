@@ -78,6 +78,24 @@ class Agent:
                 return True, res
         return False, None
 
+    async def _check_tool_approval(
+        self, fn_name: str, fn_args: dict[str, Any], tool: Any
+    ) -> tuple[bool, str]:
+        """Check if a tool call is approved by the user."""
+        if self.trust_level == "total" or (
+            self.trust_level == "partial" and tool and getattr(tool, "safe", False)
+        ):
+            return True, ""
+
+        if not self.ui_handler:
+            return False, "Action cancelled: approval required but no UI handler is available."
+
+        approved = await self.ui_handler.on_tool_call_request(fn_name, fn_args)
+        if not approved:
+            return False, "Action cancelled by user."
+
+        return True, ""
+
     async def _execute_single_tool_call(self, tool_call: dict[str, Any]) -> str:
         """Process approval and execution for a single tool call."""
         func = tool_call.get("function", {})
@@ -85,17 +103,10 @@ class Agent:
         fn_args = func.get("arguments", {})
 
         tool = next((t for t in self.tools if getattr(t, "name", None) == fn_name), None)
-        requires_approval = True
 
-        if self.trust_level == "total" or (
-            self.trust_level == "partial" and tool and getattr(tool, "safe", False)
-        ):
-            requires_approval = False
-
-        if requires_approval and self.ui_handler:
-            approved = await self.ui_handler.on_tool_call_request(fn_name, fn_args)
-            if not approved:
-                return "Action cancelled by user."
+        approved, cancel_msg = await self._check_tool_approval(fn_name, fn_args, tool)
+        if not approved:
+            return cancel_msg
 
         if self.ui_handler:
             await self.ui_handler.start_spinner(f"Executing {fn_name}...")
