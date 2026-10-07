@@ -28,6 +28,14 @@ async def test_command_registry() -> None:
         async def on_error(self, error: Exception) -> None:
             pass
 
+        async def prompt_choice(
+            self, _title: str, _text: str, choices: list[tuple[str, str]]
+        ) -> str | None:
+            return choices[0][0] if choices else None
+
+        async def prompt_input(self, _title: str, _text: str) -> str | None:
+            return "mock_input"
+
     from sensai.ui.command import CommandContext  # noqa: PLC0415
 
     ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]

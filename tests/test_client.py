@@ -43,6 +43,14 @@ class MockUIHandler(AsyncUIHandler):
     async def on_system_message(self, message: Any) -> None:
         pass
 
+    async def prompt_choice(
+        self, _title: str, _text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        return choices[0][0] if choices else None
+
+    async def prompt_input(self, _title: str, _text: str) -> str | None:
+        return "mock_input"
+
 
 @pytest.mark.asyncio
 async def test_client_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:

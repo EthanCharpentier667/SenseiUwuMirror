@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -67,3 +68,19 @@ class CLIHandler(AsyncUIHandler):
     async def on_system_message(self, message: Any) -> None:
         """Display a system message (like a command output)."""
         self.console.print(message)
+
+    async def prompt_choice(
+        self, title: str, text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        """Prompt the user to select an option from a list of choices."""
+        choice = await radiolist_dialog(
+            title=title,
+            text=text,
+            values=choices,
+        ).run_async()
+        return str(choice) if choice is not None else None
+
+    async def prompt_input(self, title: str, text: str) -> str | None:
+        """Prompt the user to input a free-form text string."""
+        choice = await input_dialog(title=title, text=text).run_async()
+        return str(choice) if choice is not None else None

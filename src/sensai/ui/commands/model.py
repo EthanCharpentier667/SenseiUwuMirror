@@ -2,8 +2,6 @@
 
 import json
 
-from prompt_toolkit.shortcuts import radiolist_dialog
-
 from sensai.config import AVAILABLE_MODELS
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
@@ -13,11 +11,11 @@ from sensai.ui.command import CommandContext
 async def model_execute(context: CommandContext, args: list[str]) -> None:
     """Execute the /model command."""
     if not args:
-        choice = await radiolist_dialog(
+        choice = await context.ui.prompt_choice(
             title="Model Selection",
             text="Choose an AI model:",
-            values=[(m, m) for m in AVAILABLE_MODELS],
-        ).run_async()
+            choices=[(m, m) for m in AVAILABLE_MODELS],
+        )
 
         if not choice:
             return

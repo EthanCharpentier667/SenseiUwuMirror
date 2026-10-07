@@ -3,32 +3,30 @@
 import json
 from typing import Any
 
-from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
-
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
 from sensai.ui.command import CommandContext
 
 
 async def _handle_trust_setting(settings: dict[str, Any], context: CommandContext) -> None:
-    new_trust = await radiolist_dialog(
+    new_trust = await context.ui.prompt_choice(
         title="Trust Level",
         text="Select tool execution trust level:",
-        values=[
+        choices=[
             ("none", "None (Ask for every tool)"),
             ("partial", "Partial (Ask only for unsafe tools)"),
             ("total", "Total (Never ask, full automatic)"),
         ],
-    ).run_async()
+    )
     if new_trust:
         settings["trust_level"] = new_trust
         context.agent.trust_level = new_trust
 
 
 async def _handle_comp_setting(settings: dict[str, Any], context: CommandContext) -> None:
-    new_comp = await input_dialog(
+    new_comp = await context.ui.prompt_input(
         title="Compression Threshold", text="Enter token threshold for history compression:"
-    ).run_async()
+    )
     if new_comp and new_comp.isdigit():
         settings["compression_threshold"] = int(new_comp)
         args = context.config.get_args()
@@ -37,7 +35,7 @@ async def _handle_comp_setting(settings: dict[str, Any], context: CommandContext
 
 
 async def _handle_url_setting(settings: dict[str, Any], context: CommandContext) -> None:
-    new_url = await input_dialog(title="Ollama URL", text="Enter Ollama API URL:").run_async()
+    new_url = await context.ui.prompt_input(title="Ollama URL", text="Enter Ollama API URL:")
     if new_url:
         settings["url"] = new_url
         args = context.config.get_args()
@@ -60,16 +58,16 @@ async def settings_execute(context: CommandContext, _args: list[str]) -> None:
         comp = settings.get("compression_threshold", context.config.compression_threshold)
         url = settings.get("url", context.config.url)
 
-        choice = await radiolist_dialog(
+        choice = await context.ui.prompt_choice(
             title="Settings Menu",
             text="Choose a setting to modify:",
-            values=[
+            choices=[
                 ("trust", f"Tool Trust Level (Current: {trust})"),
                 ("comp", f"Compression Threshold (Current: {comp})"),
                 ("url", f"Ollama URL (Current: {url})"),
                 ("exit", "Exit Menu"),
             ],
-        ).run_async()
+        )
 
         if choice == "exit" or choice is None:
             break

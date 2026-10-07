@@ -37,3 +37,13 @@ class AsyncUIHandler(Protocol):
     async def stop_spinner(self) -> None:
         """Stop the currently active loading spinner."""
         ...  # pragma: no cover
+
+    async def prompt_choice(
+        self, title: str, text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        """Prompt the user to select an option from a list of choices."""
+        ...  # pragma: no cover
+
+    async def prompt_input(self, title: str, text: str) -> str | None:
+        """Prompt the user to input a free-form text string."""
+        ...  # pragma: no cover

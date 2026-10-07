@@ -44,7 +44,7 @@ async def async_main() -> None:
                     args.compression_threshold = settings["compression_threshold"]
                 if "url" in settings:
                     args.url = settings["url"]
-                    client.base_url = settings["url"]  # update client immediately
+                    client.base_url = settings["url"]
         except json.JSONDecodeError:
             pass
 

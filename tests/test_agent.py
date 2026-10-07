@@ -65,6 +65,14 @@ class MockUIHandler(AsyncUIHandler):
     async def on_system_message(self, message: Any) -> None:
         pass
 
+    async def prompt_choice(
+        self, _title: str, _text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        return choices[0][0] if choices else None
+
+    async def prompt_input(self, _title: str, _text: str) -> str | None:
+        return "mock_input"
+
 
 class FakeTool:
     """Fake tool for agent tests."""
