@@ -1,12 +1,49 @@
 """Settings command."""
 
 import json
+from typing import Any
 
 from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
 
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
 from sensai.ui.command import CommandContext
+
+
+async def _handle_trust_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    new_trust = await radiolist_dialog(
+        title="Trust Level",
+        text="Select tool execution trust level:",
+        values=[
+            ("none", "None (Ask for every tool)"),
+            ("partial", "Partial (Ask only for unsafe tools)"),
+            ("total", "Total (Never ask, full automatic)"),
+        ],
+    ).run_async()
+    if new_trust:
+        settings["trust_level"] = new_trust
+        context.agent.trust_level = new_trust
+
+
+async def _handle_comp_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    new_comp = await input_dialog(
+        title="Compression Threshold", text="Enter token threshold for history compression:"
+    ).run_async()
+    if new_comp and new_comp.isdigit():
+        settings["compression_threshold"] = int(new_comp)
+        args = context.config.get_args()
+        if args:
+            args.compression_threshold = int(new_comp)
+
+
+async def _handle_url_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    new_url = await input_dialog(title="Ollama URL", text="Enter Ollama API URL:").run_async()
+    if new_url:
+        settings["url"] = new_url
+        args = context.config.get_args()
+        if args:
+            args.url = new_url
+        context.agent.client.base_url = new_url
 
 
 async def settings_execute(context: CommandContext, _args: list[str]) -> None:
@@ -31,44 +68,18 @@ async def settings_execute(context: CommandContext, _args: list[str]) -> None:
                 ("comp", f"Compression Threshold (Current: {comp})"),
                 ("url", f"Ollama URL (Current: {url})"),
                 ("exit", "Exit Menu"),
-            ]
+            ],
         ).run_async()
 
         if choice == "exit" or choice is None:
             break
 
         if choice == "trust":
-            new_trust = await radiolist_dialog(
-                title="Trust Level",
-                text="Select tool execution trust level:",
-                values=[
-                    ("none", "None (Ask for every tool)"),
-                    ("partial", "Partial (Ask only for unsafe tools)"),
-                    ("total", "Total (Never ask, full automatic)"),
-                ]
-            ).run_async()
-            if new_trust:
-                settings["trust_level"] = new_trust
-                context.agent.trust_level = new_trust
-
+            await _handle_trust_setting(settings, context)
         elif choice == "comp":
-            new_comp = await input_dialog(
-                title="Compression Threshold",
-                text="Enter token threshold for history compression:"
-            ).run_async()
-            if new_comp and new_comp.isdigit():
-                settings["compression_threshold"] = int(new_comp)
-                context.config._parsed().compression_threshold = int(new_comp)
-
+            await _handle_comp_setting(settings, context)
         elif choice == "url":
-            new_url = await input_dialog(
-                title="Ollama URL",
-                text="Enter Ollama API URL:"
-            ).run_async()
-            if new_url:
-                settings["url"] = new_url
-                context.config._parsed().url = new_url
-                context.agent.client.base_url = new_url
+            await _handle_url_setting(settings, context)
 
     settings_str = json.dumps(settings)
     update_profile_settings(context.database, profile.id, settings_str)

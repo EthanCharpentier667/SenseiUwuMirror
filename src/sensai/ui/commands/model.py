@@ -16,7 +16,7 @@ async def model_execute(context: CommandContext, args: list[str]) -> None:
         choice = await radiolist_dialog(
             title="Model Selection",
             text="Choose an AI model:",
-            values=[(m, m) for m in AVAILABLE_MODELS]
+            values=[(m, m) for m in AVAILABLE_MODELS],
         ).run_async()
 
         if not choice:
@@ -25,8 +25,9 @@ async def model_execute(context: CommandContext, args: list[str]) -> None:
 
     model_name = args[0]
     if model_name not in AVAILABLE_MODELS:
+        available_str = ", ".join(AVAILABLE_MODELS)
         await context.ui.on_system_message(
-            f"[bold red]Unknown model: {model_name}. Available: {', '.join(AVAILABLE_MODELS)}[/bold red]"
+            f"[bold red]Unknown model: {model_name}. Available: {available_str}[/bold red]"
         )
         return
 

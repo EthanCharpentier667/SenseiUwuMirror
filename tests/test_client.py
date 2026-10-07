@@ -25,6 +25,12 @@ class MockUIHandler(AsyncUIHandler):
     async def on_stream_chunk(self, chunk: str) -> None:
         self.streamed.append(chunk)
 
+    async def start_spinner(self, message: str) -> None:
+        pass
+
+    async def stop_spinner(self) -> None:
+        pass
+
     async def on_tool_call_request(self, _name: str, _arguments: dict[str, Any]) -> bool:
         return True
 

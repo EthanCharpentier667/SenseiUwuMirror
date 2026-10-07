@@ -1,7 +1,7 @@
 """Tests for builtin commands."""
 
-from sensai.ui.commands import setup_builtin_commands
 from sensai.ui.command import CommandRegistry
+from sensai.ui.commands import setup_builtin_commands
 
 
 def test_setup_builtin_commands() -> None:

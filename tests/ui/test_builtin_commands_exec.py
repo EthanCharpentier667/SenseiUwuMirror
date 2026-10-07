@@ -6,8 +6,8 @@ import pytest
 
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
-from sensai.ui.commands.prefs import inst_execute, prefs_execute
 from sensai.ui.command import CommandContext
+from sensai.ui.commands.prefs import inst_execute, prefs_execute
 
 
 class MockUIHandler:
@@ -15,6 +15,12 @@ class MockUIHandler:
         pass
 
     async def on_stream_chunk(self, chunk: str) -> None:
+        pass
+
+    async def start_spinner(self, message: str) -> None:
+        pass
+
+    async def stop_spinner(self) -> None:
         pass
 
     async def on_tool_call_request(self, _name: str, _args: dict[str, Any]) -> bool:
@@ -65,9 +71,7 @@ async def test_inst_full(monkeypatch: pytest.MonkeyPatch) -> None:
     profile = Profile(name="test", password="test", id=1, instructions="Inst 0\nInst 1")  # noqa: S106
     ProfileManager.current_profile = profile
 
-    monkeypatch.setattr(
-        "sensai.ui.commands.prefs.update_profile_instructions", lambda *args: None
-    )
+    monkeypatch.setattr("sensai.ui.commands.prefs.update_profile_instructions", lambda *args: None)
 
     ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 

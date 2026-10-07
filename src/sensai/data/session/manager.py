@@ -332,12 +332,13 @@ async def compress_session(
     return compressed
 
 
-async def maybe_compress_session(
+async def maybe_compress_session(  # noqa: PLR0913
     db: Database,
     session: Session,
     response: Response,
     threshold: int,
     client: OllamaClient,
+    *,
     ui_handler: AsyncUIHandler | None = None,
 ) -> Session:
     """Compress a session's history once its last prompt exceeded a token threshold.
@@ -358,12 +359,14 @@ async def maybe_compress_session(
     """
     if response.prompt_eval_count <= threshold:
         return session
-        
+
     if ui_handler:
-        await ui_handler.start_spinner(
-            f"Compressing session history (token count {response.prompt_eval_count} > {threshold})..."
+        msg = (
+            f"Compressing session history (token count "
+            f"{response.prompt_eval_count} > {threshold})..."
         )
-        
+        await ui_handler.start_spinner(msg)
+
     try:
         return await compress_session(db, session, client, model=response.model)
     finally:

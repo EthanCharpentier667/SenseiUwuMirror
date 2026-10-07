@@ -18,6 +18,7 @@ class Tool(ABC):
         description: str,
         tool_type: str,
         parameters: dict[str, Any],
+        *,
         safe: bool = False,
     ) -> None:
         """Initialize the tool with a name and description.

@@ -1,7 +1,9 @@
 """CLI implementation of the AsyncUIHandler protocol."""
 
+from __future__ import annotations
+
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit import PromptSession
 from rich.console import Console
@@ -10,6 +12,9 @@ from rich.syntax import Syntax
 
 from .protocol import AsyncUIHandler
 
+if TYPE_CHECKING:
+    from rich.status import Status
+
 
 class CLIHandler(AsyncUIHandler):
     """CLI implementation of the Event Manager."""
@@ -17,7 +22,7 @@ class CLIHandler(AsyncUIHandler):
     def __init__(self) -> None:
         """Initialize the CLI Handler with a rich console."""
         self.console = Console()
-        self._spinner_status = None
+        self._spinner_status: Status | None = None
 
     async def start_spinner(self, message: str) -> None:
         """Start a loading spinner with a message."""

@@ -21,12 +21,13 @@ class Profile(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
 
-def create_profile(
+def create_profile(  # noqa: PLR0913
     db: "Database",
     name: str,
     password: str,
     preferences: str | None = None,
     instructions: str | None = None,
+    *,
     settings: str | None = None,
 ) -> Profile:
     """Create a new profile.
@@ -37,13 +38,18 @@ def create_profile(
         password (str): The profile's password, already hashed by the caller.
         preferences (str, optional): Free-form user preferences. Default is None.
         instructions (str, optional): Free-form custom instructions. Default is None.
+        settings (str, optional): JSON string of user settings. Default is None.
 
     Returns:
         Profile: The newly created profile, including its assigned ID.
     """
     with db.database.bind_ctx([Profile]):
         return Profile.create(
-            name=name, password=password, preferences=preferences, instructions=instructions, settings=settings
+            name=name,
+            password=password,
+            preferences=preferences,
+            instructions=instructions,
+            settings=settings,
         )
 
 
