@@ -17,15 +17,18 @@ class Profile(BaseModel):
     password = CharField()
     preferences = TextField(null=True)
     instructions = TextField(null=True)
+    settings = TextField(null=True)
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
 
-def create_profile(
+def create_profile(  # noqa: PLR0913
     db: "Database",
     name: str,
     password: str,
     preferences: str | None = None,
     instructions: str | None = None,
+    *,
+    settings: str | None = None,
 ) -> Profile:
     """Create a new profile.
 
@@ -35,13 +38,18 @@ def create_profile(
         password (str): The profile's password, already hashed by the caller.
         preferences (str, optional): Free-form user preferences. Default is None.
         instructions (str, optional): Free-form custom instructions. Default is None.
+        settings (str, optional): JSON string of user settings. Default is None.
 
     Returns:
         Profile: The newly created profile, including its assigned ID.
     """
     with db.database.bind_ctx([Profile]):
         return Profile.create(
-            name=name, password=password, preferences=preferences, instructions=instructions
+            name=name,
+            password=password,
+            preferences=preferences,
+            instructions=instructions,
+            settings=settings,
         )
 
 
@@ -95,3 +103,15 @@ def update_profile_instructions(db: "Database", profile_id: int, instructions: s
     """
     with db.database.bind_ctx([Profile]):
         Profile.update(instructions=instructions).where(Profile.id == profile_id).execute()
+
+
+def update_profile_settings(db: "Database", profile_id: int, settings: str) -> None:
+    """Overwrite a profile's settings.
+
+    Args:
+        db (Database): The database to write to.
+        profile_id (int): The unique identifier for the profile.
+        settings (str): The new settings JSON string.
+    """
+    with db.database.bind_ctx([Profile]):
+        Profile.update(settings=settings).where(Profile.id == profile_id).execute()

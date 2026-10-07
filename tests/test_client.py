@@ -25,6 +25,12 @@ class MockUIHandler(AsyncUIHandler):
     async def on_stream_chunk(self, chunk: str) -> None:
         self.streamed.append(chunk)
 
+    async def start_spinner(self, message: str) -> None:
+        pass
+
+    async def stop_spinner(self) -> None:
+        pass
+
     async def on_tool_call_request(self, _name: str, _arguments: dict[str, Any]) -> bool:
         return True
 
@@ -39,6 +45,14 @@ class MockUIHandler(AsyncUIHandler):
 
     async def on_system_message(self, message: Any) -> None:
         pass
+
+    async def prompt_choice(
+        self, _title: str, _text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        return choices[0][0] if choices else None
+
+    async def prompt_input(self, _title: str, _text: str) -> str | None:
+        return "mock_input"
 
 
 @pytest.mark.asyncio

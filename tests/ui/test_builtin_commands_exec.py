@@ -6,8 +6,8 @@ import pytest
 
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
-from sensai.ui.builtin_commands import _inst_execute, _prefs_execute
 from sensai.ui.command import CommandContext
+from sensai.ui.commands.prefs import inst_execute, prefs_execute
 
 
 class MockUIHandler:
@@ -15,6 +15,12 @@ class MockUIHandler:
         pass
 
     async def on_stream_chunk(self, chunk: str) -> None:
+        pass
+
+    async def start_spinner(self, message: str) -> None:
+        pass
+
+    async def stop_spinner(self) -> None:
         pass
 
     async def on_tool_call_request(self, _name: str, _args: dict[str, Any]) -> bool:
@@ -26,38 +32,46 @@ class MockUIHandler:
     async def on_error(self, error: Exception) -> None:
         pass
 
+    async def prompt_choice(
+        self, _title: str, _text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        return choices[0][0] if choices else None
+
+    async def prompt_input(self, _title: str, _text: str) -> str | None:
+        return "mock_input"
+
 
 @pytest.mark.asyncio
 async def test_prefs_full(monkeypatch: pytest.MonkeyPatch) -> None:
     profile = Profile(name="test", password="test", id=1, preferences="Pref 0\nPref 1")  # noqa: S106
     ProfileManager.current_profile = profile
 
-    monkeypatch.setattr("sensai.ui.builtin_commands.update_profile_preferences", lambda *args: None)
+    monkeypatch.setattr("sensai.ui.commands.prefs.update_profile_preferences", lambda *args: None)
 
-    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
+    ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 
     # List
-    await _prefs_execute(ctx, ["list"])
+    await prefs_execute(ctx, ["list"])
     # Edit
-    await _prefs_execute(ctx, ["edit", "1", "Edited Pref 1"])
+    await prefs_execute(ctx, ["edit", "1", "Edited Pref 1"])
     assert profile.preferences == "Pref 0\nEdited Pref 1"
     # Remove
-    await _prefs_execute(ctx, ["remove", "0"])
+    await prefs_execute(ctx, ["remove", "0"])
     assert profile.preferences == "Edited Pref 1"
     # Add
-    await _prefs_execute(ctx, ["add", "New"])
+    await prefs_execute(ctx, ["add", "New"])
     assert profile.preferences == "Edited Pref 1\nNew"
     # Invalid subcmd
-    await _prefs_execute(ctx, ["invalid"])
+    await prefs_execute(ctx, ["invalid"])
     # Invalid args
-    await _prefs_execute(ctx, ["edit", "99", "Bad"])
-    await _prefs_execute(ctx, ["edit", "a", "Bad"])
-    await _prefs_execute(ctx, ["remove", "99"])
-    await _prefs_execute(ctx, ["add"])
+    await prefs_execute(ctx, ["edit", "99", "Bad"])
+    await prefs_execute(ctx, ["edit", "a", "Bad"])
+    await prefs_execute(ctx, ["remove", "99"])
+    await prefs_execute(ctx, ["add"])
 
     # No profile
     ProfileManager.current_profile = None
-    await _prefs_execute(ctx, ["list"])
+    await prefs_execute(ctx, ["list"])
 
 
 @pytest.mark.asyncio
@@ -65,62 +79,60 @@ async def test_inst_full(monkeypatch: pytest.MonkeyPatch) -> None:
     profile = Profile(name="test", password="test", id=1, instructions="Inst 0\nInst 1")  # noqa: S106
     ProfileManager.current_profile = profile
 
-    monkeypatch.setattr(
-        "sensai.ui.builtin_commands.update_profile_instructions", lambda *args: None
-    )
+    monkeypatch.setattr("sensai.ui.commands.prefs.update_profile_instructions", lambda *args: None)
 
-    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
+    ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 
     # List
-    await _inst_execute(ctx, ["list"])
+    await inst_execute(ctx, ["list"])
     # Edit
-    await _inst_execute(ctx, ["edit", "1", "Edited Inst 1"])
+    await inst_execute(ctx, ["edit", "1", "Edited Inst 1"])
     assert profile.instructions == "Inst 0\nEdited Inst 1"
     # Remove
-    await _inst_execute(ctx, ["remove", "0"])
+    await inst_execute(ctx, ["remove", "0"])
     assert profile.instructions == "Edited Inst 1"
     # Add
-    await _inst_execute(ctx, ["add", "New"])
+    await inst_execute(ctx, ["add", "New"])
     assert profile.instructions == "Edited Inst 1\nNew"
     # Invalid subcmd
-    await _inst_execute(ctx, ["invalid"])
+    await inst_execute(ctx, ["invalid"])
     # Invalid args
-    await _inst_execute(ctx, ["edit", "99", "Bad"])
-    await _inst_execute(ctx, ["edit", "a", "Bad"])
-    await _inst_execute(ctx, ["remove", "99"])
-    await _inst_execute(ctx, ["add"])
+    await inst_execute(ctx, ["edit", "99", "Bad"])
+    await inst_execute(ctx, ["edit", "a", "Bad"])
+    await inst_execute(ctx, ["remove", "99"])
+    await inst_execute(ctx, ["add"])
 
     # No profile
     ProfileManager.current_profile = None
-    await _inst_execute(ctx, ["list"])
+    await inst_execute(ctx, ["list"])
 
 
 @pytest.mark.asyncio
-async def test_help_execute() -> None:
-    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
+async def testhelp_execute() -> None:
+    ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 
-    from sensai.ui.builtin_commands import _help_execute  # noqa: PLC0415
+    from sensai.ui.commands.help import help_execute  # noqa: PLC0415
 
-    await _help_execute(ctx, [])
+    await help_execute(ctx, [])
 
 
 @pytest.mark.asyncio
-async def test_logout_execute(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sensai.ui.builtin_commands.clear_credentials", lambda: None)
+async def testlogout_execute(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sensai.ui.commands.auth.clear_credentials", lambda: None)
 
-    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
+    ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 
-    from sensai.ui.builtin_commands import _logout_execute  # noqa: PLC0415
+    from sensai.ui.commands.auth import logout_execute  # noqa: PLC0415
 
     with pytest.raises(SystemExit):
-        await _logout_execute(ctx, [])
+        await logout_execute(ctx, [])
 
 
 @pytest.mark.asyncio
-async def test_exit_execute() -> None:
-    ctx = CommandContext(database=None, ui=MockUIHandler())  # type: ignore[arg-type]
+async def testexit_execute() -> None:
+    ctx = CommandContext(database=None, ui=MockUIHandler(), agent=None, config=None, session=None)  # type: ignore[arg-type]
 
-    from sensai.ui.builtin_commands import _exit_execute  # noqa: PLC0415
+    from sensai.ui.commands.system import exit_execute  # noqa: PLC0415
 
     with pytest.raises(SystemExit):
-        await _exit_execute(ctx, [])
+        await exit_execute(ctx, [])

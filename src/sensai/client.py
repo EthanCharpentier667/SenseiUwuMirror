@@ -129,7 +129,9 @@ class OllamaClient:
         base_url: str,
         token: str | None,
         timeout: float,
+        *,
         num_ctx: int | None = None,
+        verbose: bool = False,
     ) -> None:
         """Initialize the Ollama client.
 
@@ -140,10 +142,12 @@ class OllamaClient:
             num_ctx: Context window size (in tokens) for chat requests. When None, Ollama
                 uses its own default, small enough to silently drop the oldest messages
                 (often the user's question) once tool results pile up.
+            verbose: Whether to print debug information.
         """
         self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
+        self.verbose = verbose
         self.num_ctx = num_ctx
 
     def _build_headers(self) -> dict[str, str]:
@@ -277,6 +281,14 @@ class OllamaClient:
         if merged_options:
             payload["options"] = merged_options
 
+        if self.verbose:
+            safe_payload = payload.copy()
+            if "messages" in safe_payload:
+                messages_list = cast("list[dict[str, Any]]", safe_payload["messages"])
+                safe_payload["messages"] = [
+                    {k: v for k, v in msg.items() if k != "content"} for msg in messages_list
+                ]
+            print(f"Sending request to Ollama: {safe_payload}")  # noqa: T201
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:
             if not stream:

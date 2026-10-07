@@ -57,7 +57,7 @@ class Agent:
         model: str = "llama3.2",
         tools: list[Any] | None = None,
         *,
-        human_in_the_loop: bool = False,
+        trust_level: str = "none",
         ui_handler: AsyncUIHandler | None = None,
         client: OllamaClient,
     ) -> None:
@@ -66,13 +66,13 @@ class Agent:
         Args:
             model: The Ollama model name to use.
             tools: List of available Tool instances.
-            human_in_the_loop: Whether tool calls require manual user approval.
+            trust_level: Tool execution trust level: "none", "partial", or "total".
             ui_handler: Event handler for UI presentation.
             client: Optional preconfigured OllamaClient instance.
         """
         self.model = model
         self.tools = tools or []
-        self.human_in_the_loop = human_in_the_loop
+        self.trust_level = trust_level
         self.ui_handler = ui_handler
         self.client = client
         self.max_turns = DEFAULT_MAX_STEPS
@@ -116,23 +116,48 @@ class Agent:
                 return True, res
         return False, None
 
+    async def _check_tool_approval(
+        self, fn_name: str, fn_args: dict[str, Any], tool: Any
+    ) -> tuple[bool, str]:
+        """Check if a tool call is approved by the user."""
+        if self.trust_level == "total" or (
+            self.trust_level == "partial" and tool and getattr(tool, "safe", False)
+        ):
+            return True, ""
+
+        if not self.ui_handler:
+            return False, "Action cancelled: approval required but no UI handler is available."
+
+        approved = await self.ui_handler.on_tool_call_request(fn_name, fn_args)
+        if not approved:
+            return False, "Action cancelled by user."
+
+        return True, ""
+
     async def _run_tool(self, decision: Decision) -> tuple[str, str]:
         """Ask approval for and run the tool of a validated step. Returns (status, observation).
 
         A failing tool doesn't stop the loop: its error becomes the observation, so the
         model can try something else or answer with what it has.
         """
-        if self.human_in_the_loop and self.ui_handler:
-            approved = await self.ui_handler.on_tool_call_request(decision.action, decision.args)
-            if not approved:
-                return "refused", "The user refused this action."
+        tool = next((t for t in self.tools if getattr(t, "name", None) == decision.action), None)
+        approved, cancel_msg = await self._check_tool_approval(decision.action, decision.args, tool)
+        if not approved:
+            return "refused", cancel_msg
+
+        if self.ui_handler:
+            await self.ui_handler.start_spinner(f"Executing {decision.action}...")
 
         try:
             found, res = await self._dispatch_single_tool(decision.action, decision.args)
         except Exception as e:  # noqa: BLE001 - any tool failure is reported back to the model
             if self.ui_handler:
+                await self.ui_handler.stop_spinner()
                 await self.ui_handler.on_error(e)
             return "failed", f"Error: {e}"
+
+        if self.ui_handler:
+            await self.ui_handler.stop_spinner()
 
         if not found:
             return "failed", f"Tool '{decision.action}' not found."
