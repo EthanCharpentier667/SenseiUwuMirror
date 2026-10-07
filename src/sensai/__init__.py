@@ -35,16 +35,17 @@ async def async_main() -> None:
     if profile.settings:
         try:
             settings = json.loads(profile.settings)
-            agent.trust_level = settings.get("trust_level", agent.trust_level)
-            agent.model = settings.get("model", agent.model)
+            if isinstance(settings, dict):
+                agent.trust_level = settings.get("trust_level", agent.trust_level)
+                agent.model = settings.get("model", agent.model)
 
-            args = config.get_args()
-            if args:
-                if "compression_threshold" in settings:
-                    args.compression_threshold = settings["compression_threshold"]
-                if "url" in settings:
-                    args.url = settings["url"]
-                    client.base_url = settings["url"]
+                args = config.get_args()
+                if args:
+                    if "compression_threshold" in settings:
+                        args.compression_threshold = settings["compression_threshold"]
+                    if "url" in settings:
+                        args.url = settings["url"]
+                        client.base_url = settings["url"]
         except json.JSONDecodeError:
             pass
 
