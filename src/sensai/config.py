@@ -1,6 +1,6 @@
 """Configuration for the Sensai CLI."""
 
-from argparse import ArgumentParser, Namespace
+from argparse import SUPPRESS, ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
 
@@ -96,6 +96,11 @@ class Config:
             default=[],
             help="Files to attach to the session. Default: none.",
         )
+        self.add_argument(
+            "--verbose",
+            action="store_true",
+            help=SUPPRESS,
+        )
 
     def add_argument(self, *args: Any, **kwargs: Any) -> None:
         """Add a command-line argument to the parser."""
@@ -170,3 +175,8 @@ class Config:
     def files(self) -> list[Path]:
         """Files to attach to the session, as given on the command line."""
         return list(self._parsed().files)
+
+    @property
+    def verbose(self) -> bool:
+        """Whether verbose mode is enabled."""
+        return bool(self._parsed().verbose)

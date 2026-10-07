@@ -126,6 +126,8 @@ class OllamaClient:
         base_url: str,
         token: str | None,
         timeout: float,
+        *,
+        verbose: bool = False,
     ) -> None:
         """Initialize the Ollama client.
 
@@ -133,10 +135,12 @@ class OllamaClient:
             base_url: Base endpoint URL for the chat API.
             token: Bearer authentication token of the Ollama API.
             timeout: HTTP request timeout in seconds.
+            verbose: Whether to print debug information.
         """
         self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
+        self.verbose = verbose
 
     def _build_headers(self) -> dict[str, str]:
         """Construct authorization and content-type headers."""
@@ -250,7 +254,8 @@ class OllamaClient:
             "stream": stream,
         }
 
-        print(f"Sending request to Ollama: {payload}")  # noqa: T201
+        if self.verbose:
+            print(f"Sending request to Ollama: {payload}")  # noqa: T201
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:
             if not stream:
