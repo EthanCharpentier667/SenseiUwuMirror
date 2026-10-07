@@ -3,6 +3,7 @@
 import sys
 
 from rich.table import Table
+from rich.text import Text
 
 from sensai.core.state import clear_credentials
 from sensai.data.profile.manager import ProfileManager
@@ -17,10 +18,33 @@ async def _help_execute(context: CommandContext, _args: list[str]) -> None:
     table.add_column("Description")
 
     table.add_row("/help", "List all available commands.")
+    table.add_row("/tools", "List the agent's available tools.")
     table.add_row("/logout", "Log out and clear saved credentials.")
     table.add_row("/prefs", "Manage preferences (list, add, remove, edit).")
     table.add_row("/inst", "Manage system instructions (list, add, remove, edit).")
     table.add_row("/exit or /quit", "Exit the application.")
+
+    await context.ui.on_system_message(table)
+
+
+async def _tools_execute(context: CommandContext, _args: list[str]) -> None:
+    """Display the tools currently available to the agent."""
+    if not context.tools:
+        await context.ui.on_system_message("[dim]No tools available.[/dim]")
+        return
+
+    table = Table(
+        title="Available Tools",
+        caption=f"{len(context.tools)} tool(s) available",
+        header_style="bold magenta",
+        show_lines=True,
+        expand=True,
+    )
+    table.add_column("Tool", style="bold cyan", no_wrap=True)
+    table.add_column("Description", ratio=1)
+
+    for tool in sorted(context.tools, key=lambda tool: tool.name):
+        table.add_row(Text(tool.name), Text(tool.description))
 
     await context.ui.on_system_message(table)
 
@@ -162,6 +186,7 @@ async def _exit_execute(context: CommandContext, _args: list[str]) -> None:
 def setup_builtin_commands(registry: CommandRegistry) -> None:
     """Register all built-in commands."""
     registry.register(Command("/help", "List all available commands.", _help_execute))
+    registry.register(Command("/tools", "List the agent's available tools.", _tools_execute))
     registry.register(Command("/logout", "Log out and clear saved credentials.", _logout_execute))
     registry.register(Command("/exit", "Exit the application.", _exit_execute))
     registry.register(Command("/quit", "Exit the application.", _exit_execute))

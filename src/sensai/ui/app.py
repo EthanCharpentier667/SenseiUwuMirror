@@ -87,7 +87,9 @@ class CLIApp:
         """Execute a built-in slash command."""
         if self.agent.ui_handler is None:
             raise ValueError("UI handler is not set on the agent.")
-        ctx = CommandContext(database=self.database, ui=self.agent.ui_handler)
+        ctx = CommandContext(
+            database=self.database, ui=self.agent.ui_handler, tools=self.agent.tools
+        )
         await self.command_registry.execute(user_input, ctx)
 
     async def _handle_chat(self, user_input: str) -> None:

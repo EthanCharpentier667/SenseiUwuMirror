@@ -17,6 +17,7 @@ class CommandContext:
 
     database: Database
     ui: AsyncUIHandler
+    tools: list[Any] = field(default_factory=list)
 
 
 @dataclass
