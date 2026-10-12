@@ -13,7 +13,6 @@ from sensai.ui.commands.tool import tool_execute
 def setup_builtin_commands(registry: CommandRegistry) -> None:
     """Register all built-in commands."""
     registry.register(Command("/help", "List all available commands.", help_execute))
-    registry.register(Command("/tool", "List currently available tools.", tool_execute))
     registry.register(Command("/tools", "List currently available tools.", tool_execute))
     registry.register(Command("/logout", "Log out and clear saved credentials.", logout_execute))
     registry.register(Command("/exit", "Exit the application.", exit_execute))

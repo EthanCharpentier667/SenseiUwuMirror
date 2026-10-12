@@ -279,7 +279,7 @@ permissions et accès au programme Preview.
 - Un nom déjà connecté est refusé. La même URL sous un autre nom n'ouvre pas une deuxième connexion.
 - Plusieurs URL peuvent être connectées si leurs outils ont des noms différents. Le nom de connexion ne préfixe pas les noms des outils.
 - Les configurations, jetons et informations OAuth restent en mémoire. Après fermeture, soumettez de nouveau les commandes et autorisez de nouveau l'accès si nécessaire.
-- `/tool` liste les outils actuellement disponibles, y compris ceux des serveurs MCP connectés.
+- `/tools` liste les outils actuellement disponibles, y compris ceux des serveurs MCP connectés.
 - `/help` affiche la syntaxe disponible ; `/exit` termine la session et ferme les connexions.
 
 Ne publiez pas vos commandes contenant de vrais tokens ou secrets. Les exemples

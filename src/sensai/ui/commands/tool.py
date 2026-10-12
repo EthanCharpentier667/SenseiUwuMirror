@@ -9,7 +9,7 @@ from sensai.ui.command import CommandContext
 async def tool_execute(context: CommandContext, args: list[str]) -> None:
     """Display the current tool names and descriptions."""
     if args:
-        await context.ui.on_system_message("Usage: /tool or /tools")
+        await context.ui.on_system_message("Usage: /tools")
         return
     if not context.agent.tools:
         await context.ui.on_system_message("No tools available.")
