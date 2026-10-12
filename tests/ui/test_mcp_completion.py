@@ -51,6 +51,11 @@ def test_templates_insert_valid_quoted_json(registry: CommandRegistry, prefix: s
             assert config.oauth is None
         elif completion.display_text == "HTTP + OAuth":
             assert config.oauth is not None
+            assert config.oauth.metadata.redirect_uris is not None
+            assert (
+                str(config.oauth.metadata.redirect_uris[0])
+                == "https://your-callback.example/callback"
+            )
             assert config.headers == {}
         else:
             assert config.headers == {}

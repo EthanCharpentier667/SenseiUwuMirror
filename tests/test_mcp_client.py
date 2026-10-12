@@ -53,7 +53,11 @@ async def test_json_headers_reach_transport_and_resources_close(
     monkeypatch.setattr(httpx2, "AsyncClient", fake_http_client)
     monkeypatch.setattr(module, "streamable_http_client", make_transport)
     monkeypatch.setattr(module, "Client", fake_client)
-    oauth_config = OAuthConfig.from_dict({}) if use_oauth else None
+    oauth_config = (
+        OAuthConfig.from_dict({"redirectUri": "http://localhost:8080/callback"})
+        if use_oauth
+        else None
+    )
     client = SensAIClient(
         MCPServerConfig(url="https://example.com/mcp", headers=headers, oauth=oauth_config)
     )

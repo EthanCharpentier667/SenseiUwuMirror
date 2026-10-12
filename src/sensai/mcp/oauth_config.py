@@ -38,6 +38,10 @@ def _validate_oauth_options(value: object) -> dict[str, Any]:
     for key in ("redirectUri", "scope", "clientId", "clientSecret", "issuer"):
         if key in value and (not isinstance(value[key], str) or not value[key].strip()):
             raise ValueError(f'OAuth "{key}" must be a non-empty string.')
+    if "redirectUri" not in value:
+        raise ValueError(
+            'OAuth requires "redirectUri": choose the callback URL for your environment.'
+        )
     if "clientSecret" in value and "clientId" not in value:
         raise ValueError('OAuth "clientSecret" requires "clientId".')
     if "clientId" in value and "issuer" not in value:
@@ -49,7 +53,7 @@ def _validate_oauth_options(value: object) -> dict[str, Any]:
 
 def _build_oauth_metadata(options: dict[str, Any]) -> OAuthClientMetadata:
     """Build SDK metadata using validated options and connection defaults."""
-    redirect_uri = validate_http_url(options.get("redirectUri", "http://localhost:8080/callback"))
+    redirect_uri = validate_http_url(options["redirectUri"])
     default_method = "client_secret_post" if "clientSecret" in options else "none"
     return OAuthClientMetadata.model_validate(
         {

@@ -5,16 +5,18 @@ import webbrowser
 from urllib.parse import parse_qs, urlparse
 
 from mcp.client.auth import AuthorizationCodeResult, OAuthClientProvider
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
 
 from sensai.mcp.oauth_config import OAuthConfig
 from sensai.mcp.token_storage import TokenStorage
 
 
 async def open_browser(authorization_url: str) -> None:
-    """Open the authorization page without blocking the event loop."""
+    """Open authorization locally or show the URL for a browser on another machine."""
     if not await asyncio.to_thread(webbrowser.open, authorization_url):
-        raise RuntimeError("Could not open the browser for OAuth authorization.")
+        print_formatted_text(
+            f"Open this URL in your browser to authorize MCP access: {authorization_url}"
+        )
 
 
 async def wait_for_callback() -> AuthorizationCodeResult:

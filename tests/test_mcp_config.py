@@ -43,9 +43,9 @@ def test_oauth_configuration_is_optional() -> None:
     [
         None,
         True,
-        {"scope": 42},
-        {"clientSecret": "secret"},
-        {"clientId": "id"},
+        {"redirectUri": "http://localhost:8080/callback", "scope": 42},
+        {"redirectUri": "http://localhost:8080/callback", "clientSecret": "secret"},
+        {"redirectUri": "http://localhost:8080/callback", "clientId": "id"},
         {"redirectUri": "invalid"},
     ],
 )
@@ -58,5 +58,30 @@ def test_oauth_and_static_authorization_cannot_be_combined() -> None:
     with pytest.raises(ValueError, match="Choose OAuth"):
         MCPServerConfig.from_json(
             '{"url":"https://example.com/mcp",'
-            '"headers":{"authorization":"Bearer token"},"oauth":{}}'
+            '"headers":{"authorization":"Bearer token"},'
+            '"oauth":{"redirectUri":"http://localhost:8080/callback"}}'
         )
+
+
+@pytest.mark.parametrize("oauth", [{}, {"scope": "tools:read"}])
+def test_oauth_requires_explicit_callback(oauth):
+    with pytest.raises(ValueError, match="redirectUri"):
+        MCPServerConfig.from_json(json.dumps({"url": "https://example.com/mcp", "oauth": oauth}))
+
+
+@pytest.mark.parametrize(
+    "callback",
+    ["http://127.0.0.1:9000/custom-callback", "https://agent.example.net/oauth/return"],
+)
+def test_oauth_preserves_personalized_callback(callback):
+    config = MCPServerConfig.from_json(
+        json.dumps(
+            {
+                "url": "https://example.com/mcp",
+                "oauth": {"redirectUri": callback},
+            }
+        )
+    )
+    assert config.oauth is not None
+    assert config.oauth.metadata.redirect_uris is not None
+    assert str(config.oauth.metadata.redirect_uris[0]) == callback

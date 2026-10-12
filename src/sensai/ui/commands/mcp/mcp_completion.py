@@ -45,7 +45,10 @@ class MCPConfigCompleter(Completer):  # type: ignore[misc,unused-ignore]
         templates = [
             ("HTTP", base),
             ("HTTP + Bearer token", {**base, "headers": {"Authorization": "Bearer YOUR_TOKEN"}}),
-            ("HTTP + OAuth", {**base, "oauth": {}}),
+            (
+                "HTTP + OAuth",
+                {**base, "oauth": {"redirectUri": "https://your-callback.example/callback"}},
+            ),
         ]
         for label, config in templates:
             json_text = json.dumps(config)
@@ -54,5 +57,5 @@ class MCPConfigCompleter(Completer):  # type: ignore[misc,unused-ignore]
                     shlex.quote(json_text),
                     start_position=-len(raw_json),
                     display=label,
-                    display_meta="Replace the URL and any token before connecting.",
+                    display_meta="Customize the server URL, callback URL and any token.",
                 )

@@ -150,7 +150,7 @@ Consultez la [documentation OAuth du SDK MCP](https://py.sdk.modelcontextprotoco
 
 | Champ dans `oauth` | Utilisation actuelle |
 | --- | --- |
-| `redirectUri` | URL de retour après autorisation. Valeur par défaut : `http://localhost:8080/callback`. Doit correspondre à celle enregistrée chez le fournisseur. |
+| `redirectUri` | URL de callback obligatoire, choisie selon votre environnement. Aucune valeur par défaut. Doit correspondre exactement à celle enregistrée chez le fournisseur. |
 | `scope` | Permissions demandées, sous forme d'une chaîne. Séparez plusieurs scopes par un espace. Facultatif ; les valeurs dépendent du fournisseur. |
 | `clientId` | Identifiant d'une application OAuth préenregistrée. Facultatif si le serveur permet l'enregistrement géré par le SDK. |
 | `clientSecret` | Secret de cette application, si nécessaire. Exige `clientId`. |
@@ -172,6 +172,25 @@ minimal est le suivant. Remplacez l'endpoint et le scope par ceux de ce serveur 
 Cet exemple est un modèle de configuration, pas une commande utilisable telle
 quelle contre `example.com`.
 
+### Choisir le callback pour votre environnement
+
+Le modèle d'autocomplétion contient `https://your-callback.example/callback` :
+remplacez cette adresse avant d'envoyer la commande. Sensai ne choisit pas de
+callback à votre place et ne crée pas de service HTTP à cette adresse.
+
+- **Exécution locale** : vous pouvez choisir, si le fournisseur l'accepte,
+  `http://127.0.0.1:9000/mon-callback` ou une autre URL de retour enregistrée.
+- **VPS ou machine sans navigateur** : Sensai affiche le lien d'autorisation si
+  aucun navigateur ne peut s'ouvrir. Ouvrez-le sur votre ordinateur, terminez
+  l'autorisation et collez l'URL de retour complète dans le CLI du VPS.
+  `localhost` dans le navigateur désigne votre ordinateur, pas le VPS.
+- **Callback HTTPS public** : utilisez une adresse que vous contrôlez et qui est
+  enregistrée chez le fournisseur. La configuration de cette page et de son
+  hébergement vous appartient ; Sensai attend toujours le retour manuel dans le CLI.
+
+Choisissez une URL acceptée par le fournisseur et conservez exactement son
+protocole, son hôte, son port et son chemin dans `oauth.redirectUri`.
+
 ### Terminer l'autorisation dans Sensai
 
 1. Lorsque le navigateur s'ouvre, connectez-vous chez le fournisseur et acceptez les permissions demandées.
@@ -192,9 +211,9 @@ Ces valeurs sont un exemple : collez celles de votre propre redirection, sans le
 modifier. Si l'URL contient aussi `iss`, conservez-le. Sensai attend l'URL complète,
 pas uniquement le code. Le SDK vérifie `state` et l'issuer retourné.
 
-Le callback actuel est **manuel** : Sensai ne démarre pas de serveur HTTP sur le
-port `8080`. Le navigateur peut donc afficher une erreur de connexion sur la page
-de retour ; copiez quand même son adresse. Ce port correspond au retour OAuth,
+Le callback actuel est **manuel** : Sensai ne démarre pas de serveur HTTP à
+l'adresse configurée. Le navigateur peut donc afficher une erreur de connexion sur la page
+de retour ; copiez quand même son adresse. L'adresse correspond au retour OAuth,
 pas au serveur MCP distant. L'autorisation peut être demandée à la connexion ou
 lors d'une requête protégée : la réussite d'un appel d'outil confirme l'accès.
 
@@ -280,7 +299,7 @@ utilisent uniquement des placeholders ; les valeurs réelles permettent d'accéd
 | `MCP tool names conflict ...` | Les noms d'outils entrent en conflit. Choisissez un ensemble d'outils différent côté serveur ou ouvrez une nouvelle session. |
 | HTTP `401` / `403` | Vérifiez le mode d'authentification, les permissions du compte et la validité du token. Pour Gmail, vérifiez aussi les API activées et l'accès au programme Preview. |
 | Google affiche `redirect_uri_mismatch` | Enregistrez exactement le `redirectUri` du JSON dans le client OAuth Google : même protocole, hôte, port et chemin. |
-| `Could not open the browser ...` | Exécutez Sensai dans une session où un navigateur peut être lancé. Le parcours actuel nécessite une interaction utilisateur. |
+| OAuth exige `redirectUri` | Ajoutez une URL de callback adaptée à votre environnement et enregistrée chez le fournisseur. |
 | Page localhost inaccessible après autorisation | Attendu avec le callback manuel : copiez l'URL complète depuis la barre d'adresse et collez-la dans Sensai. |
 | `OAuth authorization was refused or failed ...` | Recommencez l'autorisation et vérifiez que le compte peut accéder à l'application. |
 | Le callback doit contenir un `code` et un `state` | Collez l'URL complète de la dernière tentative, pas le code seul. Ne modifiez pas les paramètres. |

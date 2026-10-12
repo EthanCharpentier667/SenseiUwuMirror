@@ -1,6 +1,6 @@
 """Tests for OAuth storage, callback handling and the SDK authorization flow."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from urllib.parse import parse_qs, urlparse
 
 import httpx2
@@ -8,7 +8,7 @@ import pytest
 from mcp.client.auth import AuthorizationCodeResult
 from mcp.shared.auth import OAuthToken
 
-from sensai.mcp.oauth import OAuth, wait_for_callback
+from sensai.mcp.oauth import OAuth, open_browser, wait_for_callback
 from sensai.mcp.oauth_config import OAuthConfig
 from sensai.mcp.token_storage import TokenStorage
 
@@ -48,7 +48,10 @@ async def test_callback_preserves_state_and_issuer(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("expires_in", [3600, 0])
-async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
+@pytest.mark.parametrize(
+    "redirect_uri", ["http://localhost:9090/return", "https://agent.example/callback"]
+)
+async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in, redirect_uri):
     """Exercise discovery, PKCE, callback and token exchange with simulated HTTP."""
     server_url = "https://example.com/mcp"
     issuer = "https://auth.example"
@@ -72,6 +75,7 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
                 "clientId": "sensai-client",
                 "issuer": issuer,
                 "scope": "tools:read",
+                "redirectUri": redirect_uri,
             }
         ),
     )
@@ -132,6 +136,19 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
     assert token_requests[0]["code"] == ["test-code"]
     assert "code_verifier" in token_requests[0]
     assert authorization["code_challenge_method"] == ["S256"]
+    assert authorization["redirect_uri"] == [redirect_uri]
+    assert token_requests[0]["redirect_uri"] == [redirect_uri]
     tokens = await oauth.context.storage.get_tokens()
     assert tokens is not None
     assert tokens.refresh_token == "test-refresh"  # noqa: S105
+
+
+@pytest.mark.asyncio
+async def test_authorization_url_is_shown_without_local_browser(monkeypatch):
+    display = Mock()
+    monkeypatch.setattr("sensai.mcp.oauth.print_formatted_text", display)
+    monkeypatch.setattr("sensai.mcp.oauth.webbrowser.open", lambda url: False)
+    await open_browser("https://auth.example/authorize")
+    display.assert_called_once_with(
+        "Open this URL in your browser to authorize MCP access: https://auth.example/authorize"
+    )
