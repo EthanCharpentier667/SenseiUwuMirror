@@ -2,6 +2,8 @@
 
 from typing import Any, Protocol
 
+from .forms import Question
+
 
 class AsyncUIHandler(Protocol):
     """Protocol defining the interface for the Event Manager."""
@@ -50,4 +52,8 @@ class AsyncUIHandler(Protocol):
 
     async def prompt_input(self, title: str, text: str) -> str | None:
         """Prompt the user to input a free-form text string."""
+        ...  # pragma: no cover
+
+    async def prompt_question(self, question: Question) -> str | None:
+        """Prompt the user with a question combining predefined choices and a free-text 'Other' option."""
         ...  # pragma: no cover
