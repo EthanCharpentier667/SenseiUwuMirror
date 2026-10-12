@@ -20,6 +20,7 @@ from sensai.data.session.session import Session
 from sensai.embedder import Embedder
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands import setup_builtin_commands
+from sensai.ui.commands.mcp.mcp_commands import MCPCommands
 
 
 class CLIApp:
@@ -57,6 +58,8 @@ class CLIApp:
 
         self.command_registry = CommandRegistry()
         setup_builtin_commands(self.command_registry)
+        self.mcp_commands = MCPCommands(agent)
+        self.mcp_commands.register(self.command_registry)
         self.prompt_session: PromptSession[str] | None = None
         self._setup_prompt_session()
 
@@ -65,8 +68,12 @@ class CLIApp:
         kb = KeyBindings()
 
         def _handle_enter(event: Any) -> None:
-            """Submit the input when Enter is pressed."""
-            event.current_buffer.validate_and_handle()
+            """Accept a selected completion before allowing the user to submit."""
+            buffer = event.current_buffer
+            if buffer.complete_state is not None and buffer.complete_state.current_completion:
+                buffer.complete_state = None
+                return
+            buffer.validate_and_handle()
 
         kb.add("enter")(_handle_enter)
 
@@ -148,3 +155,5 @@ class CLIApp:
 
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n[bold red]Program terminated by user.[/bold red]")
+        finally:
+            await self.mcp_commands.aclose()

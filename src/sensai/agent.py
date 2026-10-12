@@ -182,6 +182,18 @@ class Agent:
                 await self.ui_handler.on_error(e)
             raise
 
+    def _format_tools(self) -> list[dict[str, Any]]:
+        """Collect valid tool definitions for the controller."""
+        formatted_tools: list[dict[str, Any]] = []
+        for tool in self.tools:
+            if not hasattr(tool, "define"):
+                continue
+            tool_def = tool.define()
+            if not isinstance(tool_def, dict):
+                continue
+            formatted_tools.append(tool_def)
+        return formatted_tools
+
     async def _plan(self, messages: list[dict[str, Any]], controller: ReActController) -> Decision:
         """Have the model propose the next step, as JSON constrained to the allowed actions.
 
@@ -238,7 +250,8 @@ class Agent:
             raise ValueError(msg)
 
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
-        controller = ReActController([tool.define() for tool in self.tools])
+        formatted_tools = self._format_tools()
+        controller = ReActController(formatted_tools)
 
         for _ in range(self.max_turns):
             decision = await self._plan(current_messages, controller)

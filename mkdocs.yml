@@ -73,4 +73,5 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Event System & UI: events.md
+  - MCP connections: mcp-server.md
   - API Reference: reference/
