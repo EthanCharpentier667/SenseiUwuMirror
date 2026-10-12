@@ -4,6 +4,7 @@ from sensai.ui.command import Command, CommandRegistry
 from sensai.ui.commands.auth import logout_execute
 from sensai.ui.commands.help import help_execute
 from sensai.ui.commands.model import model_execute
+from sensai.ui.commands.persona import persona_execute
 from sensai.ui.commands.prefs import inst_execute, prefs_execute
 from sensai.ui.commands.settings import settings_execute
 from sensai.ui.commands.system import exit_execute
@@ -36,4 +37,12 @@ def setup_builtin_commands(registry: CommandRegistry) -> None:
     registry.register(Command("/settings", "Open interactive settings menu.", settings_execute))
     registry.register(
         Command("/model", "Change the AI model used in the current session.", model_execute)
+    )
+    registry.register(
+        Command(
+            "/persona",
+            "Manage agent persona.",
+            persona_execute,
+            subcommands=["list", "switch"],
+        )
     )
