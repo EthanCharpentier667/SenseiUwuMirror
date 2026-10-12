@@ -22,9 +22,7 @@ async def persona_execute(context: CommandContext, args: list[str]) -> None:
             else:
                 await context.ui.on_system_message("[dim]No personas found.[/dim]")
         except (FileNotFoundError, ValueError) as exc:
-            await context.ui.on_system_message(
-                f"[red]Could not load personas: {exc}[/red]"
-            )
+            await context.ui.on_system_message(f"[red]Could not load personas: {exc}[/red]")
 
     elif subcmd == "switch":
         if len(args) < 2:  # noqa: PLR2004
@@ -40,13 +38,9 @@ async def persona_execute(context: CommandContext, args: list[str]) -> None:
                     f"[bold green]Persona switched to '{key}': {persona.name}[/bold green]"
                 )
             else:
-                await context.ui.on_system_message(
-                    f"[red]Persona '{key}' not found.[/red]"
-                )
+                await context.ui.on_system_message(f"[red]Persona '{key}' not found.[/red]")
         except (FileNotFoundError, ValueError) as exc:
-            await context.ui.on_system_message(
-                f"[red]Could not switch persona: {exc}[/red]"
-            )
+            await context.ui.on_system_message(f"[red]Could not switch persona: {exc}[/red]")
 
     else:
         await context.ui.on_system_message(
