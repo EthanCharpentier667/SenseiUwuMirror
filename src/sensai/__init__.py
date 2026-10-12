@@ -22,7 +22,7 @@ from sensai.ui.auth import authenticate_user
 __all__ = ["CLIApp", "main"]
 
 
-def _handle_list_personas(config: Config) -> bool:
+def _handle_list_personas(config: Config, console: Console) -> bool:
     """Print available personas and return True if --list-personas was requested."""
     if not config.list_personas:
         return False
@@ -30,18 +30,18 @@ def _handle_list_personas(config: Config) -> bool:
         personas = load_personas(config.personas_file)
         keys = list_personas(personas)
         if keys:
-            print("Available personas:")  # noqa: T201
+            console.print("Available personas:")
             for key in keys:
                 p = personas[key]
-                print(f"  {key}: {p.name} — {p.description}")  # noqa: T201
+                console.print(f"  [cyan]{key}[/cyan]: {p.name} — {p.description}")
         else:
-            print("No personas found.")  # noqa: T201
+            console.print("[dim]No personas found.[/dim]")
     except FileNotFoundError:
-        print(f"Warning: personas file not found: {config.personas_file}")  # noqa: T201
+        console.print(f"[red]Warning: personas file not found: {config.personas_file}[/red]")
     return True
 
 
-def _apply_persona(config: Config, agent: Agent) -> None:
+def _apply_persona(config: Config, agent: Agent, console: Console) -> None:
     """Load and apply the requested persona to the agent, if any."""
     if not config.persona:
         return
@@ -51,11 +51,11 @@ def _apply_persona(config: Config, agent: Agent) -> None:
         if persona is not None:
             agent.system_prompt = persona.system_prompt
         else:
-            print(f"Warning: persona '{config.persona}' not found.")  # noqa: T201
+            console.print(f"[red]Warning: persona '{config.persona}' not found.[/red]")
     except FileNotFoundError:
-        print(f"Warning: personas file not found: {config.personas_file}")  # noqa: T201
+        console.print(f"[red]Warning: personas file not found: {config.personas_file}[/red]")
     except ValueError as exc:
-        print(f"Warning: invalid personas file: {exc}")  # noqa: T201
+        console.print(f"[red]Warning: invalid personas file: {exc}[/red]")
 
 
 def _apply_profile_settings(
@@ -84,16 +84,17 @@ async def async_main() -> None:
     config = Config()
     config.parse_args()
 
-    if _handle_list_personas(config):
+    console = Console()
+
+    if _handle_list_personas(config, console):
         return
 
     database = setup_database(config)
     client, agent = setup_ai_engine(config)
     embedder = Embedder(client)
 
-    _apply_persona(config, agent)
+    _apply_persona(config, agent, console)
 
-    console = Console()
     profile = await authenticate_user(database, console)
     session = get_or_create_session(database, profile)
 
