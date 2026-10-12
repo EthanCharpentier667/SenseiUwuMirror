@@ -29,7 +29,9 @@ class MockUIHandler:
     async def on_tool_call_request(self, _name: str, _args: dict[str, Any]) -> bool:
         return True
 
-    async def on_tool_call_result(self, name: str, result: Any) -> None:
+    async def on_tool_call_result(
+        self, name: str, result: Any, *, show_output: bool = False
+    ) -> None:
         pass
 
     async def render_output(self, content: Any, *, title: str = "Output") -> None:

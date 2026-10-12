@@ -168,7 +168,8 @@ class Agent:
             return "failed", f"Tool '{decision.action}' not found."
 
         if self.ui_handler:
-            await self.ui_handler.on_tool_call_result(decision.action, res)
+            show_output = bool(getattr(tool, "show_output", False))
+            await self.ui_handler.on_tool_call_result(decision.action, res, show_output=show_output)
         return "done", res if isinstance(res, str) else json.dumps(res, ensure_ascii=False)
 
     async def _chat(

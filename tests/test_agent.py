@@ -105,7 +105,13 @@ class MockUIHandler(AsyncUIHandler):
         self.tool_requests.append((name, arguments))
         return self.approval
 
-    async def on_tool_call_result(self, name: str, result: Any) -> None:
+    async def on_tool_call_result(
+        self,
+        name: str,
+        result: Any,
+        *,
+        show_output: bool = False,  # noqa: ARG002
+    ) -> None:
         self.tool_results.append((name, result))
 
     async def render_output(self, content: Any, *, title: str = "Output") -> None:

@@ -63,17 +63,29 @@ async def test_on_tool_call_request_denied(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 @pytest.mark.asyncio
+async def test_on_tool_call_result_default_suppressed(capsys: pytest.CaptureFixture[str]) -> None:
+    handler = CLIHandler()
+    await handler.on_tool_call_result("web_search", "large search result content")
+    captured = capsys.readouterr()
+    assert "Tool 'web_search' executed successfully." in captured.out
+    assert "Tool Output" not in captured.out
+
+
+@pytest.mark.asyncio
 async def test_on_tool_call_result_empty(capsys: pytest.CaptureFixture[str]) -> None:
     handler = CLIHandler()
-    await handler.on_tool_call_result("my_tool", None)
+    await handler.on_tool_call_result("my_tool", None, show_output=True)
     captured = capsys.readouterr()
     assert "Tool 'my_tool' executed successfully." in captured.out
+    assert "Tool Output" not in captured.out
 
 
 @pytest.mark.asyncio
 async def test_on_tool_call_result_output_text(capsys: pytest.CaptureFixture[str]) -> None:
     handler = CLIHandler()
-    await handler.on_tool_call_result("sandbox", "stdout:\nHello sandbox!\nexit code: 0")
+    await handler.on_tool_call_result(
+        "sandbox", "stdout:\nHello sandbox!\nexit code: 0", show_output=True
+    )
     captured = capsys.readouterr()
     assert "Tool 'sandbox' executed successfully:" in captured.out
     assert "Tool Output: sandbox" in captured.out
@@ -83,7 +95,7 @@ async def test_on_tool_call_result_output_text(capsys: pytest.CaptureFixture[str
 @pytest.mark.asyncio
 async def test_on_tool_call_result_output_dict(capsys: pytest.CaptureFixture[str]) -> None:
     handler = CLIHandler()
-    await handler.on_tool_call_result("fetch", {"status": "ok", "count": 5})
+    await handler.on_tool_call_result("fetch", {"status": "ok", "count": 5}, show_output=True)
     captured = capsys.readouterr()
     assert "Tool Output: fetch" in captured.out
     assert '"status": "ok"' in captured.out
@@ -92,7 +104,7 @@ async def test_on_tool_call_result_output_dict(capsys: pytest.CaptureFixture[str
 @pytest.mark.asyncio
 async def test_on_tool_call_result_output_json_string(capsys: pytest.CaptureFixture[str]) -> None:
     handler = CLIHandler()
-    await handler.on_tool_call_result("search", '{"items": [1, 2]}')
+    await handler.on_tool_call_result("search", '{"items": [1, 2]}', show_output=True)
     captured = capsys.readouterr()
     assert "Tool Output: search" in captured.out
     assert '"items"' in captured.out
@@ -101,10 +113,19 @@ async def test_on_tool_call_result_output_json_string(capsys: pytest.CaptureFixt
 @pytest.mark.asyncio
 async def test_on_tool_call_result_output_markdown(capsys: pytest.CaptureFixture[str]) -> None:
     handler = CLIHandler()
-    await handler.on_tool_call_result("generator", "```python\nprint('gen')\n```")
+    await handler.on_tool_call_result("generator", "```python\nprint('gen')\n```", show_output=True)
     captured = capsys.readouterr()
     assert "Tool Output: generator" in captured.out
     assert "print('gen')" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_on_tool_call_result_dynamic_show_output(capsys: pytest.CaptureFixture[str]) -> None:
+    handler = CLIHandler()
+    await handler.on_tool_call_result("dynamic_tool", {"show_output": True, "data": 42})
+    captured = capsys.readouterr()
+    assert "Tool Output: dynamic_tool" in captured.out
+    assert '"data": 42' in captured.out
 
 
 @pytest.mark.asyncio

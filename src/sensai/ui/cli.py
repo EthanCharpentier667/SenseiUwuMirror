@@ -132,7 +132,9 @@ class CLIHandler(AsyncUIHandler):
         self.console.print(panel)
         self.console.print("")
 
-    async def on_tool_call_result(self, name: str, result: Any) -> None:
+    async def on_tool_call_result(
+        self, name: str, result: Any, *, show_output: bool = False
+    ) -> None:
         """Called when a tool has finished executing."""
         await self.stop_spinner()
         await self.on_stream_end()
@@ -144,7 +146,11 @@ class CLIHandler(AsyncUIHandler):
             await self.on_error(err_msg, title=f"Tool Error: {name}")
             return
 
-        if result in (None, "", {}):
+        should_show = show_output or (
+            isinstance(result, dict) and bool(result.get("show_output", False))
+        )
+
+        if not should_show or result in (None, "", {}):
             self.console.print(f"[bold green]✓ Tool '{name}' executed successfully.[/bold green]\n")
             return
 

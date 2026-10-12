@@ -22,7 +22,9 @@ class AsyncUIHandler(Protocol):
         """
         ...  # pragma: no cover
 
-    async def on_tool_call_result(self, name: str, result: Any) -> None:
+    async def on_tool_call_result(
+        self, name: str, result: Any, *, show_output: bool = False
+    ) -> None:
         """Called when a tool has finished executing."""
         ...  # pragma: no cover
 

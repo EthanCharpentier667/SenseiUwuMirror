@@ -8,7 +8,7 @@ class Tool(ABC):
     """Base class for tools that can be used with the ``sensai`` package."""
 
     @abstractmethod
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         name: str,
         description: str,
@@ -16,6 +16,7 @@ class Tool(ABC):
         parameters: dict[str, Any],
         *,
         safe: bool = False,
+        show_output: bool = False,
     ) -> None:
         """Initialize the tool with a name and description.
 
@@ -25,12 +26,14 @@ class Tool(ABC):
             tool_type (str): The type of the tool.
             parameters (dict[str, Any]): The parameters for the tool.
             safe (bool): Whether this tool is safe to run automatically in partial trust mode.
+            show_output (bool): Whether this tool's execution result should be displayed in the UI.
         """
         self.name = name
         self.description = description
         self.type = tool_type
         self.parameters = parameters
         self.safe = safe
+        self.show_output = show_output
 
     def define(self) -> dict[str, Any]:
         """Define the tool's properties and behavior.
