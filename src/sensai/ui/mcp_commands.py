@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 from sensai.agent import Agent
-from sensai.mcp.config import MCPServerConfig
+from sensai.mcp.mcp_server_config import MCPServerConfig
 from sensai.mcp.sensai_client import SensAIClient
 from sensai.tools.registry import get_mcp_tools
 from sensai.ui.command import Command, CommandContext, CommandRegistry
