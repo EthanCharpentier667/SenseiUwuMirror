@@ -153,13 +153,18 @@ class Agent:
         except Exception as e:  # noqa: BLE001 - any tool failure is reported back to the model
             if self.ui_handler:
                 await self.ui_handler.stop_spinner()
-                await self.ui_handler.on_error(e)
+                await self.ui_handler.on_error(e, title=f"Tool Error: {decision.action}")
             return "failed", f"Error: {e}"
 
         if self.ui_handler:
             await self.ui_handler.stop_spinner()
 
         if not found:
+            if self.ui_handler:
+                await self.ui_handler.on_error(
+                    RuntimeError(f"Tool '{decision.action}' not found."),
+                    title=f"Tool Error: {decision.action}",
+                )
             return "failed", f"Tool '{decision.action}' not found."
 
         if self.ui_handler:
@@ -200,6 +205,8 @@ class Agent:
         The planning instructions are a system message, so the model never mistakes them
         for something the user said.
         """
+        if self.ui_handler:
+            await self.ui_handler.start_spinner("Thinking...")
         payload = _with_instructions(messages, controller.plan_instructions())
         response = await self._chat(
             payload,
@@ -210,6 +217,7 @@ class Agent:
         )
         decision = controller.parse(response.response)
         if self.ui_handler:
+            await self.ui_handler.stop_spinner()
             await self.ui_handler.on_thinking_chunk(
                 f"{decision.thought}\n→ {decision.action} (missing: {decision.missing or '-'})\n\n"
             )
@@ -219,6 +227,8 @@ class Agent:
         self, messages: list[dict[str, Any]], controller: ReActController
     ) -> Response:
         """Stream the reply to the user, without tools, from what the steps gathered."""
+        if self.ui_handler:
+            await self.ui_handler.start_spinner("Thinking...")
         instructions = controller.answer_instructions()
         payload = _with_instructions(messages, instructions) if instructions else messages
         response = await self._chat(payload, [], stream=True, ui_handler=self.ui_handler)
@@ -254,6 +264,8 @@ class Agent:
         controller = ReActController(formatted_tools)
 
         for _ in range(self.max_turns):
+            if self.ui_handler:
+                await self.ui_handler.start_spinner("Thinking...")
             decision = await self._plan(current_messages, controller)
             if controller.finishes(decision):
                 break
