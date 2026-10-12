@@ -82,3 +82,46 @@ async def test_authenticate_user_auto_login_fail(monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(KeyboardInterrupt):
         await authenticate_user(None, MockConsole())  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_authenticate_user_creates_profile_resets_is_password(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("sensai.ui.auth.get_saved_credentials", lambda: (None, None))
+    monkeypatch.setattr("sensai.ui.auth.login", lambda *args: None)
+
+    saved_creds: list[tuple[str, str]] = []
+    monkeypatch.setattr("sensai.ui.auth.save_credentials", lambda u, p: saved_creds.append((u, p)))
+    monkeypatch.setattr(
+        "sensai.ui.auth.create_new_profile",
+        lambda _db, name, pwd: Profile(name=name, password=pwd, id=42),
+    )
+
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    class TrackingSession:
+        def __init__(self) -> None:
+            self.is_password = False
+
+        async def prompt_async(self, message: str, **kwargs: Any) -> str:
+            calls.append((message, dict(kwargs)))
+            if "Username:" in message:
+                return "newuser"
+            if "Password:" in message:
+                self.is_password = kwargs.get("is_password", False)
+                return "newpass"
+            if "Create a new profile" in message:
+                assert self.is_password is False
+                return "y"
+            return ""
+
+    monkeypatch.setattr("sensai.ui.auth.PromptSession", TrackingSession)
+
+    profile = await authenticate_user(None, MockConsole())  # type: ignore[arg-type]
+    assert profile.name == "newuser"
+    assert saved_creds == [("newuser", "newpass")]
+    assert len(calls) == 3
+    assert calls[0][1].get("is_password") is False
+    assert calls[1][1].get("is_password") is True
+    assert calls[2][1].get("is_password") is False
