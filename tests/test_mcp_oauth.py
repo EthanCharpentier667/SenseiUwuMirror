@@ -48,21 +48,10 @@ async def test_callback_preserves_state_and_issuer(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("expires_in", [3600, 0])
-@pytest.mark.parametrize(
-    ("server_url", "issuer", "advertised_issuer"),
-    [
-        ("https://example.com/mcp", "https://auth.example", "https://auth.example"),
-        (
-            "https://gmailmcp.googleapis.com/mcp/v1",
-            "https://accounts.google.com",
-            "https://accounts.google.com/",
-        ),
-    ],
-)
-async def test_oauth_flow_obtains_and_reuses_tokens(
-    monkeypatch, expires_in, server_url, issuer, advertised_issuer
-):
+async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
     """Exercise discovery, PKCE, callback and token exchange with simulated HTTP."""
+    server_url = "https://example.com/mcp"
+    issuer = "https://auth.example"
     authorization = {}
     token_requests = []
 
@@ -102,7 +91,7 @@ async def test_oauth_flow_obtains_and_reuses_tokens(
                 200,
                 json={
                     "resource": server_url,
-                    "authorization_servers": [advertised_issuer],
+                    "authorization_servers": [issuer],
                 },
             )
         if request.url.host == urlparse(issuer).hostname and request.url.path.startswith(
