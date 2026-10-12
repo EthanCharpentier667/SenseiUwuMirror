@@ -1,7 +1,7 @@
 """Tests for builtin commands."""
 
-from sensai.ui.builtin_commands import setup_builtin_commands
 from sensai.ui.command import CommandRegistry
+from sensai.ui.commands import setup_builtin_commands
 
 
 def test_setup_builtin_commands() -> None:
@@ -10,6 +10,8 @@ def test_setup_builtin_commands() -> None:
     cmds = registry.get_all_commands()
     names = {c.name for c in cmds}
     assert "/help" in names
+    assert "/tool" in names
+    assert "/tools" in names
     assert "/logout" in names
     assert "/prefs" in names
     assert "/inst" in names

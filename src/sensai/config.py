@@ -1,6 +1,6 @@
 """Configuration for the Sensai CLI."""
 
-from argparse import ArgumentParser, Namespace
+from argparse import SUPPRESS, ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
 
@@ -8,13 +8,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+AVAILABLE_MODELS = ["gemma4:e4b", "qwen3.5:9b", "llama3.2:latest"]
 DEFAULT_MODEL = "llama3.2"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
-REASONING_MODES = ["plan", "reflect"]
 DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
+DEFAULT_NUM_CTX = 16384
 
 
 class Config:
@@ -66,10 +67,11 @@ class Config:
             help=f"The timeout for the Ollama API requests. Default: {DEFAULT_TIMEOUT} seconds.",
         )
         self.add_argument(
-            "--reasoning-mode",
-            default=None,
-            choices=REASONING_MODES,
-            help="Reasoning mode for the model. Not implemented yet.",
+            "--num-ctx",
+            type=int,
+            default=DEFAULT_NUM_CTX,
+            help="Context window size (in tokens) requested from Ollama. "
+            f"Default: {DEFAULT_NUM_CTX}.",
         )
         self.add_argument(
             "--db-path",
@@ -94,6 +96,11 @@ class Config:
             type=Path,
             default=[],
             help="Files to attach to the session. Default: none.",
+        )
+        self.add_argument(
+            "--verbose",
+            action="store_true",
+            help=SUPPRESS,
         )
 
     def add_argument(self, *args: Any, **kwargs: Any) -> None:
@@ -129,12 +136,6 @@ class Config:
         return str(self._parsed().model)
 
     @property
-    def reasoning_mode(self) -> str | None:
-        """The reasoning mode to use. Not implemented yet."""
-        reasoning_mode = self._parsed().reasoning_mode
-        return str(reasoning_mode) if reasoning_mode is not None else None
-
-    @property
     def db_path(self) -> str:
         """Directory where the SQLite database file is stored."""
         return str(self._parsed().db_path)
@@ -166,6 +167,16 @@ class Config:
         return float(self._parsed().timeout)
 
     @property
+    def num_ctx(self) -> int:
+        """Context window size (in tokens) requested from Ollama."""
+        return int(self._parsed().num_ctx)
+
+    @property
     def files(self) -> list[Path]:
         """Files to attach to the session, as given on the command line."""
         return list(self._parsed().files)
+
+    @property
+    def verbose(self) -> bool:
+        """Whether verbose mode is enabled."""
+        return bool(self._parsed().verbose)

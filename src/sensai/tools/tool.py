@@ -3,17 +3,19 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-CALL_GUARD_PREFIX = (
-    "Only call a tool when the user explicitly asks for that specific information.\n"
-)
-
 
 class Tool(ABC):
     """Base class for tools that can be used with the ``sensai`` package."""
 
     @abstractmethod
     def __init__(
-        self, name: str, description: str, tool_type: str, parameters: dict[str, Any]
+        self,
+        name: str,
+        description: str,
+        tool_type: str,
+        parameters: dict[str, Any],
+        *,
+        safe: bool = False,
     ) -> None:
         """Initialize the tool with a name and description.
 
@@ -22,11 +24,13 @@ class Tool(ABC):
             description (str): A brief description of the tool's functionality.
             tool_type (str): The type of the tool.
             parameters (dict[str, Any]): The parameters for the tool.
+            safe (bool): Whether this tool is safe to run automatically in partial trust mode.
         """
         self.name = name
         self.description = description
         self.type = tool_type
         self.parameters = parameters
+        self.safe = safe
 
     def define(self) -> dict[str, Any]:
         """Define the tool's properties and behavior.
@@ -38,7 +42,7 @@ class Tool(ABC):
             "type": self.type,
             "function": {
                 "name": self.name,
-                "description": CALL_GUARD_PREFIX + self.description,
+                "description": self.description,
                 "parameters": self.parameters,
             },
         }

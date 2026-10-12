@@ -32,7 +32,7 @@ class SandboxedCode(Tool):
         """Execute the provided code in a sandboxed environment.
 
         Args:
-            *args: Unused positional arguments.
+            *_args: Unused positional arguments.
             **kwargs: Keyword arguments containing the code to execute.
 
         Returns:

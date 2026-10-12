@@ -33,17 +33,28 @@ uv sync
 
 ### Environment Configuration
 
-Sensai requires an API token to interact with the Sensei backend. Create a `.env` file at the root of the project:
+The default Ollama URL points to the team's hosted Sensei backend. Ask a
+maintainer of that backend for its bearer token; this is a project credential,
+not a token generated in your Ollama account. Create a `.env` file at the root
+of the project:
 
 ```bash
 cp .env.exemple .env
 ```
 
-Set your token:
+Replace the `TOKEN` placeholder with the token you received:
 
 ```dotenv
 TOKEN="your_api_token_here"
 ```
+
+Keep `.env` private; it is ignored by Git. If you use a different Ollama server,
+set `--url` to its chat endpoint and use the token required by that server.
+The `--token` CLI option can also supply the bearer token instead of `TOKEN`.
+For the optional Ollama web search and fetch tools, create an API key in
+[your Ollama account](https://ollama.com/settings/keys) and set it as
+`API_TOKEN` in `.env`. This key is separate from the hosted Sensei backend
+`TOKEN`.
 
 ### Running Sensai
 
@@ -52,6 +63,15 @@ Launch the command line interface:
 ```bash
 uv run sensai
 ```
+
+---
+
+## MCP Connections
+
+Connect local or remote Streamable HTTP servers from the Sensai chat with
+`/mcp add-json <name> '<json>'`. The [MCP connection guide](mcp-server.md)
+includes step-by-step examples for the local calculator, GitHub with a token,
+and Gmail with OAuth, plus configuration fields and troubleshooting.
 
 ---
 

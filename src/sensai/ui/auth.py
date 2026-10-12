@@ -28,7 +28,9 @@ async def _handle_create_profile(
     database: Database, console: Console, session: PromptSession[str], username: str, password: str
 ) -> Profile | None:
     console.print("[yellow]Login failed. User not found or incorrect password.[/yellow]")
-    choice = await session.prompt_async("Create a new profile with these credentials? [y/N]: ")
+    choice = await session.prompt_async(
+        "Create a new profile with these credentials? [y/N]: ", is_password=False
+    )
     if choice.strip().lower() in {"y", "yes", "o", "oui"}:
         try:
             profile = create_new_profile(database, username, password)
@@ -59,11 +61,15 @@ async def authenticate_user(database: Database, console: Console) -> Profile:
     session: PromptSession[str] = PromptSession()
 
     while True:
-        username = await session.prompt_async("Username: ")
+        username = await session.prompt_async("Username: ", is_password=False)
         if not username.strip():
             continue
 
-        password = await session.prompt_async("Password: ", is_password=True)
+        try:
+            password = await session.prompt_async("Password: ", is_password=True)
+        finally:
+            session.is_password = False
+
         if not password:
             continue
 
