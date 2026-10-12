@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 from mcp.client.auth import AuthorizationCodeResult, OAuthClientProvider
 from prompt_toolkit import PromptSession
 
-from sensai.mcp.config import OAuthConfig
+from sensai.mcp.oauth_config import OAuthConfig
 from sensai.mcp.token_storage import TokenStorage
 
 
