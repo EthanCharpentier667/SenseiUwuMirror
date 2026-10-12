@@ -10,6 +10,10 @@ class AsyncUIHandler(Protocol):
         """Called when a new piece of text is streamed from the model."""
         ...  # pragma: no cover
 
+    async def on_stream_end(self) -> None:
+        """Called when a streaming response has finished."""
+        ...  # pragma: no cover
+
     async def on_tool_call_request(self, name: str, arguments: dict[str, Any]) -> bool:
         """Called when a tool call requires user approval.
 
@@ -22,8 +26,12 @@ class AsyncUIHandler(Protocol):
         """Called when a tool has finished executing."""
         ...  # pragma: no cover
 
-    async def on_error(self, error: Exception) -> None:
-        """Called when an error occurs in the pipeline."""
+    async def render_output(self, content: Any, *, title: str = "Output") -> None:
+        """Display content formatted in output mode (e.g. tool/sandbox output)."""
+        ...  # pragma: no cover
+
+    async def on_error(self, error: Exception | str, *, title: str = "Error") -> None:
+        """Called when an error occurs in the pipeline or tool execution."""
         ...  # pragma: no cover
 
     async def on_thinking_chunk(self, chunk: str) -> None:

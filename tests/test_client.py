@@ -25,6 +25,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_stream_chunk(self, chunk: str) -> None:
         self.streamed.append(chunk)
 
+    async def on_stream_end(self) -> None:
+        pass
+
     async def start_spinner(self, message: str) -> None:
         pass
 
@@ -37,8 +40,16 @@ class MockUIHandler(AsyncUIHandler):
     async def on_tool_call_result(self, name: str, result: Any) -> None:
         pass
 
-    async def on_error(self, error: Exception) -> None:
-        self.errors.append(error)
+    async def render_output(self, content: Any, *, title: str = "Output") -> None:
+        pass
+
+    async def on_error(
+        self,
+        error: Exception | str,
+        *,
+        title: str = "Error",  # noqa: ARG002
+    ) -> None:
+        self.errors.append(error if isinstance(error, Exception) else Exception(error))
 
     async def on_thinking_chunk(self, chunk: str) -> None:
         pass
