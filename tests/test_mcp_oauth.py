@@ -8,8 +8,8 @@ import pytest
 from mcp.client.auth import AuthorizationCodeResult
 from mcp.shared.auth import OAuthToken
 
-from sensai.mcp.config import OAuthConfig
 from sensai.mcp.oauth import OAuth, wait_for_callback
+from sensai.mcp.oauth_config import OAuthConfig
 from sensai.mcp.token_storage import TokenStorage
 
 

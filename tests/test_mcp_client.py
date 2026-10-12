@@ -7,8 +7,9 @@ import httpx2
 import pytest
 
 import sensai.mcp.sensai_client as module
-from sensai.mcp.config import MCPServerConfig, OAuthConfig
+from sensai.mcp.mcp_server_config import MCPServerConfig
 from sensai.mcp.oauth import OAuth
+from sensai.mcp.oauth_config import OAuthConfig
 from sensai.mcp.sensai_client import SensAIClient
 
 

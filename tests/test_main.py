@@ -14,7 +14,7 @@ from sensai.client import OllamaClient, Response
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
-from sensai.mcp.config import MCPServerConfig
+from sensai.mcp.mcp_server_config import MCPServerConfig
 from sensai.tools.mcp_tools import MCPTools
 from sensai.tools.temperature_example import TempToolExample
 from sensai.tools.web_search import WebSearch
