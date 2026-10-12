@@ -7,7 +7,7 @@ import httpx2
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
-from sensai.mcp.config import MCPServerConfig
+from sensai.mcp.mcp_server_config import MCPServerConfig
 from sensai.mcp.oauth import OAuth
 
 
