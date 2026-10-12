@@ -1,6 +1,6 @@
 """Configuration for the Sensai CLI."""
 
-from argparse import ArgumentParser, Namespace
+from argparse import SUPPRESS, ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+AVAILABLE_MODELS = ["gemma4:e4b", "qwen3.5:9b", "llama3.2:latest"]
 DEFAULT_MODEL = "llama3.2"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
@@ -98,6 +99,11 @@ class Config:
             help="Files to attach to the session. Default: none.",
         )
         self.add_argument(
+            "--verbose",
+            action="store_true",
+            help=SUPPRESS,
+        )
+        self.add_argument(
             "--persona",
             default=None,
             help="Persona key to use from the personas file (e.g. 'sensei_wu').",
@@ -186,6 +192,11 @@ class Config:
     def files(self) -> list[Path]:
         """Files to attach to the session, as given on the command line."""
         return list(self._parsed().files)
+
+    @property
+    def verbose(self) -> bool:
+        """Whether verbose mode is enabled."""
+        return bool(self._parsed().verbose)
 
     @property
     def persona(self) -> str | None:

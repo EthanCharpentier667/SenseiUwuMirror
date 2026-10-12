@@ -19,8 +19,8 @@ from sensai.data.session.manager import (
 from sensai.data.session.session import Session
 from sensai.embedder import Embedder
 from sensai.persona.manager import get_persona, list_personas, load_personas
-from sensai.ui.builtin_commands import setup_builtin_commands
 from sensai.ui.command import Command, CommandContext, CommandRegistry
+from sensai.ui.commands import setup_builtin_commands
 
 
 class CLIApp:
@@ -138,7 +138,13 @@ class CLIApp:
         """Execute a built-in slash command."""
         if self.agent.ui_handler is None:
             raise ValueError("UI handler is not set on the agent.")
-        ctx = CommandContext(database=self.database, ui=self.agent.ui_handler)
+        ctx = CommandContext(
+            database=self.database,
+            ui=self.agent.ui_handler,
+            agent=self.agent,
+            config=self.config,
+            session=self.session,
+        )
         await self.command_registry.execute(user_input, ctx)
 
     async def _handle_chat(self, user_input: str) -> None:
@@ -162,6 +168,7 @@ class CLIApp:
             response,
             threshold=self.config.compression_threshold,
             client=self.client,
+            ui_handler=self.agent.ui_handler,
         )
 
     async def run(self) -> None:

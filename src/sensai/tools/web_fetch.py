@@ -40,6 +40,7 @@ class WebFetch(Tool):
                 "required": ["url"],
                 "properties": {"url": {"type": "string", "description": "The URL to fetch"}},
             },
+            safe=True,
         )
 
     def execute(self, *_args: Any, **kwargs: Any) -> dict[str, Any]:

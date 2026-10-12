@@ -40,6 +40,7 @@ class WebSearch(Tool):
                 "required": ["query"],
                 "properties": {"query": {"type": "string", "description": "The search query"}},
             },
+            safe=True,
         )
 
     def execute(self, *_args: Any, **kwargs: Any) -> dict[str, Any]:
