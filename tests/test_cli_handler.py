@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from rich.console import Console
 
 from sensai.ui import CLIHandler
 
@@ -60,3 +61,22 @@ async def test_on_error(capsys: pytest.CaptureFixture[str]) -> None:
 
     captured = capsys.readouterr()
     assert "[Error]: Oups" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_on_thinking_chunk_is_dimmed(capsys: pytest.CaptureFixture[str]) -> None:
+    handler = CLIHandler()
+    handler.console = Console(force_terminal=True, color_system="standard")
+    await handler.on_thinking_chunk("Hmm")
+    captured = capsys.readouterr()
+    assert captured.out == "\033[2mHmm\033[0m"
+
+
+@pytest.mark.asyncio
+async def test_on_thinking_chunk_prints_brackets_literally(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    handler = CLIHandler()
+    await handler.on_thinking_chunk("[bold]not markup[/bold] [/dim]")
+    captured = capsys.readouterr()
+    assert captured.out == "[bold]not markup[/bold] [/dim]"

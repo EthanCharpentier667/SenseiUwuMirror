@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .persona import Persona
+from sensai.config import DEFAULT_PERSONAS_FILE
 
-DEFAULT_PERSONAS_PATH = "personas.json"
+from .persona import Persona
 
 
 def _parse_persona(key: str, data: dict[str, Any]) -> Persona:
@@ -32,7 +32,7 @@ def _parse_persona(key: str, data: dict[str, Any]) -> Persona:
     )
 
 
-def load_personas(path: str = DEFAULT_PERSONAS_PATH) -> dict[str, Persona]:
+def load_personas(path: str = DEFAULT_PERSONAS_FILE) -> dict[str, Persona]:
     """Load all personas from a JSON config file.
 
     Args:
