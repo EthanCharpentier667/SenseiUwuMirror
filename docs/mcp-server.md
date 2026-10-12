@@ -1,319 +1,318 @@
-# Connecter un serveur MCP à Sensai
+# Connect an MCP server to Sensai
 
-Ce guide explique comment ajouter les outils d'un serveur MCP à une conversation
-Sensai. Pour Gmail ou GitHub, le serveur est déjà hébergé par le fournisseur :
-vous lancez uniquement Sensai sur votre ordinateur.
+This guide explains how to add an MCP server's tools to a Sensai conversation.
+For Gmail or GitHub, the server is already hosted by the provider:
+you only run Sensai on your computer.
 
-La commande actuelle est **`/mcp add-json <nom> '<json>'`**. Elle se saisit dans
-le chat Sensai, à l'invite `Vous >`, après avoir lancé l'application.
+The current command is **`/mcp add-json <name> '<json>'`**. Enter it in
+the Sensai chat, at the `Vous >` prompt, after launching the application.
 
-## 1. Préparer Sensai
+## 1. Set up Sensai
 
-Depuis la racine du dépôt :
+From the repository root:
 
 ```bash
 uv sync
 uv run sensai
 ```
 
-Terminez la connexion à votre profil Sensai. Si Sensai n'est pas encore installé
-ou configuré, suivez le [guide de démarrage](index.md#quickstart), notamment la
-configuration de l'accès au modèle Ollama. Le token du modèle et les identifiants
-MCP concernent des services différents.
+Complete the sign-in process for your Sensai profile. If Sensai is not installed
+or configured yet, follow the [getting started guide](index.md#quickstart),
+including the Ollama model access configuration. The model token and MCP
+credentials are for different services.
 
-Les exemples suivants contiennent deux types de blocs :
+The following examples contain two types of blocks:
 
-- `bash` : commandes à exécuter dans votre terminal système.
-- `text` : commandes ou messages à saisir dans le chat Sensai.
+- `bash`: commands to run in your system terminal.
+- `text`: commands or messages to enter in the Sensai chat.
 
-Ne copiez pas le préfixe `Vous >`. Remplacez les placeholders comme
-`YOUR_GITHUB_PAT`, `TON_CLIENT_ID` et `TON_CLIENT_SECRET` avant de soumettre.
-Sensai ne remplace pas automatiquement les variables d'environnement dans le JSON.
+Do not copy the `Vous >` prefix. Replace placeholders such as
+`YOUR_GITHUB_PAT`, `YOUR_CLIENT_ID`, and `YOUR_CLIENT_SECRET` before submitting.
+Sensai does not automatically substitute environment variables in the JSON.
 
-## 2. Comprendre la commande et le format JSON
+## 2. Understand the command and JSON format
 
 ```text
-/mcp add-json mon-serveur '{"url":"https://example.com/mcp"}'
+/mcp add-json my-server '{"url":"https://example.com/mcp"}'
 ```
 
-`https://example.com/mcp` illustre le format ; ce n'est pas un serveur de test.
-Remplacez cette adresse par l'endpoint MCP indiqué par votre fournisseur.
+`https://example.com/mcp` illustrates the format; it is not a test server.
+Replace this address with the MCP endpoint specified by your provider.
 
-Pour insérer le JSON depuis le CLI :
+To insert JSON from the CLI:
 
-1. Saisissez `/mcp add-json mon-serveur `, avec un espace après le nom.
-2. Appuyez sur **Tab** pour afficher les modèles **HTTP**, **HTTP + Bearer token**
-   et **HTTP + OAuth**. Sélectionnez le modèle avec les flèches, puis appuyez sur
-   **Entrée** pour l'insérer sans envoyer la commande.
-3. Remplacez l'URL et, pour le modèle Bearer, `YOUR_TOKEN`. Complétez les options
-   OAuth si votre fournisseur les demande, puis envoyez la commande.
+1. Enter `/mcp add-json my-server `, with a space after the name.
+2. Press **Tab** to display the **HTTP**, **HTTP + Bearer token**,
+   and **HTTP + OAuth** templates. Select a template using the arrow keys, then
+   press **Enter** to insert it without sending the command.
+3. Replace the URL and, for the Bearer template, `YOUR_TOKEN`. Fill in the OAuth
+   options if your provider requires them, then send the command.
 
-Les apostrophes autour du JSON sont insérées automatiquement. L'autocomplétion
-fonctionne aussi si vous avez commencé à saisir le début d'un modèle, par exemple
-`'{"url"` ; elle ne modifie pas les valeurs que vous avez déjà personnalisées.
+The single quotes around the JSON are inserted automatically. Autocompletion
+also works if you have started typing the beginning of a template, for example
+`'{"url"`; it does not change values you have already customized.
 
-| Élément | Rôle | Exemple |
+| Element | Purpose | Example |
 | --- | --- | --- |
-| `mon-serveur` | Nom choisi pour cette connexion, unique dans la session | `gmail` |
-| `url` | Endpoint MCP complet, pas la page d'accueil du service | `"https://api.githubcopilot.com/mcp/"` |
-| `headers` | Headers HTTP facultatifs ; noms et valeurs doivent être des chaînes | `{"Authorization":"Bearer TOKEN"}` |
-| `oauth` | Options facultatives pour activer l'authentification OAuth | Voir les exemples OAuth |
+| `my-server` | Name chosen for this connection, unique within the session | `gmail` |
+| `url` | Full MCP endpoint, not the service's home page | `"https://api.githubcopilot.com/mcp/"` |
+| `headers` | Optional HTTP headers; names and values must be strings | `{"Authorization":"Bearer TOKEN"}` |
+| `oauth` | Optional settings to enable OAuth authentication | See the OAuth examples |
 
-Copiez chaque commande `/mcp` sur une seule ligne. Les apostrophes entourent tout
-le JSON, dont les clés et chaînes utilisent des guillemets doubles. Cela préserve
-les espaces, notamment celui de `Bearer TOKEN`. Écrivez `https://`, sans `\` avant
-les deux-points. Les placeholders des exemples ne contiennent pas d'apostrophes.
+Copy each `/mcp` command onto a single line. Single quotes surround the entire
+JSON object, whose keys and strings use double quotes. This preserves spaces,
+including the one in `Bearer TOKEN`. Write `https://`, without a `\` before
+the colon. The example placeholders do not contain single quotes.
 
-Sensai attend l'objet d'un seul serveur. Les enveloppes `mcpServers` ou `servers`,
-la clé `serverUrl`, et un chemin vers un fichier JSON ne sont pas acceptés à la
-place de cet objet. Convertissez la configuration en `url`, `headers` et
-`oauth` comme dans ce guide.
+Sensai expects an object for a single server. The `mcpServers` or `servers`
+wrappers, the `serverUrl` key, and a path to a JSON file are not accepted in place
+of this object. Convert the configuration to `url`, `headers`, and
+`oauth` as shown in this guide.
 
-Actuellement, le CLI utilise **Streamable HTTP**. Les serveurs `stdio` lancés avec
-`command` / `args` et les anciens endpoints HTTP + SSE ne sont pas pris en charge.
-Un objet `oauth` ne peut pas être combiné avec un header `Authorization`, quelle
-que soit sa casse. Les autres headers peuvent accompagner OAuth.
+The CLI currently uses **Streamable HTTP**. `stdio` servers launched with
+`command` / `args` and legacy HTTP + SSE endpoints are not supported.
+An `oauth` object cannot be combined with an `Authorization` header, regardless
+of its capitalization. Other headers can be used alongside OAuth.
 
-## 3. Exemple complet sans authentification
+## 3. Complete example without authentication
 
-Le dépôt fournit un serveur local de démonstration. C'est le seul exemple de ce
-guide qui demande de lancer le serveur MCP sur votre ordinateur.
+The repository provides a local demo server. This is the only example in this
+guide that requires you to run the MCP server on your computer.
 
-Dans un premier terminal, depuis la racine du dépôt :
+In a first terminal, from the repository root:
 
 ```bash
 uv run python src/sensai_mcp/sensai_server.py
 ```
 
-Laissez ce terminal ouvert. Le serveur écoute sur `http://127.0.0.1:8000/mcp`.
+Leave this terminal open. The server listens on `http://127.0.0.1:8000/mcp`.
 
-Dans un deuxième terminal :
+In a second terminal:
 
 ```bash
 uv run sensai
 ```
 
-Dans le chat Sensai :
+In the Sensai chat:
 
 ```text
 /mcp add-json local '{"url":"http://127.0.0.1:8000/mcp"}'
 ```
 
-Résultat attendu :
+Expected result:
 
 ```text
 MCP connected: 1 tool(s) added.
 ```
 
-Puis envoyez :
+Then send:
 
 ```text
-Utilise l'outil add pour calculer 2 + 3.
+Use the add tool to calculate 2 + 3.
 ```
 
-Approuvez l'appel si Sensai vous le demande. Le résultat de l'outil doit être `5`.
-Le serveur expose aussi une ressource `greeting://{name}` et un prompt
-`summarize_text`, mais le CLI ajoute uniquement les outils retournés par
-`list_tools()`. Il est donc normal de voir un seul outil ajouté.
+Approve the call if Sensai asks you to. The tool's result should be `5`.
+The server also exposes a `greeting://{name}` resource and a
+`summarize_text` prompt, but the CLI only adds the tools returned by
+`list_tools()`. Seeing just one tool added is therefore normal.
 
-## 4. Exemple GitHub avec un token personnel
+## 4. GitHub example with a personal access token
 
-Le [serveur MCP distant GitHub](https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp/set-up-the-github-mcp-server)
-accepte un token personnel (PAT) transmis dans un header `Authorization`.
+The [GitHub remote MCP server](https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp/set-up-the-github-mcp-server)
+accepts a personal access token (PAT) sent in an `Authorization` header.
 
-1. Créez votre token en suivant le [guide GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
-2. Donnez-lui l'accès aux dépôts et les permissions nécessaires aux outils que vous utiliserez. Les politiques de votre organisation peuvent restreindre cet accès.
-3. Lancez `uv run sensai`, puis remplacez `YOUR_GITHUB_PAT` dans la commande ci-dessous.
+1. Create your token by following the [GitHub guide](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
+2. Grant it access to the repositories and the permissions required by the tools you will use. Your organization's policies may restrict this access.
+3. Launch `uv run sensai`, then replace `YOUR_GITHUB_PAT` in the command below.
 
 ```text
 /mcp add-json github '{"url":"https://api.githubcopilot.com/mcp/","headers":{"Authorization":"Bearer YOUR_GITHUB_PAT"}}'
 ```
 
-Conservez le mot `Bearer` et l'espace qui le suit. Aucun bloc OAuth n'est
-nécessaire pour cette connexion par token statique.
+Keep the word `Bearer` and the space after it. No OAuth block is
+needed for this static token connection.
 
-Après le message de connexion, essayez :
+After the connection message, try:
 
 ```text
-Utilise les outils GitHub pour consulter les informations de mon compte.
+Use the GitHub tools to look up my account information.
 ```
 
-Une réponse obtenue par un outil distant valide l'accès réel. Le nombre d'outils
-ajoutés dépend de ce que le serveur expose. Un token expiré doit être remplacé
-manuellement ; relancez Sensai pour reconnecter cette URL avec le nouveau token.
+A response from a remote tool confirms actual access. The number of tools added
+depends on what the server exposes. An expired token must be replaced manually;
+restart Sensai to reconnect to this URL with the new token.
 
-## 5. Comprendre les options OAuth
+## 5. Understand the OAuth options
 
-OAuth permet d'autoriser Sensai depuis une page de connexion du fournisseur.
-Le SDK obtient le jeton et gère son renouvellement si un refresh token est fourni.
-Consultez la [documentation OAuth du SDK MCP](https://py.sdk.modelcontextprotocol.io/client/oauth-clients/).
+OAuth lets you authorize Sensai through the provider's sign-in page.
+The SDK obtains the token and handles renewal if a refresh token is provided.
+See the [MCP SDK OAuth documentation](https://py.sdk.modelcontextprotocol.io/client/oauth-clients/).
 
-| Champ dans `oauth` | Utilisation actuelle |
+| Field in `oauth` | Current usage |
 | --- | --- |
-| `redirectUri` | URL de callback obligatoire, choisie selon votre environnement. Aucune valeur par défaut. Doit correspondre exactement à celle enregistrée chez le fournisseur. |
-| `scope` | Permissions demandées, sous forme d'une chaîne. Séparez plusieurs scopes par un espace. Facultatif ; les valeurs dépendent du fournisseur. |
-| `clientId` | Identifiant d'une application OAuth préenregistrée. Facultatif si le serveur permet l'enregistrement géré par le SDK. |
-| `clientSecret` | Secret de cette application, si nécessaire. Exige `clientId`. |
-| `issuer` | Identité du serveur d'autorisation auquel les identifiants appartiennent. Obligatoire avec `clientId`. Ce n'est pas l'URL MCP. |
-| `tokenEndpointAuthMethod` | Méthode d'authentification auprès de l'endpoint de jetons. Pour ce parcours, utilisez celle du fournisseur, par exemple `none`, `client_secret_post` ou `client_secret_basic`. |
+| `redirectUri` | Required callback URL, chosen for your environment. No default value. Must exactly match the one registered with the provider. |
+| `scope` | Requested permissions, as a string. Separate multiple scopes with a space. Optional; values depend on the provider. |
+| `clientId` | Identifier of a preregistered OAuth application. Optional if the server allows registration managed by the SDK. |
+| `clientSecret` | Secret for this application, if needed. Requires `clientId`. |
+| `issuer` | Identity of the authorization server the credentials belong to. Required with `clientId`. This is not the MCP URL. |
+| `tokenEndpointAuthMethod` | Authentication method for the token endpoint. For this flow, use the provider's method, such as `none`, `client_secret_post`, or `client_secret_basic`. |
 
-Avec `clientSecret`, la méthode par défaut est `client_secret_post`. Sinon, elle
-est `none`. Sensai ne demande pas de scopes par défaut. Pour une application
-préenregistrée, récupérez l'issuer dans les métadonnées du fournisseur ; n'utilisez
-pas une URL arbitraire.
+With `clientSecret`, the default method is `client_secret_post`. Otherwise, it
+is `none`. Sensai does not request any scopes by default. For a preregistered
+application, retrieve the issuer from the provider's metadata; do not use
+an arbitrary URL.
 
-Si votre fournisseur autorise l'enregistrement du client par le SDK, le format
-minimal est le suivant. Remplacez l'endpoint et le scope par ceux de ce serveur :
+If your provider allows client registration through the SDK, the minimal format
+is as follows. Replace the endpoint and scope with those of that server:
 
 ```text
 /mcp add-json protected '{"url":"https://example.com/mcp","oauth":{"redirectUri":"http://localhost:8080/callback","scope":"tools:read"}}'
 ```
 
-Cet exemple est un modèle de configuration, pas une commande utilisable telle
-quelle contre `example.com`.
+This example is a configuration template, not a command you can run as is
+against `example.com`.
 
-### Choisir le callback pour votre environnement
+### Choose the callback for your environment
 
-Le modèle d'autocomplétion contient `https://your-callback.example/callback` :
-remplacez cette adresse avant d'envoyer la commande. Sensai ne choisit pas de
-callback à votre place et ne crée pas de service HTTP à cette adresse.
+The autocompletion template contains `https://your-callback.example/callback`:
+replace this address before sending the command. Sensai does not choose a
+callback for you or create an HTTP service at that address.
 
-- **Exécution locale** : vous pouvez choisir, si le fournisseur l'accepte,
-  `http://127.0.0.1:9000/mon-callback` ou une autre URL de retour enregistrée.
-- **VPS ou machine sans navigateur** : Sensai affiche le lien d'autorisation si
-  aucun navigateur ne peut s'ouvrir. Ouvrez-le sur votre ordinateur, terminez
-  l'autorisation et collez l'URL de retour complète dans le CLI du VPS.
-  `localhost` dans le navigateur désigne votre ordinateur, pas le VPS.
-- **Callback HTTPS public** : utilisez une adresse que vous contrôlez et qui est
-  enregistrée chez le fournisseur. La configuration de cette page et de son
-  hébergement vous appartient ; Sensai attend toujours le retour manuel dans le CLI.
+- **Local execution**: if the provider accepts it, you can choose
+  `http://127.0.0.1:9000/my-callback` or another registered redirect URL.
+- **VPS or machine without a browser**: Sensai displays the authorization link if
+  no browser can open. Open it on your computer, complete authorization,
+  and paste the full redirect URL into the VPS CLI.
+  `localhost` in the browser refers to your computer, not the VPS.
+- **Public HTTPS callback**: use an address you control that is registered
+  with the provider. You are responsible for configuring and hosting this page;
+  Sensai still expects you to enter the redirect URL manually in the CLI.
 
-Choisissez une URL acceptée par le fournisseur et conservez exactement son
-protocole, son hôte, son port et son chemin dans `oauth.redirectUri`.
+Choose a URL accepted by the provider and preserve its exact
+scheme, host, port, and path in `oauth.redirectUri`.
 
-### Terminer l'autorisation dans Sensai
+### Complete authorization in Sensai
 
-1. Lorsque le navigateur s'ouvre, connectez-vous chez le fournisseur et acceptez les permissions demandées.
-2. Après la redirection, copiez l'adresse complète depuis la barre d'adresse.
-3. Dans Sensai, collez cette adresse à l'invite suivante :
+1. When the browser opens, sign in with the provider and accept the requested permissions.
+2. After the redirect, copy the full address from the address bar.
+3. In Sensai, paste this address at the following prompt:
 
 ```text
 Paste the URL you were redirected to:
 ```
 
-L'adresse aura une forme similaire à :
+The address will look similar to this:
 
 ```text
-http://localhost:8080/callback?code=CODE_RECU&state=STATE_RECU
+http://localhost:8080/callback?code=RECEIVED_CODE&state=RECEIVED_STATE
 ```
 
-Ces valeurs sont un exemple : collez celles de votre propre redirection, sans les
-modifier. Si l'URL contient aussi `iss`, conservez-le. Sensai attend l'URL complète,
-pas uniquement le code. Le SDK vérifie `state` et l'issuer retourné.
+These values are examples: paste those from your own redirect without changing
+them. If the URL also contains `iss`, keep it. Sensai expects the full URL,
+not just the code. The SDK checks `state` and the returned issuer.
 
-Le callback actuel est **manuel** : Sensai ne démarre pas de serveur HTTP à
-l'adresse configurée. Le navigateur peut donc afficher une erreur de connexion sur la page
-de retour ; copiez quand même son adresse. L'adresse correspond au retour OAuth,
-pas au serveur MCP distant. L'autorisation peut être demandée à la connexion ou
-lors d'une requête protégée : la réussite d'un appel d'outil confirme l'accès.
+The current callback is **manual**: Sensai does not start an HTTP server at
+the configured address. The browser may therefore display a connection error on
+the redirect page; copy its address anyway. This address is the OAuth redirect,
+not the remote MCP server. Authorization may be requested when connecting or
+during a protected request: a successful tool call confirms access.
 
-## 6. Exemple Gmail hébergé par Google
+## 6. Gmail example hosted by Google
 
-### Préparer l'accès Google
+### Set up Google access
 
-Le [guide officiel Gmail MCP](https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server?hl=fr)
-indique actuellement ces prérequis : accès au programme Preview développeur
-Workspace et projet Google Cloud. Activez **l'API Gmail** et **l'API Gmail MCP**
-dans ce projet.
+The [official Gmail MCP guide](https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server?hl=en)
+currently lists these prerequisites: access to the Workspace Developer Preview
+program and a Google Cloud project. Enable the **Gmail API** and **Gmail MCP API**
+in that project.
 
-Dans **Google Auth Platform**, configurez l'écran de consentement, ajoutez votre
-compte comme utilisateur de test si l'application est externe, puis ajoutez le
-scope `https://www.googleapis.com/auth/gmail.readonly` dans **Accès aux données**
-pour commencer par un test de lecture.
+In **Google Auth Platform**, configure the consent screen, add your
+account as a test user if the application is external, then add the
+`https://www.googleapis.com/auth/gmail.readonly` scope under **Data Access**
+to start with a read-only test.
 
-Créez ensuite un client **Application Web** dans **Clients → Créer un client**.
-Enregistrez exactement cette URI de redirection et récupérez l'ID et le secret :
+Next, create a **Web application** client under **Clients → Create client**.
+Register this exact redirect URI and retrieve the ID and secret:
 
 ```text
 http://localhost:8080/callback
 ```
 
-Cette adaptation pour Sensai utilise le retour localhost accepté pour les tests
-par la [documentation OAuth Google](https://developers.google.com/identity/protocols/oauth2/web-server).
-Les URI de retour de Claude ou Antigravity ne correspondent pas à Sensai.
+This adaptation for Sensai uses the localhost redirect accepted for testing
+by the [Google OAuth documentation](https://developers.google.com/identity/protocols/oauth2/web-server).
+The redirect URIs for Claude or Antigravity do not match Sensai.
 
-### Connecter Gmail depuis le chat
+### Connect Gmail from the chat
 
-Lancez uniquement `uv run sensai`. Remplacez les deux placeholders ci-dessous
-par les identifiants du client Google que vous venez de créer :
-
-```text
-/mcp add-json gmail '{"url":"https://gmailmcp.googleapis.com/mcp/v1","oauth":{"clientId":"TON_CLIENT_ID","clientSecret":"TON_CLIENT_SECRET","issuer":"https://accounts.google.com","redirectUri":"http://localhost:8080/callback","scope":"https://www.googleapis.com/auth/gmail.readonly","tokenEndpointAuthMethod":"client_secret_post"}}'
-```
-
-Google déclare cet issuer et cette méthode dans ses
-[métadonnées OAuth](https://accounts.google.com/.well-known/openid-configuration).
-Complétez ensuite le parcours navigateur et collez l'URL de retour comme décrit
-plus haut. Aucun serveur MCP Gmail ne tourne sur votre machine.
-
-Après la connexion, envoyez ce test de lecture :
+Only launch `uv run sensai`. Replace the two placeholders below
+with the credentials of the Google client you just created:
 
 ```text
-Utilise les outils Gmail pour lister les libellés de ma boîte mail.
+/mcp add-json gmail '{"url":"https://gmailmcp.googleapis.com/mcp/v1","oauth":{"clientId":"YOUR_CLIENT_ID","clientSecret":"YOUR_CLIENT_SECRET","issuer":"https://accounts.google.com","redirectUri":"http://localhost:8080/callback","scope":"https://www.googleapis.com/auth/gmail.readonly","tokenEndpointAuthMethod":"client_secret_post"}}'
 ```
 
-Le serveur fournit l'outil `list_labels`. Une exécution réussie vérifie
-l'authentification et l'accès à Gmail. Pour créer des brouillons, Google documente
-aussi le scope `https://www.googleapis.com/auth/gmail.compose` ; ajoutez-le aux
-permissions et à la chaîne `scope` uniquement si vous voulez ces fonctionnalités.
-Voir les [outils et scopes Gmail](https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server?hl=fr).
+Google declares this issuer and method in its
+[OAuth metadata](https://accounts.google.com/.well-known/openid-configuration).
+Then complete the browser flow and paste the redirect URL as described above.
+No Gmail MCP server runs on your machine.
 
-Le parcours OAuth est couvert par des tests simulés dans ce dépôt. La connexion
-à votre compte Google doit encore être validée avec vos propres identifiants,
-permissions et accès au programme Preview.
+After connecting, send this read-only test:
 
-## 7. Durée de vie des connexions
+```text
+Use the Gmail tools to list the labels in my mailbox.
+```
 
-- Les outils distants sont ajoutés à la conversation actuelle, sans réinitialiser l'agent.
-- Les connexions restent ouvertes jusqu'à la sortie du CLI.
-- Un nom déjà connecté est refusé. La même URL sous un autre nom n'ouvre pas une deuxième connexion.
-- Plusieurs URL peuvent être connectées si leurs outils ont des noms différents. Le nom de connexion ne préfixe pas les noms des outils.
-- Les configurations, jetons et informations OAuth restent en mémoire. Après fermeture, soumettez de nouveau les commandes et autorisez de nouveau l'accès si nécessaire.
-- `/tool` liste les outils actuellement disponibles, y compris ceux des serveurs MCP connectés.
-- `/help` affiche la syntaxe disponible ; `/exit` termine la session et ferme les connexions.
+The server provides the `list_labels` tool. A successful execution verifies
+authentication and access to Gmail. To create drafts, Google also documents
+the `https://www.googleapis.com/auth/gmail.compose` scope; add it to the
+permissions and the `scope` string only if you want these features.
+See the [Gmail tools and scopes](https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server?hl=en).
 
-Ne publiez pas vos commandes contenant de vrais tokens ou secrets. Les exemples
-utilisent uniquement des placeholders ; les valeurs réelles permettent d'accéder
-à vos services.
+The OAuth flow is covered by mocked tests in this repository. The connection
+to your Google account still needs to be validated with your own credentials,
+permissions, and access to the Preview program.
 
-## 8. Dépannage
+## 7. Connection lifetime
 
-| Message ou symptôme | Action |
+- Remote tools are added to the current conversation without resetting the agent.
+- Connections remain open until you exit the CLI.
+- A name that is already connected is rejected. Using the same URL under another name does not open a second connection.
+- Multiple URLs can be connected if their tools have different names. The connection name is not used as a prefix for tool names.
+- Configurations, tokens, and OAuth information remain in memory. After closing the application, submit the commands again and authorize access again if needed.
+- `/tools` lists the currently available tools, including those from connected MCP servers.
+- `/help` displays the available syntax; `/exit` ends the session and closes the connections.
+
+Do not publish commands containing real tokens or secrets. The examples use
+placeholders only; real values grant access to your services.
+
+## 8. Troubleshooting
+
+| Message or symptom | Action |
 | --- | --- |
-| `Usage: /mcp add-json <name> '<json>'` | Saisissez la commande dans Sensai avec un nom et un objet JSON entouré d'apostrophes. `/mcp <url>` n'est plus accepté. |
-| `Invalid MCP JSON at line ...` | Vérifiez les guillemets doubles, les virgules et les accolades. Retirez les échappements comme `https\://`. |
-| `No closing quotation` | Fermez les apostrophes autour du JSON et copiez la commande sur une seule ligne. |
-| La configuration doit être un objet JSON | Fournissez l'objet d'un seul serveur, sans enveloppe `mcpServers` ou `servers`. |
-| `This MCP server name is already connected.` | Choisissez un nom différent pour une autre URL, ou relancez Sensai pour remplacer une connexion. |
-| `This MCP server is already connected.` | Cette URL est déjà active ; réutilisez ses outils. |
-| `MCP tool names conflict ...` | Les noms d'outils entrent en conflit. Choisissez un ensemble d'outils différent côté serveur ou ouvrez une nouvelle session. |
-| HTTP `401` / `403` | Vérifiez le mode d'authentification, les permissions du compte et la validité du token. Pour Gmail, vérifiez aussi les API activées et l'accès au programme Preview. |
-| Google affiche `redirect_uri_mismatch` | Enregistrez exactement le `redirectUri` du JSON dans le client OAuth Google : même protocole, hôte, port et chemin. |
-| OAuth exige `redirectUri` | Ajoutez une URL de callback adaptée à votre environnement et enregistrée chez le fournisseur. |
-| Page localhost inaccessible après autorisation | Attendu avec le callback manuel : copiez l'URL complète depuis la barre d'adresse et collez-la dans Sensai. |
-| `OAuth authorization was refused or failed ...` | Recommencez l'autorisation et vérifiez que le compte peut accéder à l'application. |
-| Le callback doit contenir un `code` et un `state` | Collez l'URL complète de la dernière tentative, pas le code seul. Ne modifiez pas les paramètres. |
-| Échec de vérification du state ou de l'issuer | Utilisez la redirection de la tentative actuelle et vérifiez l'issuer associé au client OAuth. |
-| Connexion réussie mais appel d'outil refusé | La découverte des outils ne prouve pas toutes les permissions. Vérifiez les scopes nécessaires à cet outil. |
+| `Usage: /mcp add-json <name> '<json>'` | Enter the command in Sensai with a name and a JSON object enclosed in single quotes. `/mcp <url>` is no longer accepted. |
+| `Invalid MCP JSON at line ...` | Check double quotes, commas, and braces. Remove escapes such as `https\://`. |
+| `No closing quotation` | Close the single quotes around the JSON and copy the command onto one line. |
+| The configuration must be a JSON object | Provide an object for a single server, without an `mcpServers` or `servers` wrapper. |
+| `This MCP server name is already connected.` | Choose a different name for another URL, or restart Sensai to replace a connection. |
+| `This MCP server is already connected.` | This URL is already active; reuse its tools. |
+| `MCP tool names conflict ...` | Tool names conflict. Choose a different set of tools on the server or open a new session. |
+| HTTP `401` / `403` | Check the authentication method, account permissions, and token validity. For Gmail, also check the enabled APIs and access to the Preview program. |
+| Google displays `redirect_uri_mismatch` | Register the JSON's exact `redirectUri` in the Google OAuth client: same scheme, host, port, and path. |
+| OAuth requires `redirectUri` | Add a callback URL suitable for your environment and registered with the provider. |
+| Localhost page unavailable after authorization | Expected with the manual callback: copy the full URL from the address bar and paste it into Sensai. |
+| `OAuth authorization was refused or failed ...` | Retry authorization and check that the account can access the application. |
+| The callback must contain a `code` and a `state` | Paste the full URL from the latest attempt, not just the code. Do not change the parameters. |
+| State or issuer verification fails | Use the redirect from the current attempt and check the issuer associated with the OAuth client. |
+| Connection succeeds but a tool call is denied | Tool discovery does not prove all permissions have been granted. Check the scopes required by that tool. |
 
-Pour le serveur local uniquement, si le port `8000` est occupé :
+For the local server only, if port `8000` is occupied:
 
 ```bash
 ss -ltnp 'sport = :8000'
 ```
 
-La documentation MkDocs utilise aussi ce port par défaut. Pour la consulter en
-même temps que le serveur local :
+The MkDocs documentation also uses this port by default. To view it
+while running the local server:
 
 ```bash
 uv run --group docs mkdocs serve -a 127.0.0.1:8001
