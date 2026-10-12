@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 
+from .forms import Question
 from .protocol import AsyncUIHandler
 
 if TYPE_CHECKING:
@@ -88,3 +89,24 @@ class CLIHandler(AsyncUIHandler):
         """Prompt the user to input a free-form text string."""
         choice = await input_dialog(title=title, text=text).run_async()
         return str(choice) if choice is not None else None
+
+    async def prompt_question(self, question: Question) -> str | None:
+        """Prompt the user with predefined choices plus an optional free-text 'Other' option."""
+        choices = list(question.choices)
+        if question.allow_other:
+            choices.append(("__other__", "Other (specify)"))
+
+        selected = await radiolist_dialog(
+            title=question.title,
+            text=question.text,
+            values=choices,
+        ).run_async()
+
+        if selected == "__other__":
+            answer = await input_dialog(
+                title=question.title,
+                text="Enter your answer:",
+            ).run_async()
+            return str(answer) if answer is not None else None
+
+        return str(selected) if selected is not None else None
