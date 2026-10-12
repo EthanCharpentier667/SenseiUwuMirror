@@ -12,7 +12,9 @@ from mcp import Client
 from mcp.types import Tool as MCPToolDefinition
 
 from sensai.agent import Agent
+from sensai.config import Config
 from sensai.data.database.database import Database
+from sensai.data.session.session import Session
 from sensai.tools.temperature_example import TempToolExample
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.mcp_commands import MCPCommands
@@ -51,7 +53,13 @@ def setup_commands() -> tuple[MCPCommands, CommandRegistry, CommandContext]:
     commands = MCPCommands(agent)
     registry = CommandRegistry()
     commands.register(registry)
-    context = CommandContext(database=Mock(spec=Database), ui=Mock(spec=AsyncUIHandler))
+    context = CommandContext(
+        database=Mock(spec=Database),
+        ui=Mock(spec=AsyncUIHandler),
+        agent=agent,
+        config=Mock(spec=Config),
+        session=Mock(spec=Session),
+    )
     return commands, registry, context
 
 

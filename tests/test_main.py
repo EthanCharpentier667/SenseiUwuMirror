@@ -162,7 +162,7 @@ def test_main_calls_agent_run_for_each_input(
         calls.append({"prompt": prompt, "messages": messages, "tools": list(self.tools)})
         assert isinstance(self.client, OllamaClient)
         assert self.model == "llama3.2"
-        assert self.human_in_the_loop is True
+        assert self.trust_level == "none"
         if expected_route is not None and len(calls) == 2:
             assert clients[-1].connected
             assert not clients[-1].closed
@@ -332,7 +332,9 @@ def test_main_closes_mcp_connection_after_cli_exit_command(
         main()
 
     assert exc_info.value.code == 0
-    assert "Available Commands" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "Available Commands" in output
+    assert "/mcp add-json" in output
     assert client.closed
     assert not client.connected
     assert client.listed == 1

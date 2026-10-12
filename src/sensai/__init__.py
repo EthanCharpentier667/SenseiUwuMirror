@@ -1,6 +1,7 @@
 """Sensai: LLM chatbot with unlimited functionalities."""
 
 import asyncio
+import json
 
 from rich.console import Console
 
@@ -30,6 +31,23 @@ async def async_main() -> None:
     console = Console()
     profile = await authenticate_user(database, console)
     session = get_or_create_session(database, profile)
+
+    if profile.settings:
+        try:
+            settings = json.loads(profile.settings)
+            if isinstance(settings, dict):
+                agent.trust_level = settings.get("trust_level", agent.trust_level)
+                agent.model = settings.get("model", agent.model)
+
+                args = config.get_args()
+                if args:
+                    if "compression_threshold" in settings:
+                        args.compression_threshold = settings["compression_threshold"]
+                    if "url" in settings:
+                        args.url = settings["url"]
+                        client.base_url = settings["url"]
+        except json.JSONDecodeError:
+            pass
 
     await ingest_initial_files(database, embedder, session, config.files, console)
 

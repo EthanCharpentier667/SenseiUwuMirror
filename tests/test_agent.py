@@ -92,6 +92,12 @@ class MockUIHandler(AsyncUIHandler):
     async def on_stream_chunk(self, chunk: str) -> None:
         self.streamed.append(chunk)
 
+    async def start_spinner(self, message: str) -> None:
+        pass
+
+    async def stop_spinner(self) -> None:
+        pass
+
     async def on_tool_call_request(self, name: str, arguments: dict[str, Any]) -> bool:
         self.tool_requests.append((name, arguments))
         return self.approval
@@ -107,6 +113,14 @@ class MockUIHandler(AsyncUIHandler):
 
     async def on_system_message(self, message: Any) -> None:
         pass
+
+    async def prompt_choice(
+        self, _title: str, _text: str, choices: list[tuple[str, str]]
+    ) -> str | None:
+        return choices[0][0] if choices else None
+
+    async def prompt_input(self, _title: str, _text: str) -> str | None:
+        return "mock_input"
 
 
 class FakeTool:
@@ -251,7 +265,12 @@ async def test_agent_plan_is_constrained_and_never_sent_as_user() -> None:
 async def test_agent_runs_tool_then_answers_with_its_result() -> None:
     client = ScriptedClient(steps=[_step("calculator", {"expr": "2+2"})], answer="The answer is 4.")
     ui = MockUIHandler(approval=True)
-    agent = Agent(tools=[FakeTool()], human_in_the_loop=True, ui_handler=ui, client=client)
+    agent = Agent(
+        tools=[FakeTool()],
+        trust_level="none",
+        ui_handler=ui,
+        client=client,
+    )
 
     result = await agent.run("What is 2+2?")
 
@@ -269,12 +288,20 @@ async def test_agent_runs_tool_then_answers_with_its_result() -> None:
 
 @pytest.mark.asyncio
 async def test_agent_async_tool_execution() -> None:
-    client = ScriptedClient(steps=[_step("async_calculator", {"expr": "3+3"})])
-    ui = MockUIHandler()
-    agent = Agent(tools=[AsyncFakeTool()], ui_handler=ui, client=client)
+    client = ScriptedClient(
+        steps=[_step("async_calculator", {"expr": "3+3"})], answer="The answer is 6."
+    )
+    ui = MockUIHandler(approval=True)
+    agent = Agent(
+        tools=[AsyncFakeTool()],
+        trust_level="none",
+        ui_handler=ui,
+        client=client,
+    )
 
-    await agent.run("What is 3+3?")
+    result = await agent.run("What is 3+3?")
 
+    assert result.response == "The answer is 6."
     assert ui.tool_results == [("async_calculator", "async result: 3+3")]
 
 
@@ -282,12 +309,17 @@ async def test_agent_async_tool_execution() -> None:
 async def test_agent_tool_denied_by_user() -> None:
     client = ScriptedClient(steps=[_step("calculator", {"expr": "2+2"})])
     ui = MockUIHandler(approval=False)
-    agent = Agent(tools=[FakeTool()], human_in_the_loop=True, ui_handler=ui, client=client)
+    agent = Agent(
+        tools=[FakeTool()],
+        trust_level="none",
+        ui_handler=ui,
+        client=client,
+    )
 
     await agent.run("What is 2+2?")
 
     assert ui.tool_results == []
-    assert "The user refused this action." in _instructions(client.plans[1])
+    assert "Action cancelled by user." in _instructions(client.plans[1])
     assert len(client.answers[0]["messages"]) == 1
 
 
@@ -295,7 +327,7 @@ async def test_agent_tool_denied_by_user() -> None:
 async def test_agent_rejects_invalid_step_without_running_it() -> None:
     client = ScriptedClient(steps=[_step("unknown"), _step("calculator", {})])
     ui = MockUIHandler()
-    agent = Agent(tools=[FakeTool()], human_in_the_loop=True, ui_handler=ui, client=client)
+    agent = Agent(tools=[FakeTool()], trust_level="none", ui_handler=ui, client=client)
 
     await agent.run("Hi")
 
@@ -400,7 +432,7 @@ async def test_agent_stops_when_nothing_is_missing_and_keeps_thought_as_draft() 
 async def test_agent_drops_undeclared_arguments() -> None:
     client = ScriptedClient(steps=[_step("calculator", {"expr": "2+2", "thought": "copied"})])
     ui = MockUIHandler()
-    agent = Agent(tools=[FakeTool()], human_in_the_loop=True, ui_handler=ui, client=client)
+    agent = Agent(tools=[FakeTool()], trust_level="none", ui_handler=ui, client=client)
 
     await agent.run("What is 2+2?")
 
@@ -410,7 +442,7 @@ async def test_agent_drops_undeclared_arguments() -> None:
 @pytest.mark.asyncio
 async def test_agent_instructions_never_come_last() -> None:
     client = ScriptedClient(steps=[_step("calculator", {"expr": "2+2"})])
-    agent = Agent(tools=[FakeTool()], client=client)
+    agent = Agent(tools=[FakeTool()], trust_level="total", client=client)
     agent.system_prompt = "Be nice."
 
     await agent.run("What is 2+2?")
