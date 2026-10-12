@@ -17,12 +17,12 @@ from sensai.data.database.database import Database
 from sensai.data.session.session import Session
 from sensai.tools.temperature_example import TempToolExample
 from sensai.ui.command import CommandContext, CommandRegistry
-from sensai.ui.mcp_commands import MCPCommands
+from sensai.ui.commands.mcp.mcp_commands import MCPCommands
 from sensai.ui.protocol import AsyncUIHandler
 
 
 def mcp_command(name: str, url: str) -> str:
-    config = json.dumps({"type": "http", "url": url})
+    config = json.dumps({"url": url})
     return f"/mcp add-json {name} '{config}'"
 
 
@@ -73,7 +73,7 @@ async def test_invalid_arguments_do_not_connect(
 ) -> None:
     commands, registry, context = setup_commands()
     factory = Mock()
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", factory)
     await registry.execute(command, context)
     factory.assert_not_called()
     context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
@@ -89,7 +89,7 @@ async def test_multiple_servers_and_repeated_command(monkeypatch: pytest.MonkeyP
     second = Connection("second_tool", events)
     connections = {"https://first/mcp": first, "https://second/mcp": second}
     monkeypatch.setattr(
-        "sensai.ui.mcp_commands.SensAIClient", lambda config: connections[config.url]
+        "sensai.ui.commands.mcp.mcp_commands.SensAIClient", lambda config: connections[config.url]
     )
     await registry.execute(mcp_command("first", "https://first/mcp"), context)
     await registry.execute(mcp_command("first_again", "https://first/mcp"), context)
@@ -121,7 +121,7 @@ async def test_failed_connection_keeps_existing_tools(
         second.client.list_tools.side_effect = RuntimeError("Discovery failed")
     connections = {"https://first/mcp": first, "https://second/mcp": second}
     monkeypatch.setattr(
-        "sensai.ui.mcp_commands.SensAIClient", lambda config: connections[config.url]
+        "sensai.ui.commands.mcp.mcp_commands.SensAIClient", lambda config: connections[config.url]
     )
     await registry.execute(mcp_command("first", "https://first/mcp"), context)
     original_tools = list(commands.agent.tools)
@@ -139,9 +139,9 @@ async def test_add_json_connects_with_headers_and_closes(monkeypatch: pytest.Mon
     events: list[str] = []
     connection = Connection("remote_tool", events)
     factory = Mock(return_value=connection)
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", factory)
     command = (
-        '/mcp add-json github \'{"type": "http", "url": "https://example.com/mcp", '
+        '/mcp add-json github \'{"url": "https://example.com/mcp", '
         '"headers": {"Authorization": "Bearer test-pat"}}\''
     )
     await registry.execute(command, context)
@@ -162,18 +162,18 @@ async def test_add_json_connects_with_headers_and_closes(monkeypatch: pytest.Mon
     [
         "not-json",
         "[]",
-        '{"type":"stdio"}',
-        '{"type":"http"}',
-        '{"type":"http","url":"ftp://host"}',
-        '{"type":"http","url":"https://host","headers":[]}',
-        '{"type":"http","url":"https://host","headers":{"Authorization":42}}',
-        '{"type":"http","url":"https\\://host"}',
+        "null",
+        "{}",
+        '{"url":"ftp://host"}',
+        '{"url":"https://host","headers":[]}',
+        '{"url":"https://host","headers":{"Authorization":42}}',
+        '{"url":"https\\://host"}',
     ],
 )
 async def test_add_json_invalid_config_does_not_connect(monkeypatch, config):
     commands, registry, context = setup_commands()
     factory = Mock()
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", factory)
     await registry.execute(f"/mcp add-json example '{config}'", context)
     factory.assert_not_called()
     context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]
@@ -193,7 +193,7 @@ async def test_add_json_invalid_config_does_not_connect(monkeypatch, config):
 async def test_add_json_invalid_arguments_report_error(monkeypatch, command):
     commands, registry, context = setup_commands()
     factory = Mock()
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", factory)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", factory)
     await registry.execute(command, context)
     factory.assert_not_called()
     context.ui.on_error.assert_awaited_once()  # type: ignore[attr-defined]

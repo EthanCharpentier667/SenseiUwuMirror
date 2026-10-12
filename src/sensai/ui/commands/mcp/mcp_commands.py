@@ -8,6 +8,7 @@ from sensai.mcp.mcp_server_config import MCPServerConfig
 from sensai.mcp.sensai_client import SensAIClient
 from sensai.tools.registry import get_mcp_tools
 from sensai.ui.command import Command, CommandContext, CommandRegistry
+from sensai.ui.commands.mcp.mcp_completion import MCPConfigCompleter
 
 if TYPE_CHECKING:
     from sensai.tools.tool import Tool
@@ -32,6 +33,7 @@ class MCPCommands:
                 "Connect: /mcp add-json <name> '<json>'.",
                 self._execute,
                 subcommands=["add-json"],
+                argument_completer=MCPConfigCompleter(),
             )
         )
 

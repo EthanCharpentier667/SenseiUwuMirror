@@ -48,7 +48,20 @@ async def test_callback_preserves_state_and_issuer(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("expires_in", [3600, 0])
-async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
+@pytest.mark.parametrize(
+    ("server_url", "issuer", "advertised_issuer"),
+    [
+        ("https://example.com/mcp", "https://auth.example", "https://auth.example"),
+        (
+            "https://gmailmcp.googleapis.com/mcp/v1",
+            "https://accounts.google.com",
+            "https://accounts.google.com/",
+        ),
+    ],
+)
+async def test_oauth_flow_obtains_and_reuses_tokens(
+    monkeypatch, expires_in, server_url, issuer, advertised_issuer
+):
     """Exercise discovery, PKCE, callback and token exchange with simulated HTTP."""
     authorization = {}
     token_requests = []
@@ -58,24 +71,24 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
 
     async def callback():
         return AuthorizationCodeResult(
-            code="test-code", state=authorization["state"][0], iss="https://auth.example"
+            code="test-code", state=authorization["state"][0], iss=issuer
         )
 
     monkeypatch.setattr("sensai.mcp.oauth.open_browser", redirect)
     monkeypatch.setattr("sensai.mcp.oauth.wait_for_callback", callback)
     oauth = OAuth(
-        "https://example.com/mcp",
+        server_url,
         OAuthConfig.from_dict(
             {
                 "clientId": "sensai-client",
-                "issuer": "https://auth.example",
+                "issuer": issuer,
                 "scope": "tools:read",
             }
         ),
     )
 
     def respond(request):
-        if request.url.host == "example.com" and request.url.path == "/mcp":
+        if str(request.url) == server_url:
             if request.headers.get("Authorization") == "Bearer test-access":
                 return httpx2.Response(200, json={"ok": True})
             return httpx2.Response(
@@ -88,17 +101,19 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
             return httpx2.Response(
                 200,
                 json={
-                    "resource": "https://example.com/mcp",
-                    "authorization_servers": ["https://auth.example"],
+                    "resource": server_url,
+                    "authorization_servers": [advertised_issuer],
                 },
             )
-        if request.url.host == "auth.example" and request.url.path.startswith("/.well-known/"):
+        if request.url.host == urlparse(issuer).hostname and request.url.path.startswith(
+            "/.well-known/"
+        ):
             return httpx2.Response(
                 200,
                 json={
-                    "issuer": "https://auth.example",
-                    "authorization_endpoint": "https://auth.example/authorize",
-                    "token_endpoint": "https://auth.example/token",
+                    "issuer": issuer,
+                    "authorization_endpoint": f"{issuer}/authorize",
+                    "token_endpoint": f"{issuer}/token",
                     "response_types_supported": ["code"],
                     "code_challenge_methods_supported": ["S256"],
                     "token_endpoint_auth_methods_supported": ["none"],
@@ -120,8 +135,8 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in):
         pytest.fail(f"Unexpected OAuth request: {request.url}")
 
     async with httpx2.AsyncClient(auth=oauth, transport=httpx2.MockTransport(respond)) as client:
-        assert (await client.get("https://example.com/mcp")).status_code == 200
-        assert (await client.get("https://example.com/mcp")).status_code == 200
+        assert (await client.get(server_url)).status_code == 200
+        assert (await client.get(server_url)).status_code == 200
     assert len(token_requests) == (1 if expires_in else 2)
     if not expires_in:
         assert token_requests[1]["grant_type"] == ["refresh_token"]

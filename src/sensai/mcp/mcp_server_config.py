@@ -37,8 +37,8 @@ class MCPServerConfig:
             raise ValueError(
                 f"Invalid MCP JSON at line {error.lineno}, column {error.colno}: {error.msg}"
             ) from None
-        if not isinstance(config, dict) or config.get("type") != "http":
-            raise ValueError('The MCP configuration must be an object with "type": "http".')
+        if not isinstance(config, dict):
+            raise TypeError("The MCP configuration must be an object.")
         return cls(
             url=validate_http_url(config.get("url")),
             headers=_validate_headers(config.get("headers", {})),

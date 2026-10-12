@@ -170,7 +170,7 @@ def test_main_calls_agent_run_for_each_input(
 
     commands = {
         "local": [],
-        "public": [f"/mcp add-json public '{json.dumps({'type': 'http', 'url': server_url})}'"],
+        "public": [f"/mcp add-json public '{json.dumps({'url': server_url})}'"],
     }
     inputs = iter(["hello there", *commands[mode], "second question"])
 
@@ -181,7 +181,7 @@ def test_main_calls_agent_run_for_each_input(
             raise EOFError from exc
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", fake_public_client)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", fake_public_client)
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
@@ -235,7 +235,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
 
     inputs = iter(
         [
-            '/mcp add-json local \'{"type":"http","url":"http://127.0.0.1:8000/mcp"}\'',
+            '/mcp add-json local \'{"url":"http://127.0.0.1:8000/mcp"}\'',
             "question about the project",
             "follow-up",
         ]
@@ -247,7 +247,7 @@ def test_main_combines_retrieved_context_with_mcp_tools(monkeypatch: pytest.Monk
         except StopIteration as exc:
             raise EOFError from exc
 
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", fake_public_client)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", fake_public_client)
     monkeypatch.setattr("sensai.ui.app.retrieve_chunks", fake_retrieve)
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: updated_session)
     monkeypatch.setattr(Agent, "run", mock_run)
@@ -312,10 +312,10 @@ def test_main_closes_mcp_connection_after_cli_exit_command(
     """Slash commands remain usable and /exit closes the active MCP session."""
     _patch_main_dependencies(monkeypatch)
     client = _FakeMCPClient()
-    monkeypatch.setattr("sensai.ui.mcp_commands.SensAIClient", lambda _config: client)
+    monkeypatch.setattr("sensai.ui.commands.mcp.mcp_commands.SensAIClient", lambda _config: client)
     inputs = iter(
         [
-            '/mcp add-json local \'{"type":"http","url":"http://127.0.0.1:8000/mcp"}\'',
+            '/mcp add-json local \'{"url":"http://127.0.0.1:8000/mcp"}\'',
             "/help",
             "/exit",
         ]
@@ -323,7 +323,7 @@ def test_main_closes_mcp_connection_after_cli_exit_command(
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         command = next(inputs)
-        if command != '/mcp add-json local \'{"type":"http","url":"http://127.0.0.1:8000/mcp"}\'':
+        if command != '/mcp add-json local \'{"url":"http://127.0.0.1:8000/mcp"}\'':
             assert client.connected
         return command
 
