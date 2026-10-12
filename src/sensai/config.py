@@ -109,11 +109,6 @@ class Config:
             help="Persona key to use from the personas file (e.g. 'sensei_wu').",
         )
         self.add_argument(
-            "--personas-file",
-            default=DEFAULT_PERSONAS_FILE,
-            help=f"Path to the personas JSON file. Default: {DEFAULT_PERSONAS_FILE}.",
-        )
-        self.add_argument(
             "--list-personas",
             action="store_true",
             default=False,
@@ -207,7 +202,7 @@ class Config:
     @property
     def personas_file(self) -> str:
         """Path to the personas JSON file."""
-        return str(self._parsed().personas_file)
+        return DEFAULT_PERSONAS_FILE
 
     @property
     def list_personas(self) -> bool:

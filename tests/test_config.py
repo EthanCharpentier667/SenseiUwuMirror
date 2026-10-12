@@ -89,9 +89,9 @@ def test_config_personas_file_defaults_to_default_value() -> None:
     assert config.personas_file == DEFAULT_PERSONAS_FILE
 
 
-def test_config_parses_persona_and_personas_file() -> None:
+def test_config_parses_persona() -> None:
     config = Config()
-    config.parse_args(["--persona", "sensei_wu", "--personas-file", "custom.json"])
+    config.parse_args(["--persona", "sensei_wu"])
 
     assert config.persona == "sensei_wu"
-    assert config.personas_file == "custom.json"
+    assert config.personas_file == DEFAULT_PERSONAS_FILE
