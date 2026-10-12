@@ -102,7 +102,7 @@ def test_main_calls_agent_run_for_each_input(monkeypatch: pytest.MonkeyPatch) ->
     ) -> Response:
         calls.append({"prompt": prompt, "messages": messages, "tools": self.tools})
         assert self.model == "llama3.2"
-        assert self.human_in_the_loop is True
+        assert getattr(self, "trust_level", None) == "none"
         return _make_response()
 
     inputs = iter(["hello there", "second question"])

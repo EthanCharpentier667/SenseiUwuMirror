@@ -1,40 +1,11 @@
-"""Built-in slash commands for the CLI."""
+"""Preferences and instructions commands."""
 
-import sys
-
-from rich.table import Table
-
-from sensai.core.state import clear_credentials
 from sensai.data.profile.manager import ProfileManager
-from sensai.data.profile.profile import update_profile_instructions, update_profile_preferences
-from sensai.ui.command import Command, CommandContext, CommandRegistry
-
-
-async def _help_execute(context: CommandContext, _args: list[str]) -> None:
-    """Execute the /help command."""
-    table = Table(title="Available Commands", show_header=True, header_style="bold magenta")
-    table.add_column("Command", style="cyan")
-    table.add_column("Description")
-
-    table.add_row("/help", "List all available commands.")
-    table.add_row("/logout", "Log out and clear saved credentials.")
-    table.add_row("/prefs", "Manage preferences (list, add, remove, edit).")
-    table.add_row("/inst", "Manage system instructions (list, add, remove, edit).")
-    table.add_row("/exit or /quit", "Exit the application.")
-
-    await context.ui.on_system_message(table)
-
-
-async def _logout_execute(context: CommandContext, _args: list[str]) -> None:
-    """Execute the /logout command."""
-    clear_credentials()
-    await context.ui.on_system_message(
-        "[bold green]Successfully logged out. Credentials cleared from local state.[/bold green]"
-    )
-    await context.ui.on_system_message(
-        "[dim]Exiting application... Please restart to log in again.[/dim]"
-    )
-    sys.exit(0)
+from sensai.data.profile.profile import (
+    update_profile_instructions,
+    update_profile_preferences,
+)
+from sensai.ui.command import CommandContext
 
 
 async def _handle_list(context: CommandContext, lines: list[str], name: str) -> None:
@@ -113,7 +84,7 @@ async def _manage_list_command(
     return lines if changed else None
 
 
-async def _prefs_execute(context: CommandContext, args: list[str]) -> None:
+async def prefs_execute(context: CommandContext, args: list[str]) -> None:
     """Execute the /prefs command."""
     profile = ProfileManager.current_profile
     if not profile or not profile.id:
@@ -133,7 +104,7 @@ async def _prefs_execute(context: CommandContext, args: list[str]) -> None:
         )
 
 
-async def _inst_execute(context: CommandContext, args: list[str]) -> None:
+async def inst_execute(context: CommandContext, args: list[str]) -> None:
     """Execute the /inst command."""
     profile = ProfileManager.current_profile
     if not profile or not profile.id:
@@ -151,33 +122,3 @@ async def _inst_execute(context: CommandContext, args: list[str]) -> None:
         await context.ui.on_system_message(
             "[bold green]Instructions updated successfully.[/bold green]"
         )
-
-
-async def _exit_execute(context: CommandContext, _args: list[str]) -> None:
-    """Execute the /exit or /quit command."""
-    await context.ui.on_system_message("[dim]Exiting application...[/dim]")
-    sys.exit(0)
-
-
-def setup_builtin_commands(registry: CommandRegistry) -> None:
-    """Register all built-in commands."""
-    registry.register(Command("/help", "List all available commands.", _help_execute))
-    registry.register(Command("/logout", "Log out and clear saved credentials.", _logout_execute))
-    registry.register(Command("/exit", "Exit the application.", _exit_execute))
-    registry.register(Command("/quit", "Exit the application.", _exit_execute))
-    registry.register(
-        Command(
-            "/prefs",
-            "Manage preferences.",
-            _prefs_execute,
-            subcommands=["list", "add", "remove", "edit"],
-        )
-    )
-    registry.register(
-        Command(
-            "/inst",
-            "Manage system instructions.",
-            _inst_execute,
-            subcommands=["list", "add", "remove", "edit"],
-        )
-    )

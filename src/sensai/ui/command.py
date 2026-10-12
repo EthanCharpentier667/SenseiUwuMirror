@@ -2,13 +2,18 @@
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
 
 from sensai.data.database.database import Database
 from sensai.ui.protocol import AsyncUIHandler
+
+if TYPE_CHECKING:
+    from sensai.agent import Agent
+    from sensai.config import Config
+    from sensai.data.session.session import Session
 
 
 @dataclass
@@ -17,6 +22,9 @@ class CommandContext:
 
     database: Database
     ui: AsyncUIHandler
+    agent: "Agent"
+    config: "Config"
+    session: "Session"
 
 
 @dataclass
