@@ -18,7 +18,7 @@ from sensai.data.session.manager import (
 )
 from sensai.data.session.session import Session
 from sensai.embedder import Embedder
-from sensai.ui.command import CommandRegistry
+from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands import setup_builtin_commands
 from sensai.ui.commands.mcp.mcp_commands import MCPCommands
 

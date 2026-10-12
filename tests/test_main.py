@@ -290,8 +290,8 @@ def test_main_sets_agent_system_prompt_from_persona(
         return "hello"
 
     _patch_main_dependencies(monkeypatch)
-    argv = ["sensai", "--persona", "hero", "--personas-file", str(personas_file)]
-    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", str(personas_file))
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "hero"])
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
@@ -315,8 +315,8 @@ def test_main_warns_when_persona_key_not_found(
         raise KeyboardInterrupt
 
     _patch_main_dependencies(monkeypatch)
-    argv = ["sensai", "--persona", "unknown", "--personas-file", str(personas_file)]
-    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", str(personas_file))
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "unknown"])
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
@@ -331,8 +331,8 @@ def test_main_warns_when_personas_file_not_found(
         raise KeyboardInterrupt
 
     _patch_main_dependencies(monkeypatch)
-    argv = ["sensai", "--persona", "hero", "--personas-file", "nonexistent.json"]
-    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", "nonexistent.json")
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "hero"])
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
@@ -353,8 +353,8 @@ def test_main_warns_when_personas_file_is_malformed(
         raise KeyboardInterrupt
 
     _patch_main_dependencies(monkeypatch)
-    argv = ["sensai", "--persona", "bad", "--personas-file", str(personas_file)]
-    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", str(personas_file))
+    monkeypatch.setattr("sys.argv", ["sensai", "--persona", "bad"])
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
@@ -384,8 +384,8 @@ def test_main_list_personas_prints_keys_and_exits(
         encoding="utf-8",
     )
 
-    argv = ["sensai", "--list-personas", "--personas-file", str(personas_file)]
-    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", str(personas_file))
+    monkeypatch.setattr("sys.argv", ["sensai", "--list-personas"])
 
     main()
 
@@ -397,8 +397,8 @@ def test_main_list_personas_prints_keys_and_exits(
 def test_main_list_personas_warns_when_file_not_found(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    argv = ["sensai", "--list-personas", "--personas-file", "nonexistent.json"]
-    monkeypatch.setattr("sys.argv", argv)
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", "nonexistent.json")
+    monkeypatch.setattr("sys.argv", ["sensai", "--list-personas"])
 
     main()
 
@@ -434,7 +434,7 @@ def test_main_switch_persona_updates_system_prompt(
         captured_system_prompts.append(self.system_prompt)
         raise KeyboardInterrupt
 
-    inputs = iter(["/switch-persona teacher", "hello"])
+    inputs = iter(["/persona switch teacher", "hello"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
@@ -443,7 +443,8 @@ def test_main_switch_persona_updates_system_prompt(
             raise KeyboardInterrupt from exc
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["sensai", "--personas-file", str(personas_file)])
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", str(personas_file))
+    monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr(Agent, "run", mock_run)
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
@@ -463,7 +464,7 @@ def test_main_switch_persona_warns_when_key_not_found(
         encoding="utf-8",
     )
 
-    inputs = iter(["/switch-persona unknown"])
+    inputs = iter(["/persona switch unknown"])
 
     async def fake_prompt_async(*args: Any, **kwargs: Any) -> str:
         try:
@@ -472,7 +473,8 @@ def test_main_switch_persona_warns_when_key_not_found(
             raise KeyboardInterrupt from exc
 
     _patch_main_dependencies(monkeypatch)
-    monkeypatch.setattr("sys.argv", ["sensai", "--personas-file", str(personas_file)])
+    monkeypatch.setattr("sensai.config.DEFAULT_PERSONAS_FILE", str(personas_file))
+    monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
 
     main()
