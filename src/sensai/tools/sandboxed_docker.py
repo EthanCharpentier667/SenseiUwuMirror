@@ -1,9 +1,13 @@
 """A Docker container for running code in a sandboxed environment."""
 
+import codecs
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 import docker
+
+MAX_OUTPUT_BYTES = 64 * 1024
 
 
 class SandboxedDocker:
@@ -20,6 +24,20 @@ class SandboxedDocker:
             path=str(docker_directory), tag="sensai-sandboxed:dev", rm=True
         )
         return result[0].id
+
+    def _read_output(self, container: Any) -> str:
+        """Read bounded logs, omitting an incomplete UTF-8 character at truncation."""
+        output = bytearray()
+        truncated = False
+        with closing(container.logs(stream=True, follow=False)) as logs:
+            for chunk in logs:
+                remaining = MAX_OUTPUT_BYTES - len(output)
+                output.extend(chunk[:remaining])
+                if len(chunk) > remaining:
+                    truncated = True
+                    break
+        decoder = codecs.getincrementaldecoder("utf-8")()
+        return decoder.decode(output, final=not truncated)
 
     def run_code(self, code: str) -> Any:
         """Run the provided code in the Docker container.
@@ -41,12 +59,15 @@ class SandboxedDocker:
             security_opt=["no-new-privileges"],  # Prevent privilege escalation
             pids_limit=64,  # Limit the number of processes
             privileged=False,  # Do not run in privileged mode
+            log_config=docker.types.LogConfig(
+                type="local", config={"max-size": "1m", "max-file": "1", "compress": "false"}
+            ),
         )
-        _result = container.wait(timeout=20)
-        if _result["StatusCode"] != 0:
-            error_output = container.logs(stderr=True).decode("utf-8")
-            container.remove()
-            raise RuntimeError(f"Error executing code in sandboxed environment: {error_output}")
-        output = container.logs().decode("utf-8")
-        container.remove()
-        return output
+        try:
+            result = container.wait(timeout=20)
+            output = self._read_output(container)
+            if result["StatusCode"] != 0:
+                raise RuntimeError(f"Error executing code in sandboxed environment: {output}")
+            return output
+        finally:
+            container.remove(force=True)
