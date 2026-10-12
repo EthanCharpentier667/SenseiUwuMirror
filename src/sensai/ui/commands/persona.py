@@ -38,7 +38,7 @@ async def persona_execute(context: CommandContext, args: list[str]) -> None:
                     f"[bold green]Persona switched to '{key}': {persona.name}[/bold green]"
                 )
             else:
-                await context.ui.on_system_message(f"[red]Persona '{key}' not found.[/red]")
+                await context.ui.on_system_message(f"[red]Warning: persona '{key}' not found.[/red]")
         except (FileNotFoundError, ValueError) as exc:
             await context.ui.on_system_message(f"[red]Could not switch persona: {exc}[/red]")
 
