@@ -361,11 +361,7 @@ async def maybe_compress_session(  # noqa: PLR0913
         return session
 
     if ui_handler:
-        msg = (
-            f"Compressing session history (token count "
-            f"{response.prompt_eval_count} > {threshold})..."
-        )
-        await ui_handler.start_spinner(msg)
+        await ui_handler.start_spinner("Compressing...")
 
     try:
         return await compress_session(db, session, client, model=response.model)

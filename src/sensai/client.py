@@ -296,11 +296,15 @@ class OllamaClient:
                 response.raise_for_status()
                 parsed = self._parse_non_stream(response)
             else:
-                async with http_client.stream(
-                    "POST", self.base_url, headers=headers, json=payload
-                ) as response:
-                    response.raise_for_status()
-                    parsed = await self._parse_stream(response, on_chunk)
+                try:
+                    async with http_client.stream(
+                        "POST", self.base_url, headers=headers, json=payload
+                    ) as response:
+                        response.raise_for_status()
+                        parsed = await self._parse_stream(response, on_chunk)
+                finally:
+                    if ui_handler is not None and hasattr(ui_handler, "on_stream_end"):
+                        await ui_handler.on_stream_end()
 
         respond_time = time.time()
         return Response(

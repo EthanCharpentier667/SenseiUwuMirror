@@ -105,27 +105,37 @@ class CLIApp:
 
     async def _handle_chat(self, user_input: str) -> None:
         """Process a standard chat message with the AI."""
-        retrieved = await retrieve_chunks(self.database, self.embedder, self.session, user_input)
-        messages = build_messages(self.session, user_input, retrieved)
-        sent_prefix_length = len(messages) - 1
+        if self.agent.ui_handler:
+            await self.agent.ui_handler.start_spinner("Thinking...")
+        try:
+            retrieved = await retrieve_chunks(
+                self.database, self.embedder, self.session, user_input
+            )
+            messages = build_messages(self.session, user_input, retrieved)
+            sent_prefix_length = len(messages) - 1
 
-        response = await self.agent.run(messages=messages)
+            response = await self.agent.run(messages=messages)
 
-        updated_session = update_session(self.database, self.session, response, sent_prefix_length)
-        if updated_session is None:
-            msg = "Failed to update the session after the response."
-            raise ValueError(msg)
+            updated_session = update_session(
+                self.database, self.session, response, sent_prefix_length
+            )
+            if updated_session is None:
+                msg = "Failed to update the session after the response."
+                raise ValueError(msg)
 
-        self.session = updated_session
+            self.session = updated_session
 
-        self.session = await maybe_compress_session(
-            self.database,
-            self.session,
-            response,
-            threshold=self.config.compression_threshold,
-            client=self.client,
-            ui_handler=self.agent.ui_handler,
-        )
+            self.session = await maybe_compress_session(
+                self.database,
+                self.session,
+                response,
+                threshold=self.config.compression_threshold,
+                client=self.client,
+                ui_handler=self.agent.ui_handler,
+            )
+        finally:
+            if self.agent.ui_handler:
+                await self.agent.ui_handler.stop_spinner()
 
     async def run(self) -> None:
         """Run the interactive REPL loop."""
@@ -150,7 +160,10 @@ class CLIApp:
                     try:
                         await self._handle_chat(user_input)
                     except Exception as e:  # noqa: BLE001
-                        self.console.print(f"[bold red]Chat failed:[/bold red] {e}")
+                        if self.agent.ui_handler:
+                            await self.agent.ui_handler.on_error(e, title="Chat Error")
+                        else:
+                            self.console.print(f"[bold red]Chat failed:[/bold red] {e}")
                     self.console.print("\n")
 
         except (KeyboardInterrupt, EOFError):
