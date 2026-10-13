@@ -52,9 +52,16 @@ class SandboxedDocker:
             detach=True,
             stdout=True,
             stderr=True,
-            cpu_shares=512,  # Limit CPU usage
+            nano_cpus=500_000_000,  # Limit CPU usage to half a core
             cap_drop=["ALL"],  # Drop all capabilities
             mem_limit="256m",  # Limit memory usage
+            read_only=True,
+            tmpfs={
+                "/workspace": "rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
+                "/tmp": (  # noqa: S108 - Private, size-limited container mount.
+                    "rw,noexec,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700"
+                ),
+            },
             network_disabled=True,  # Disable network access
             security_opt=["no-new-privileges"],  # Prevent privilege escalation
             pids_limit=64,  # Limit the number of processes

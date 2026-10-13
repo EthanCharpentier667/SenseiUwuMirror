@@ -85,6 +85,27 @@ def test_log_retention_is_finite(container: Mock) -> None:
     assert config.config == {"max-size": "1m", "max-file": "1", "compress": "false"}
 
 
+def test_cpu_has_a_hard_quota(container: Mock) -> None:
+    SandboxedDocker().run_code("print('hello')")
+
+    config = docker.from_env().containers.run.call_args.kwargs
+    assert config["nano_cpus"] == 500_000_000
+    assert "cpu_shares" not in config
+
+
+def test_writes_are_restricted_to_size_limited_tmpfs(container: Mock) -> None:
+    SandboxedDocker().run_code("print('hello')")
+
+    config = docker.from_env().containers.run.call_args.kwargs
+    assert config["read_only"] is True
+    assert config["tmpfs"] == {
+        "/workspace": "rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
+        "/tmp": (  # noqa: S108 - Private container mount, not a host temporary file.
+            "rw,noexec,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700"
+        ),
+    }
+
+
 @pytest.mark.parametrize("exit_code", [0, 1])
 def test_output_is_bounded_before_decoding(container: Mock, exit_code: int) -> None:
     container.wait.return_value = {"StatusCode": exit_code}
