@@ -14,7 +14,14 @@ class SandboxedCode(Tool):
         """Initialize the SandboxedCode tool."""
         super().__init__(
             name="sandboxed_code",
-            description="Execute python code in a sandboxed environment.",
+            description=(
+                "Execute valid Python code in an isolated sandbox. "
+                "Preserve line breaks and indentation, especially for compound "
+                "statements such as for, if, def, and class. "
+                "Provide raw Python source without Markdown fences. "
+                "In JSON, encode source line breaks as \\n, not as literal "
+                "backslash-n sequences after JSON decoding."
+            ),
             tool_type="function",
             parameters={
                 "type": "object",
