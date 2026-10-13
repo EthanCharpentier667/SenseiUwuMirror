@@ -5,6 +5,7 @@ from mcp import Client
 from sensai.tools.web_fetch import WebFetch
 
 from .mcp_tools import MCPTools
+from .sandboxed_code import SandboxedCode
 from .temperature_example import TempToolExample
 from .tool import Tool
 from .web_search import WebSearch
@@ -16,7 +17,7 @@ def get_tools() -> list[Tool]:
     Returns:
         list[Tool]: Instantiated tools ready to be defined and executed.
     """
-    return [WebSearch(), TempToolExample(), WebFetch()]
+    return [WebSearch(), TempToolExample(), WebFetch(), SandboxedCode()]
 
 
 async def get_mcp_tools(client: Client) -> list[Tool]:

@@ -10,6 +10,7 @@ def test_setup_builtin_commands() -> None:
     cmds = registry.get_all_commands()
     names = {c.name for c in cmds}
     assert "/help" in names
+    assert "/tools" in names
     assert "/logout" in names
     assert "/prefs" in names
     assert "/inst" in names

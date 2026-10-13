@@ -22,6 +22,7 @@ dependencies = [
     "sqlite-vec>=0.1.9",
     "semantic-text-splitter>=0.33.0",
     "markitdown[docx,pdf]>=0.1.8",
+    "docker>=6.1.0",
 ]
 
 [project.scripts]
@@ -131,7 +132,7 @@ disallow_untyped_defs = false
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
-module = "sqlite_vec"
+module = ["sqlite_vec", "docker"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------
