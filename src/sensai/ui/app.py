@@ -17,7 +17,8 @@ from sensai.data.session.manager import (
     update_session,
 )
 from sensai.data.session.session import Session
-from sensai.embedder import Embedder
+from sensai.features.features import COMPRESSION, RAG
+from sensai.features.rag.embedder import Embedder
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands import setup_builtin_commands
 from sensai.ui.commands.mcp.mcp_commands import MCPCommands
@@ -105,11 +106,14 @@ class CLIApp:
 
     async def _handle_chat(self, user_input: str) -> None:
         """Process a standard chat message with the AI."""
+        features = self.config.features
         if self.agent.ui_handler:
             await self.agent.ui_handler.start_spinner("Thinking...")
         try:
-            retrieved = await retrieve_chunks(
-                self.database, self.embedder, self.session, user_input
+            retrieved = (
+                await retrieve_chunks(self.database, self.embedder, self.session, user_input)
+                if features.is_enabled(RAG)
+                else []
             )
             messages = build_messages(self.session, user_input, retrieved)
             sent_prefix_length = len(messages) - 1
@@ -125,14 +129,15 @@ class CLIApp:
 
             self.session = updated_session
 
-            self.session = await maybe_compress_session(
-                self.database,
-                self.session,
-                response,
-                threshold=self.config.compression_threshold,
-                client=self.client,
-                ui_handler=self.agent.ui_handler,
-            )
+            if features.is_enabled(COMPRESSION):
+                self.session = await maybe_compress_session(
+                    self.database,
+                    self.session,
+                    response,
+                    threshold=self.config.compression_threshold,
+                    client=self.client,
+                    ui_handler=self.agent.ui_handler,
+                )
         finally:
             if self.agent.ui_handler:
                 await self.agent.ui_handler.stop_spinner()

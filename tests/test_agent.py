@@ -9,7 +9,9 @@ import pytest
 from sensai.agent import Agent
 from sensai.client import OllamaClient, Response
 from sensai.data.session.message import Message
-from sensai.react import FINAL_ANSWER
+from sensai.features.features import MCP, REACT, TOOLS, Features
+from sensai.features.react.react import FINAL_ANSWER
+from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.ui.protocol import AsyncUIHandler
 
 TEST_BASE_URL = "http://localhost:11434/api/chat"
@@ -222,10 +224,10 @@ async def test_agent_answers_directly_without_tools() -> None:
     result = await agent.run("Hi")
 
     assert result.response == "Hello!"
-    assert len(client.plans) == 1
+    assert client.plans == []
     assert len(client.answers) == 1
     assert client.answers[0]["tools"] == []
-    assert ui.thinking == ["thinking\n→ final_answer (missing: nothing)\n\n"]
+    assert ui.thinking == []
     assert [(m.role, m.content) for m in result.messages] == [
         ("user", "Hi"),
         ("assistant", "Hello!"),
@@ -469,3 +471,48 @@ async def test_agent_instructions_never_come_last() -> None:
     for call in [*client.plans, *client.answers]:
         assert call["messages"][-1] == {"role": "user", "content": "What is 2+2?"}
     assert client.answers[0]["messages"][1]["ephemeral"] is True
+
+
+@pytest.mark.asyncio
+async def test_agent_skips_the_react_loop_when_react_is_disabled() -> None:
+    client = ScriptedClient(steps=[_step("calculator", {"a": 1, "b": 2})])
+    agent = Agent(tools=[FakeTool()], client=client, features=Features.from_disabled([REACT]))
+
+    result = await agent.run("What is 1 + 2?")
+
+    assert result.response == "Hello!"
+    assert client.plans == []
+    assert len(client.answers) == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_uses_no_tool_when_tools_are_disabled() -> None:
+    client = ScriptedClient()
+    agent = Agent(tools=[FakeTool()], client=client, features=Features.from_disabled([TOOLS]))
+
+    await agent.run("Hi")
+
+    assert agent.available_tools() == []
+    assert client.plans == []
+
+
+def test_agent_hides_mcp_tools_when_mcp_is_disabled() -> None:
+    mcp_tool = MCPTools.__new__(MCPTools)
+    mcp_tool.name = "remote"
+    local_tool = FakeTool()
+    features = Features()
+    agent = Agent(tools=[local_tool, mcp_tool], client=ScriptedClient(), features=features)
+
+    assert agent.available_tools() == [local_tool, mcp_tool]
+    features.set(MCP, enabled=False)
+    assert agent.available_tools() == [local_tool]
+
+
+def test_agent_hides_a_single_disabled_tool() -> None:
+    tool = FakeTool()
+    features = Features.from_disabled([], tools=[tool.name])
+    agent = Agent(tools=[tool], client=ScriptedClient(), features=features)
+
+    assert agent.available_tools() == []
+    features.set_tool(tool.name, enabled=True)
+    assert agent.available_tools() == [tool]

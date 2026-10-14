@@ -66,6 +66,32 @@ uv run sensai
 
 ---
 
+## Enabling and Disabling Features
+
+Every optional feature is enabled by default and can be switched off:
+
+| Feature       | What it does                                              |
+|---------------|-----------------------------------------------------------|
+| `tools`       | Let the agent call tools (built-in and MCP).              |
+| `react`       | Plan tool calls with the ReAct loop before replying.      |
+| `rag`         | Retrieve chunks of attached documents for each prompt.    |
+| `compression` | Summarize the session history once it grows too long.     |
+| `mcp`         | Connect MCP servers with `/mcp` and use their tools.      |
+
+Disable some for one run from the command line:
+
+```bash
+uv run sensai --disable rag compression
+```
+
+Or toggle them during a conversation in `/settings` → **Features**; that choice
+is saved in your profile and applied on the next launch.
+
+Without `react` (or without any tool available), the model answers directly,
+without planning, so no tool is called.
+
+---
+
 ## MCP Connections
 
 Connect local or remote Streamable HTTP servers from the Sensai chat with

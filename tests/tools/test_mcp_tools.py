@@ -7,7 +7,7 @@ from mcp import Client
 from mcp.types import CallToolResult, TextContent
 from mcp.types import Tool as MCPToolDefinition
 
-from sensai.tools.mcp_tools import MCPTools
+from sensai.features.tools.mcp.mcp_tools import MCPTools
 
 
 @pytest.mark.asyncio

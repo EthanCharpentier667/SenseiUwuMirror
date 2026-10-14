@@ -1,11 +1,11 @@
-"""Tests for the ``sensai.persona`` module."""
+"""Tests for the ``sensai.features.persona`` module."""
 
 import json
 
 import pytest
 
-from sensai.persona.manager import get_persona, list_personas, load_personas
-from sensai.persona.persona import Persona
+from sensai.features.persona.manager import get_persona, list_personas, load_personas
+from sensai.features.persona.persona import Persona
 
 
 @pytest.fixture

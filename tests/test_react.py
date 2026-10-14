@@ -1,10 +1,10 @@
-"""Tests for the ``sensai.react`` module."""
+"""Tests for the ``sensai.features.react.react`` module."""
 
 from typing import Any
 
 import pytest
 
-from sensai.react import FINAL_ANSWER, Decision, ReActController
+from sensai.features.react.react import FINAL_ANSWER, Decision, ReActController
 
 
 def _definition(name: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:

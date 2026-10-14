@@ -6,6 +6,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from sensai.features.features import FEATURES, Features
+
 load_dotenv()
 
 AVAILABLE_MODELS = ["gemma4:e4b", "qwen3.5:9b", "llama3.2:latest"]
@@ -42,6 +44,7 @@ class Config:
         self.description = description
         self.parser = ArgumentParser(prog=name, description=description)
         self.args: Namespace | None = None
+        self._features: Features | None = None
         self._register_arguments()
 
     def _register_arguments(self) -> None:
@@ -99,6 +102,21 @@ class Config:
             help="Files to attach to the session. Default: none.",
         )
         self.add_argument(
+            "--disable",
+            nargs="*",
+            choices=list(FEATURES),
+            default=[],
+            metavar="FEATURE",
+            help=f"Features to disable, among: {', '.join(FEATURES)}. Default: none.",
+        )
+        self.add_argument(
+            "--disable-tool",
+            nargs="*",
+            default=[],
+            metavar="TOOL",
+            help="Tools to disable, by name (see /tool). Default: none.",
+        )
+        self.add_argument(
             "--verbose",
             action="store_true",
             help=SUPPRESS,
@@ -130,6 +148,7 @@ class Config:
         for path in self.args.files:
             if not path.is_file():
                 self.parser.error(f"file not found: {path}")
+        self._features = Features.from_disabled(self.args.disable, self.args.disable_tool)
         return self.args
 
     def get_args(self) -> Namespace | None:
@@ -208,3 +227,11 @@ class Config:
     def list_personas(self) -> bool:
         """Whether to list available personas and exit."""
         return bool(self._parsed().list_personas)
+
+    @property
+    def features(self) -> Features:
+        """The feature flags, shared by everything that reads them."""
+        if self._features is None:
+            args = self._parsed()
+            self._features = Features.from_disabled(args.disable, args.disable_tool)
+        return self._features

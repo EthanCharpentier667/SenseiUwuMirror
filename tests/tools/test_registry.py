@@ -7,10 +7,10 @@ from mcp import Client
 from mcp.types import CallToolResult, ListToolsResult, TextContent
 from mcp.types import Tool as MCPToolDefinition
 
-from sensai.tools.registry import get_mcp_tools, get_tools
-from sensai.tools.sandboxed_code import SandboxedCode
-from sensai.tools.temperature_example import TempToolExample
-from sensai.tools.web_search import WebSearch
+from sensai.features.tools.registry import get_mcp_tools, get_tools
+from sensai.features.tools.sandbox.sandboxed_code import SandboxedCode
+from sensai.features.tools.temperature_example import TempToolExample
+from sensai.features.tools.web_search import WebSearch
 
 
 def test_get_tools_returns_tool_instances() -> None:

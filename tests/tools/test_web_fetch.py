@@ -1,4 +1,4 @@
-"""Tests for the ``sensai.tools.web_fetch`` module."""
+"""Tests for the ``sensai.features.tools.web_fetch`` module."""
 
 from typing import Any
 from unittest.mock import Mock
@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-import sensai.tools.web_fetch as web_fetch_module
-from sensai.tools.web_fetch import DEFAULT_TIMEOUT, WebFetch, fetch_url
+import sensai.features.tools.web_fetch as web_fetch_module
+from sensai.features.tools.web_fetch import DEFAULT_TIMEOUT, WebFetch, fetch_url
 
 PAGE_URL = "https://example.com/game"
 FETCH_PAYLOAD = {

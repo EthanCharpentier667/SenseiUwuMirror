@@ -15,7 +15,7 @@ from sensai.agent import Agent
 from sensai.config import Config
 from sensai.data.database.database import Database
 from sensai.data.session.session import Session
-from sensai.tools.temperature_example import TempToolExample
+from sensai.features.tools.temperature_example import TempToolExample
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands.mcp.mcp_commands import MCPCommands
 from sensai.ui.protocol import AsyncUIHandler

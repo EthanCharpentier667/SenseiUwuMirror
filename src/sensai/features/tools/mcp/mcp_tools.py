@@ -15,7 +15,7 @@ from typing import Any
 from mcp import Client
 from mcp.types import Tool as MCPToolDefinition
 
-from sensai.tools.tool import Tool
+from sensai.features.tools.tool import Tool
 
 
 def _decode_json_arguments(arguments: dict[str, Any], properties: dict[str, Any]) -> dict[str, Any]:

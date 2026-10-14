@@ -1,6 +1,6 @@
 """Persona command for switching and listing agent personas."""
 
-from sensai.persona.manager import get_persona, list_personas, load_personas
+from sensai.features.persona.manager import get_persona, list_personas, load_personas
 from sensai.ui.command import CommandContext
 
 

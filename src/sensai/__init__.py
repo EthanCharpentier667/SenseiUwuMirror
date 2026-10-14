@@ -14,8 +14,9 @@ from sensai.core.setup import (
     setup_ai_engine,
     setup_database,
 )
-from sensai.embedder import Embedder
-from sensai.persona.manager import get_persona, list_personas, load_personas
+from sensai.features.features import FEATURES
+from sensai.features.persona.manager import get_persona, list_personas, load_personas
+from sensai.features.rag.embedder import Embedder
 from sensai.ui.app import CLIApp
 from sensai.ui.auth import authenticate_user
 
@@ -68,6 +69,11 @@ def _apply_profile_settings(
             return
         agent.trust_level = settings.get("trust_level", agent.trust_level)
         agent.model = settings.get("model", agent.model)
+        for name in settings.get("disabled_features", []):
+            if name in FEATURES:
+                config.features.set(name, enabled=False)
+        for name in settings.get("disabled_tools", []):
+            config.features.set_tool(name, enabled=False)
         args = config.get_args()
         if args:
             if "compression_threshold" in settings:
@@ -101,7 +107,9 @@ async def async_main() -> None:
     if profile.settings:
         _apply_profile_settings(config, agent, client, profile.settings)
 
-    await ingest_initial_files(database, embedder, session, config.files, console)
+    await ingest_initial_files(
+        database, embedder, session, config.files, console, features=config.features
+    )
 
     app = CLIApp(
         agent=agent,

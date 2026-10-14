@@ -6,7 +6,7 @@ import docker
 import pytest
 from requests.exceptions import ReadTimeout
 
-from sensai.tools.sandboxed_docker import MAX_OUTPUT_BYTES, SandboxedDocker
+from sensai.features.tools.sandbox.sandboxed_docker import MAX_OUTPUT_BYTES, SandboxedDocker
 
 APIError = docker.errors.APIError
 

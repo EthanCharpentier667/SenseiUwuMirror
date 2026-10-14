@@ -2,10 +2,10 @@
 
 from mcp import Client
 
-from sensai.tools.web_fetch import WebFetch
+from sensai.features.tools.web_fetch import WebFetch
 
-from .mcp_tools import MCPTools
-from .sandboxed_code import SandboxedCode
+from .mcp.mcp_tools import MCPTools
+from .sandbox.sandboxed_code import SandboxedCode
 from .temperature_example import TempToolExample
 from .tool import Tool
 from .web_search import WebSearch

@@ -7,8 +7,8 @@ from urllib.parse import parse_qs, urlparse
 from mcp.client.auth import AuthorizationCodeResult, OAuthClientProvider
 from prompt_toolkit import PromptSession, print_formatted_text
 
-from sensai.mcp.oauth_config import OAuthConfig
-from sensai.mcp.token_storage import TokenStorage
+from sensai.features.mcp.oauth_config import OAuthConfig
+from sensai.features.mcp.token_storage import TokenStorage
 
 
 async def open_browser(authorization_url: str) -> None:

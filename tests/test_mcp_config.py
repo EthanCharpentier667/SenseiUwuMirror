@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from sensai.mcp.mcp_server_config import MCPServerConfig
+from sensai.features.mcp.mcp_server_config import MCPServerConfig
 
 
 def test_http_config_without_headers() -> None:

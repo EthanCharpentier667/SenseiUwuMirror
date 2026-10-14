@@ -4,14 +4,15 @@ from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 from sensai.agent import Agent
-from sensai.mcp.mcp_server_config import MCPServerConfig
-from sensai.mcp.sensai_client import SensAIClient
-from sensai.tools.registry import get_mcp_tools
+from sensai.features.features import MCP
+from sensai.features.mcp.mcp_server_config import MCPServerConfig
+from sensai.features.mcp.sensai_client import SensAIClient
+from sensai.features.tools.registry import get_mcp_tools
 from sensai.ui.command import Command, CommandContext, CommandRegistry
 from sensai.ui.commands.mcp.mcp_completion import MCPConfigCompleter
 
 if TYPE_CHECKING:
-    from sensai.tools.tool import Tool
+    from sensai.features.tools.tool import Tool
 
 
 class MCPCommands:
@@ -39,6 +40,9 @@ class MCPCommands:
 
     async def _execute(self, context: CommandContext, args: list[str]) -> None:
         """Dispatch the JSON connection command."""
+        if not context.config.features.is_enabled(MCP):
+            await context.ui.on_system_message("MCP is disabled. Enable it in /settings.")
+            return
         if not args or args[0] != "add-json":
             raise ValueError("Usage: /mcp add-json <name> '<json>'")
         await self._add_json(context, args[1:])

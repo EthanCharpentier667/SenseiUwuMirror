@@ -12,8 +12,8 @@ from typing import Any, cast
 
 import httpx
 
-from sensai.tools.tool import Tool
-from sensai.tools.web_search import DEFAULT_CODE
+from sensai.features.tools.tool import Tool
+from sensai.features.tools.web_search import DEFAULT_CODE
 
 DEFAULT_TIMEOUT = 100
 

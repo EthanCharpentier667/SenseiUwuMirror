@@ -6,7 +6,9 @@ import json
 from typing import Any
 
 from sensai.client import OllamaClient, Response
-from sensai.react import DEFAULT_MAX_STEPS, Decision, ReActController
+from sensai.features.features import MCP, REACT, TOOLS, Features
+from sensai.features.react.react import DEFAULT_MAX_STEPS, Decision, ReActController
+from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.ui.protocol import AsyncUIHandler
 
 PLAN_OPTIONS = {"temperature": 0}
@@ -52,7 +54,7 @@ class Agent:
     to stop. The reply is then written in a separate call, without tools.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         model: str = "llama3.2",
         tools: list[Any] | None = None,
@@ -60,6 +62,7 @@ class Agent:
         trust_level: str = "none",
         ui_handler: AsyncUIHandler | None = None,
         client: OllamaClient,
+        features: Features | None = None,
     ) -> None:
         """Initialize the agent.
 
@@ -69,12 +72,15 @@ class Agent:
             trust_level: Tool execution trust level: "none", "partial", or "total".
             ui_handler: Event handler for UI presentation.
             client: Optional preconfigured OllamaClient instance.
+            features: Feature flags deciding whether tools, MCP tools and the ReAct loop
+                are used. Default is None, which enables every feature.
         """
         self.model = model
         self.tools = tools or []
         self.trust_level = trust_level
         self.ui_handler = ui_handler
         self.client = client
+        self.features = features or Features()
         self.max_turns = DEFAULT_MAX_STEPS
         self.system_prompt: str | None = None
 
@@ -109,9 +115,21 @@ class Agent:
         result.append({"role": "user", "content": prompt})
         return result
 
+    def available_tools(self) -> list[Any]:
+        """The tools the enabled features let the agent use, minus the disabled tools."""
+        if not self.features.is_enabled(TOOLS):
+            return []
+        mcp_enabled = self.features.is_enabled(MCP)
+        return [
+            tool
+            for tool in self.tools
+            if self.features.is_tool_enabled(tool.name)
+            and (mcp_enabled or not isinstance(tool, MCPTools))
+        ]
+
     async def _dispatch_single_tool(self, name: str, args: dict[str, Any]) -> tuple[bool, Any]:
         """Find and execute a tool by name, running sync tools in a thread."""
-        for tool in self.tools:
+        for tool in self.available_tools():
             if getattr(tool, "name", None) == name:
                 execute_fn = getattr(tool, "execute_async", None)
                 if execute_fn is not None:
@@ -147,7 +165,9 @@ class Agent:
         A failing tool doesn't stop the loop: its error becomes the observation, so the
         model can try something else or answer with what it has.
         """
-        tool = next((t for t in self.tools if getattr(t, "name", None) == decision.action), None)
+        tool = next(
+            (t for t in self.available_tools() if getattr(t, "name", None) == decision.action), None
+        )
         approved, cancel_msg = await self._check_tool_approval(decision.action, decision.args, tool)
         if not approved:
             return "refused", cancel_msg
@@ -198,7 +218,7 @@ class Agent:
     def _format_tools(self) -> list[dict[str, Any]]:
         """Collect valid tool definitions for the controller."""
         formatted_tools: list[dict[str, Any]] = []
-        for tool in self.tools:
+        for tool in self.available_tools():
             if not hasattr(tool, "define"):
                 continue
             tool_def = tool.define()
@@ -253,7 +273,8 @@ class Agent:
 
         At most ``max_turns`` steps are planned; the code, not the model, decides when the
         loop ends: on a final-answer step, a step missing nothing more, or once that budget
-        is spent.
+        is spent. With the ReAct feature disabled, or no tool available, the loop is skipped
+        and the model answers right away.
 
         Args:
             prompt: User message prompt.
@@ -270,6 +291,8 @@ class Agent:
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
         formatted_tools = self._format_tools()
         controller = ReActController(formatted_tools)
+        if not self.features.is_enabled(REACT) or not formatted_tools:
+            return await self._answer(current_messages, controller)
 
         for _ in range(self.max_turns):
             if self.ui_handler:

@@ -3,7 +3,7 @@
 import json
 from typing import Self
 
-from sensai.mcp.oauth_config import OAuthConfig, validate_http_url
+from sensai.features.mcp.oauth_config import OAuthConfig, validate_http_url
 
 
 def _validate_headers(value: object) -> dict[str, str]:

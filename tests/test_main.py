@@ -14,10 +14,10 @@ from sensai.client import OllamaClient, Response
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import Profile
 from sensai.data.session.session import Session
-from sensai.mcp.mcp_server_config import MCPServerConfig
-from sensai.tools.mcp_tools import MCPTools
-from sensai.tools.temperature_example import TempToolExample
-from sensai.tools.web_search import WebSearch
+from sensai.features.mcp.mcp_server_config import MCPServerConfig
+from sensai.features.tools.mcp.mcp_tools import MCPTools
+from sensai.features.tools.temperature_example import TempToolExample
+from sensai.features.tools.web_search import WebSearch
 
 
 def _make_response(text: str = "This is a mock response.") -> Response:

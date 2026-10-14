@@ -1,12 +1,12 @@
-"""Tests for the ``sensai.tools.web_search`` module."""
+"""Tests for the ``sensai.features.tools.web_search`` module."""
 
 from typing import Any
 
 import httpx
 import pytest
 
-import sensai.tools.web_search as web_search_module
-from sensai.tools.web_search import DEFAULT_TIMEOUT, WebSearch, web_search
+import sensai.features.tools.web_search as web_search_module
+from sensai.features.tools.web_search import DEFAULT_TIMEOUT, WebSearch, web_search
 
 SEARCH_PAYLOAD = {
     "results": [

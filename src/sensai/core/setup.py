@@ -12,9 +12,10 @@ from sensai.data.profile.profile import Profile
 from sensai.data.session.manager import create_new_session
 from sensai.data.session.message import create_message, delete_message
 from sensai.data.session.session import Session
-from sensai.embedder import Embedder
-from sensai.rag import ingest_document
-from sensai.tools.registry import get_tools
+from sensai.features.features import RAG, Features
+from sensai.features.rag.embedder import Embedder
+from sensai.features.rag.rag import ingest_document
+from sensai.features.tools.registry import get_tools
 from sensai.ui.cli import CLIHandler
 
 
@@ -41,6 +42,7 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         trust_level="none",
         ui_handler=ui_handler,
         client=client,
+        features=config.features,
     )
     return client, agent
 
@@ -58,12 +60,14 @@ def get_or_create_session(database: Database, profile: Profile) -> Session:
     return session
 
 
-async def ingest_initial_files(
+async def ingest_initial_files(  # noqa: PLR0913
     database: Database,
     embedder: Embedder,
     session: Session,
     files: list[Path],
     console: Console,
+    *,
+    features: Features,
 ) -> None:
     """Ingest command-line supplied files into the active session.
 
@@ -73,8 +77,12 @@ async def ingest_initial_files(
         session: The active chat session.
         files: List of file paths to ingest.
         console: The rich console instance for user-facing output.
+        features: The feature flags; nothing is ingested while RAG is disabled.
     """
-    if session.id is None:
+    if session.id is None or not files:
+        return
+    if not features.is_enabled(RAG):
+        console.print("[yellow]RAG is disabled: attached files are ignored.[/yellow]")
         return
 
     for file_path in files:

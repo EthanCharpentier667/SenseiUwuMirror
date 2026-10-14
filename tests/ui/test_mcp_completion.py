@@ -14,7 +14,7 @@ from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
 from sensai.agent import Agent
-from sensai.mcp.mcp_server_config import MCPServerConfig
+from sensai.features.mcp.mcp_server_config import MCPServerConfig
 from sensai.ui.app import CLIApp
 from sensai.ui.command import CommandRegistry
 from sensai.ui.commands.mcp.mcp_commands import MCPCommands

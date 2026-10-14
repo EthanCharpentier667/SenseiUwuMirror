@@ -30,7 +30,7 @@ from sensai.data.session.manager import (
 from sensai.data.session.message import Message, create_message
 from sensai.data.session.message import Message as SessionMessage
 from sensai.data.session.session import Session, create_session, get_session, set_session_summary
-from sensai.embedder import Embedder
+from sensai.features.rag.embedder import Embedder
 
 TEST_BASE_URL = "http://localhost:11434/api/chat"
 TEST_TOKEN = "test-token"  # noqa: S105

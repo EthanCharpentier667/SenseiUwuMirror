@@ -5,6 +5,7 @@ from typing import Any
 
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
+from sensai.features.features import FEATURES
 from sensai.ui.command import CommandContext
 
 
@@ -46,10 +47,55 @@ async def _handle_url_setting(settings: dict[str, Any], context: CommandContext)
         context.agent.client.base_url = new_url
 
 
+async def _handle_features_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    features = context.config.features
+    while True:
+        choice = await context.ui.prompt_choice(
+            title="Features",
+            text="Select a feature to enable or disable:",
+            choices=[
+                *(
+                    (name, f"{name} [{'on' if features.is_enabled(name) else 'off'}]: {help_}")
+                    for name, help_ in FEATURES.items()
+                ),
+                ("back", "Back"),
+            ],
+        )
+        if choice == "back" or choice is None:
+            break
+        features.toggle(choice)
+    settings["disabled_features"] = sorted(features.disabled)
+
+
+async def _handle_tools_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    features = context.config.features
+    while True:
+        choice = await context.ui.prompt_choice(
+            title="Tools",
+            text="Select a tool to enable or disable:",
+            choices=[
+                *(
+                    (
+                        tool.name,
+                        f"{tool.name} [{'on' if features.is_tool_enabled(tool.name) else 'off'}]",
+                    )
+                    for tool in context.agent.tools
+                ),
+                ("back", "Back"),
+            ],
+        )
+        if choice == "back" or choice is None:
+            break
+        features.toggle_tool(choice)
+    settings["disabled_tools"] = sorted(features.disabled_tools)
+
+
 async def _prompt_settings_menu(context: CommandContext, settings: dict[str, Any]) -> str | None:
     trust = settings.get("trust_level", context.agent.trust_level)
     comp = settings.get("compression_threshold", context.config.compression_threshold)
     url = settings.get("url", context.config.url)
+    disabled = ", ".join(sorted(context.config.features.disabled)) or "none"
+    disabled_tools = ", ".join(sorted(context.config.features.disabled_tools)) or "none"
 
     return await context.ui.prompt_choice(
         title="Settings Menu",
@@ -58,6 +104,8 @@ async def _prompt_settings_menu(context: CommandContext, settings: dict[str, Any
             ("trust", f"Tool Trust Level (Current: {trust})"),
             ("comp", f"Compression Threshold (Current: {comp})"),
             ("url", f"Ollama URL (Current: {url})"),
+            ("features", f"Features (Disabled: {disabled})"),
+            ("tools", f"Tools (Disabled: {disabled_tools})"),
             ("exit", "Exit Menu"),
         ],
     )
@@ -72,6 +120,10 @@ async def _process_settings_choice(
         await _handle_comp_setting(settings, context)
     elif choice == "url":
         await _handle_url_setting(settings, context)
+    elif choice == "features":
+        await _handle_features_setting(settings, context)
+    elif choice == "tools":
+        await _handle_tools_setting(settings, context)
 
 
 def _save_settings_to_profile(

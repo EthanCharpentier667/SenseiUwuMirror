@@ -8,9 +8,9 @@ import pytest
 from mcp.client.auth import AuthorizationCodeResult
 from mcp.shared.auth import OAuthToken
 
-from sensai.mcp.oauth import OAuth, open_browser, wait_for_callback
-from sensai.mcp.oauth_config import OAuthConfig
-from sensai.mcp.token_storage import TokenStorage
+from sensai.features.mcp.oauth import OAuth, open_browser, wait_for_callback
+from sensai.features.mcp.oauth_config import OAuthConfig
+from sensai.features.mcp.token_storage import TokenStorage
 
 
 @pytest.mark.asyncio
@@ -29,7 +29,7 @@ async def test_token_storages_are_independent() -> None:
 )
 async def test_invalid_callbacks_report_readable_errors(monkeypatch, query):
     prompt = AsyncMock(return_value=f"http://localhost:8080/callback?{query}")
-    monkeypatch.setattr("sensai.mcp.oauth.PromptSession.prompt_async", prompt)
+    monkeypatch.setattr("sensai.features.mcp.oauth.PromptSession.prompt_async", prompt)
     with pytest.raises(ValueError, match="OAuth"):
         await wait_for_callback()
 
@@ -39,7 +39,7 @@ async def test_callback_preserves_state_and_issuer(monkeypatch):
     prompt = AsyncMock(
         return_value="http://localhost:8080/callback?code=c&state=s&iss=https%3A%2F%2Fauth.example"
     )
-    monkeypatch.setattr("sensai.mcp.oauth.PromptSession.prompt_async", prompt)
+    monkeypatch.setattr("sensai.features.mcp.oauth.PromptSession.prompt_async", prompt)
     result = await wait_for_callback()
     assert result.code == "c"
     assert result.state == "s"
@@ -66,8 +66,8 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in, red
             code="test-code", state=authorization["state"][0], iss=issuer
         )
 
-    monkeypatch.setattr("sensai.mcp.oauth.open_browser", redirect)
-    monkeypatch.setattr("sensai.mcp.oauth.wait_for_callback", callback)
+    monkeypatch.setattr("sensai.features.mcp.oauth.open_browser", redirect)
+    monkeypatch.setattr("sensai.features.mcp.oauth.wait_for_callback", callback)
     oauth = OAuth(
         server_url,
         OAuthConfig.from_dict(
@@ -146,8 +146,8 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in, red
 @pytest.mark.asyncio
 async def test_authorization_url_is_shown_without_local_browser(monkeypatch):
     display = Mock()
-    monkeypatch.setattr("sensai.mcp.oauth.print_formatted_text", display)
-    monkeypatch.setattr("sensai.mcp.oauth.webbrowser.open", lambda url: False)
+    monkeypatch.setattr("sensai.features.mcp.oauth.print_formatted_text", display)
+    monkeypatch.setattr("sensai.features.mcp.oauth.webbrowser.open", lambda url: False)
     await open_browser("https://auth.example/authorize")
     display.assert_called_once_with(
         "Open this URL in your browser to authorize MCP access: https://auth.example/authorize"

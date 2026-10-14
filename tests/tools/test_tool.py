@@ -1,10 +1,10 @@
-"""Tests for the ``sensai.tools.tool`` module."""
+"""Tests for the ``sensai.features.tools.tool`` module."""
 
 from typing import Any
 
 import pytest
 
-from sensai.tools.tool import Tool
+from sensai.features.tools.tool import Tool
 
 
 class ConcreteTool(Tool):

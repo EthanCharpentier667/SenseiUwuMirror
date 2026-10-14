@@ -3,8 +3,9 @@
 import asyncio
 from typing import Any
 
+from sensai.features.tools.tool import Tool
+
 from .sandboxed_docker import SandboxedDocker
-from .tool import Tool
 
 
 class SandboxedCode(Tool):

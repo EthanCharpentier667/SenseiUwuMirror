@@ -12,7 +12,7 @@ from .message import Message, create_message, get_document_ids_by_session
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
 
 if TYPE_CHECKING:
-    from sensai.embedder import Embedder
+    from sensai.features.rag.embedder import Embedder
 
 DEFAULT_RETRIEVED_CHUNKS = 3
 

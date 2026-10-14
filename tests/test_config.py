@@ -95,3 +95,33 @@ def test_config_parses_persona() -> None:
 
     assert config.persona == "sensei_wu"
     assert config.personas_file == DEFAULT_PERSONAS_FILE
+
+
+def test_config_enables_every_feature_by_default() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.features.disabled == set()
+
+
+def test_config_disables_the_features_given_on_the_command_line() -> None:
+    config = Config()
+    config.parse_args(["--disable", "rag", "react"])
+
+    assert config.features.disabled == {"rag", "react"}
+    assert not config.features.is_enabled("rag")
+    assert config.features.is_enabled("tools")
+
+
+def test_config_rejects_an_unknown_feature() -> None:
+    config = Config()
+
+    with pytest.raises(SystemExit):
+        config.parse_args(["--disable", "teleport"])
+
+
+def test_config_disables_the_tools_given_on_the_command_line() -> None:
+    config = Config()
+    config.parse_args(["--disable-tool", "web_search", "web_fetch"])
+
+    assert config.features.disabled_tools == {"web_search", "web_fetch"}

@@ -6,11 +6,11 @@ from unittest.mock import Mock
 import httpx2
 import pytest
 
-import sensai.mcp.sensai_client as module
-from sensai.mcp.mcp_server_config import MCPServerConfig
-from sensai.mcp.oauth import OAuth
-from sensai.mcp.oauth_config import OAuthConfig
-from sensai.mcp.sensai_client import SensAIClient
+import sensai.features.mcp.sensai_client as module
+from sensai.features.mcp.mcp_server_config import MCPServerConfig
+from sensai.features.mcp.oauth import OAuth
+from sensai.features.mcp.oauth_config import OAuthConfig
+from sensai.features.mcp.sensai_client import SensAIClient
 
 
 @pytest.mark.asyncio
