@@ -37,17 +37,8 @@ def _make_response(response: str = "") -> Response:
     )
 
 
-def _step(
-    action: str,
-    args: dict[str, Any] | None = None,
-    thought: str = "thinking",
-    missing: str | None = None,
-) -> str:
-    if missing is None:
-        missing = "nothing" if action == FINAL_ANSWER else "the result"
-    return json.dumps(
-        {"thought": thought, "missing": missing, "action": action, "args": args or {}}
-    )
+def _step(action: str, args: dict[str, Any] | None = None, thought: str = "thinking") -> str:
+    return json.dumps({"thought": thought, "action": action, "args": args or {}})
 
 
 class ScriptedClient(OllamaClient):
@@ -57,11 +48,14 @@ class ScriptedClient(OllamaClient):
     up, every planning call picks the final answer.
     """
 
-    def __init__(self, steps: list[str] | None = None, answer: str = "Hello!") -> None:
-        """Initialize the mock with the planning replies and the final answer."""
+    def __init__(
+        self, steps: list[str] | None = None, answer: str = "Hello!", *, vision: bool = False
+    ) -> None:
+        """Initialize the mock with the planning replies, the final answer and capabilities."""
         super().__init__(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
         self.steps = list(steps or [])
         self.answer = answer
+        self.vision = vision
         self.plans: list[dict[str, Any]] = []
         self.answers: list[dict[str, Any]] = []
 
@@ -77,6 +71,9 @@ class ScriptedClient(OllamaClient):
         ]
         response.messages.append(Message(role="assistant", content=self.answer, response_time=0.0))
         return response
+
+    async def capabilities(self, model: str) -> set[str]:  # noqa: ARG002
+        return {"completion", "vision"} if self.vision else {"completion"}
 
 
 class MockUIHandler(AsyncUIHandler):
@@ -179,6 +176,19 @@ class AsyncFakeTool(FakeTool):
         return f"async result: {kwargs.get('expr')}"
 
 
+class ImageTool(FakeTool):
+    """Fake tool returning an image, like the screenshot tool."""
+
+    name = "screenshot"
+    requires = frozenset({"vision"})
+
+    def define(self) -> dict[str, Any]:
+        return {"type": "function", "function": {"name": "screenshot"}}
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]  # noqa: ARG002
+        return {"message": "Screenshot saved.", "images": ["aW1n"]}
+
+
 class BrokenTool(FakeTool):
     """Fake tool that always raises."""
 
@@ -193,6 +203,10 @@ class BrokenTool(FakeTool):
 
 def _instructions(call: dict[str, Any]) -> str:
     return str(next(m["content"] for m in call["messages"] if m.get("ephemeral")))
+
+
+def _trajectory(call: dict[str, Any]) -> str:
+    return "\n".join(m["content"] for m in call["messages"] if m["role"] in {"assistant", "tool"})
 
 
 def _system_texts(call: dict[str, Any]) -> str:
@@ -299,7 +313,19 @@ async def test_agent_runs_tool_then_answers_with_its_result() -> None:
     assert ui.tool_requests == [("calculator", {"expr": "2+2"})]
     assert ui.tool_results == [("calculator", "result: 2+2")]
     assert len(client.plans) == 2
-    assert "result: 2+2" in _instructions(client.plans[1])
+    assert client.plans[1]["messages"][-2:] == [
+        {
+            "role": "assistant",
+            "content": '{"thought": "thinking", "action": "calculator", "args": {"expr": "2+2"}}',
+            "ephemeral": True,
+        },
+        {
+            "role": "tool",
+            "tool_name": "calculator",
+            "content": "Observation: result: 2+2",
+            "ephemeral": True,
+        },
+    ]
     assert "result: 2+2" in _system_texts(client.answers[0])
     assert [(m.role, m.content) for m in result.messages] == [
         ("user", "What is 2+2?"),
@@ -340,7 +366,7 @@ async def test_agent_tool_denied_by_user() -> None:
     await agent.run("What is 2+2?")
 
     assert ui.tool_results == []
-    assert "Action cancelled by user." in _instructions(client.plans[1])
+    assert "Observation (refused): Action cancelled by user." in _trajectory(client.plans[1])
     assert len(client.answers[0]["messages"]) == 1
 
 
@@ -353,22 +379,23 @@ async def test_agent_rejects_invalid_step_without_running_it() -> None:
     await agent.run("Hi")
 
     assert ui.tool_requests == []
-    planning = _instructions(client.plans[2])
+    planning = _trajectory(client.plans[2])
     assert "'unknown' is not available now" in planning
     assert "missing argument(s): expr" in planning
 
 
 @pytest.mark.asyncio
-async def test_agent_rejects_repeated_call() -> None:
+async def test_agent_stops_when_the_model_repeats_a_call() -> None:
     call = _step("calculator", {"expr": "2+2"})
-    client = ScriptedClient(steps=[call, call])
+    client = ScriptedClient(steps=[call, call, call])
     ui = MockUIHandler()
     agent = Agent(tools=[FakeTool()], ui_handler=ui, client=client)
 
     await agent.run("What is 2+2?")
 
     assert ui.tool_results == [("calculator", "result: 2+2")]
-    assert "already made at step 1" in _instructions(client.plans[2])
+    assert len(client.plans) == 2
+    assert len(client.answers) == 1
 
 
 @pytest.mark.asyncio
@@ -381,7 +408,7 @@ async def test_agent_tool_error_becomes_observation() -> None:
 
     assert result.response == "Sorry."
     assert [str(e) for e in ui.errors] == ["Tool execution failed unexpectedly"]
-    assert "Error: Tool execution failed unexpectedly" in _instructions(client.plans[1])
+    assert "Error: Tool execution failed unexpectedly" in _trajectory(client.plans[1])
 
 
 @pytest.mark.asyncio
@@ -429,24 +456,94 @@ async def test_agent_unreadable_plan_falls_back_to_answer() -> None:
 
 
 @pytest.mark.asyncio
-async def test_agent_stops_when_nothing_is_missing_and_keeps_thought_as_draft() -> None:
+async def test_agent_keeps_acting_until_the_model_chooses_the_final_answer() -> None:
     client = ScriptedClient(
         steps=[
-            _step("calculator", {"expr": "2+2"}),
-            _step("calculator", {"expr": "2*2"}, thought="It is 4.", missing="nothing"),
+            _step("calculator", {"expr": "2+2"}, thought="Compute it."),
+            _step("async_calculator", {"expr": "2*2"}, thought="Check it another way."),
         ],
         answer="4.",
     )
     ui = MockUIHandler()
-    agent = Agent(tools=[FakeTool()], ui_handler=ui, client=client)
+    agent = Agent(tools=[FakeTool(), AsyncFakeTool()], ui_handler=ui, client=client)
 
     await agent.run("What is 2+2?")
 
-    assert ui.tool_results == [("calculator", "result: 2+2")]
+    assert ui.tool_results == [
+        ("calculator", "result: 2+2"),
+        ("async_calculator", "async result: 2*2"),
+    ]
+    assert len(client.plans) == 3
+    trajectory = _trajectory(client.plans[2])
+    assert '{"thought": "Compute it.", "action": "calculator"' in trajectory
+    assert "Observation: async result: 2*2" in trajectory
+    assert ui.thinking[0] == 'Compute it.\n→ calculator {"expr": "2+2"}\n\n'
+
+
+@pytest.mark.asyncio
+async def test_agent_stops_planning_once_no_tool_can_run() -> None:
+    client = ScriptedClient(steps=[_step("calculator", {"expr": str(n)}) for n in range(5)])
+    ui = MockUIHandler()
+    agent = Agent(tools=[FakeTool()], ui_handler=ui, client=client)
+
+    await agent.run("loop")
+
+    assert len(ui.tool_results) == 2
     assert len(client.plans) == 2
-    notes = _system_texts(client.answers[0])
-    assert "result: 2+2" in notes
-    assert "It is 4." in notes
+    assert len(client.answers) == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_shows_tool_images_to_a_vision_model_only_for_this_run() -> None:
+    client = ScriptedClient(steps=[_step("screenshot")], answer="A terminal.", vision=True)
+    ui = MockUIHandler()
+    agent = Agent(tools=[ImageTool()], trust_level="total", ui_handler=ui, client=client)
+
+    result = await agent.run("What is on my screen?")
+
+    assert ui.tool_results == [("screenshot", {"message": "Screenshot saved."})]
+    assert "images" not in client.plans[0]["messages"][-1]
+    assert client.plans[1]["messages"][-1]["role"] == "tool"
+    for call, user in [(client.plans[1], -3), (client.answers[0], -1)]:
+        assert call["messages"][user] == {
+            "role": "user",
+            "content": "What is on my screen?",
+            "images": ["aW1n"],
+        }
+        assert "aW1n" not in _instructions(call)
+    assert "1 image(s) from this tool are attached" in _instructions(client.answers[0])
+    assert [(m.role, m.content) for m in result.messages] == [
+        ("user", "What is on my screen?"),
+        ("assistant", "A terminal."),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_agent_hides_tools_needing_a_capability_the_model_lacks() -> None:
+    client = ScriptedClient(steps=[_step("screenshot")], vision=False)
+    agent = Agent(tools=[FakeTool(), ImageTool()], trust_level="total", client=client)
+
+    await agent.run("What is on my screen?")
+
+    assert client.plans[0]["response_format"]["properties"]["action"]["enum"] == [
+        "calculator",
+        FINAL_ANSWER,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_agent_never_sends_images_to_a_model_without_vision() -> None:
+    class UndeclaredImageTool(ImageTool):
+        requires = frozenset()
+
+    client = ScriptedClient(steps=[_step("screenshot")], vision=False)
+    agent = Agent(tools=[UndeclaredImageTool()], trust_level="total", client=client)
+
+    await agent.run("What is on my screen?")
+
+    assert len(client.plans) == 2
+    for call in [*client.plans, *client.answers]:
+        assert all("images" not in message for message in call["messages"])
 
 
 @pytest.mark.asyncio
@@ -468,8 +565,11 @@ async def test_agent_instructions_never_come_last() -> None:
 
     await agent.run("What is 2+2?")
 
-    for call in [*client.plans, *client.answers]:
-        assert call["messages"][-1] == {"role": "user", "content": "What is 2+2?"}
+    user = {"role": "user", "content": "What is 2+2?"}
+    assert client.plans[0]["messages"][-1] == user
+    assert client.plans[1]["messages"][-3] == user
+    assert client.plans[1]["messages"][-1]["role"] == "tool"
+    assert client.answers[0]["messages"][-1] == user
     assert client.answers[0]["messages"][1]["ephemeral"] is True
 
 

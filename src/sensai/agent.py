@@ -33,6 +33,23 @@ def _with_instructions(messages: list[dict[str, Any]], instructions: str) -> lis
     return [*messages[:-1], _ephemeral("system", instructions), messages[-1]]
 
 
+def _with_images(messages: list[dict[str, Any]], images: list[str]) -> list[dict[str, Any]]:
+    """Attach base64 images to (a copy of) the latest user message, as Ollama expects them.
+
+    The copy is sent to the model only: the persisted history never carries the images.
+    """
+    if not images:
+        return messages
+    index = next(
+        (i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"), None
+    )
+    if index is None:
+        return messages
+    message = messages[index]
+    with_images = {**message, "images": [*message.get("images", []), *images]}
+    return [*messages[:index], with_images, *messages[index + 1 :]]
+
+
 def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Response:
     """Drop the messages built from ephemeral payload entries out of ``response.messages``.
 
@@ -160,18 +177,19 @@ class Agent:
 
         return True, ""
 
-    async def _run_tool(self, decision: Decision) -> tuple[str, str]:
-        """Ask approval for and run the tool of a validated step. Returns (status, observation).
+    async def _run_tool(self, decision: Decision) -> tuple[str, str, list[str]]:
+        """Ask approval for and run the tool of a validated step.
 
-        A failing tool doesn't stop the loop: its error becomes the observation, so the
-        model can try something else or answer with what it has.
+        Returns (status, observation, images). A failing tool doesn't stop the loop: its
+        error becomes the observation, so the model can try something else or answer with
+        what it has. A dict result's "images" (base64) are taken out of the observation.
         """
         tool = next(
             (t for t in self.available_tools() if getattr(t, "name", None) == decision.action), None
         )
         approved, cancel_msg = await self._check_tool_approval(decision.action, decision.args, tool)
         if not approved:
-            return "refused", cancel_msg
+            return "refused", cancel_msg, []
 
         if self.ui_handler:
             await self.ui_handler.start_spinner(f"Executing {decision.action}...")
@@ -182,7 +200,7 @@ class Agent:
             if self.ui_handler:
                 await self.ui_handler.stop_spinner()
                 await self.ui_handler.on_error(e, title=f"Tool Error: {decision.action}")
-            return "failed", f"Error: {e}"
+            return "failed", f"Error: {e}", []
 
         if self.ui_handler:
             await self.ui_handler.stop_spinner()
@@ -193,12 +211,36 @@ class Agent:
                     RuntimeError(f"Tool '{decision.action}' not found."),
                     title=f"Tool Error: {decision.action}",
                 )
-            return "failed", f"Tool '{decision.action}' not found."
+            return "failed", f"Tool '{decision.action}' not found.", []
 
+        images: list[str] = []
+        if isinstance(res, dict) and "images" in res:
+            res = dict(res)
+            images = list(res.pop("images") or [])
         if self.ui_handler:
             show_output = bool(getattr(tool, "show_output", False))
             await self.ui_handler.on_tool_call_result(decision.action, res, show_output=show_output)
-        return "done", res if isinstance(res, str) else json.dumps(res, ensure_ascii=False)
+        observation, images = await self._observe(res, images)
+        return "done", observation, images
+
+    async def _observe(self, res: Any, images: list[str]) -> tuple[str, list[str]]:
+        """Turn a tool's result into the observation text and the images the model can see.
+
+        Images are dropped for a model without vision (Ollama rejects such a request); a
+        tool returning images should declare ``requires={"vision"}`` so it isn't offered.
+        """
+        observation = res if isinstance(res, str) else json.dumps(res, ensure_ascii=False)
+        if images and "vision" not in await self.client.capabilities(self.model):
+            return observation, []
+        return observation, images
+
+    async def _usable_tools(self) -> list[Any]:
+        """The available tools the model can use: those whose required capabilities it has."""
+        tools = self.available_tools()
+        if not any(getattr(tool, "requires", None) for tool in tools):
+            return tools
+        capabilities = await self.client.capabilities(self.model)
+        return [tool for tool in tools if getattr(tool, "requires", frozenset()) <= capabilities]
 
     async def _chat(
         self,
@@ -216,10 +258,11 @@ class Agent:
                 await self.ui_handler.on_error(e)
             raise
 
-    def _format_tools(self) -> list[dict[str, Any]]:
+    @staticmethod
+    def _format_tools(tools: list[Any]) -> list[dict[str, Any]]:
         """Collect valid tool definitions for the controller."""
         formatted_tools: list[dict[str, Any]] = []
-        for tool in self.available_tools():
+        for tool in tools:
             if not hasattr(tool, "define"):
                 continue
             tool_def = tool.define()
@@ -232,13 +275,15 @@ class Agent:
         """Have the model propose the next step, as JSON constrained to the allowed actions.
 
         The planning instructions are a system message, so the model never mistakes them
-        for something the user said.
+        for something the user said. The trajectory comes after the user's message, so
+        the model reads the last observation last, and the images tools returned are sent
+        along, so it can observe them before choosing its next action.
         """
         if self.ui_handler:
             await self.ui_handler.start_spinner("Thinking...")
-        payload = _with_instructions(messages, controller.plan_instructions())
-        on_chunk = self.ui_handler.on_thinking_chunk if self.ui_handler else None
-        extractor = StreamingThoughtExtractor(on_chunk)
+        payload = _with_images(messages, controller.images())
+        payload = _with_instructions(payload, controller.plan_instructions())
+        payload = [*payload, *controller.trajectory()]
         response = await self._chat(
             payload,
             [],
@@ -250,12 +295,9 @@ class Agent:
         decision = controller.parse(response.response)
         if self.ui_handler:
             await self.ui_handler.stop_spinner()
-            if not extractor.has_emitted_thought and decision.thought:
-                await self.ui_handler.on_thinking_chunk(f"{decision.thought}\n")
-            elif extractor.has_emitted_thought:
-                await self.ui_handler.on_thinking_chunk("\n")
+            args = f" {json.dumps(decision.args, ensure_ascii=False)}" if decision.args else ""
             await self.ui_handler.on_thinking_chunk(
-                f"→ {decision.action} (missing: {decision.missing or '-'})\n\n"
+                f"{decision.thought}\n→ {decision.action}{args}\n\n"
             )
         return decision
 
@@ -266,7 +308,8 @@ class Agent:
         if self.ui_handler:
             await self.ui_handler.start_spinner("Thinking...")
         instructions = controller.answer_instructions()
-        payload = _with_instructions(messages, instructions) if instructions else messages
+        payload = _with_images(messages, controller.images())
+        payload = _with_instructions(payload, instructions) if instructions else payload
         response = await self._chat(payload, [], stream=True, ui_handler=self.ui_handler)
         return _strip_ephemeral(response, payload)
 
@@ -279,10 +322,10 @@ class Agent:
     ) -> Response:
         """Run the ReAct loop, then answer.
 
-        At most ``max_turns`` steps are planned; the code, not the model, decides when the
-        loop ends: on a final-answer step, a step missing nothing more, or once that budget
-        is spent. With the ReAct feature disabled, or no tool available, the loop is skipped
-        and the model answers right away.
+        Each step is a ReAct Thought -> Action -> Observation cycle. The loop ends when the
+        model chooses the final answer, or once a budget is spent: ``max_turns`` planned
+        steps, or the controller's tool-call budgets. With the ReAct feature disabled, or
+        no tool available, the loop is skipped and the model answers right away.
 
         Args:
             prompt: User message prompt.
@@ -297,12 +340,14 @@ class Agent:
             raise ValueError(msg)
 
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
-        formatted_tools = self._format_tools()
+        formatted_tools = self._format_tools(await self._usable_tools())
         controller = ReActController(formatted_tools)
         if not self.features.is_enabled(REACT) or not formatted_tools:
             return await self._answer(current_messages, controller)
 
         for _ in range(self.max_turns):
+            if controller.exhausted():
+                break
             if self.ui_handler:
                 await self.ui_handler.start_spinner("Thinking...")
             decision = await self._plan(current_messages, controller)
@@ -311,7 +356,7 @@ class Agent:
             if reason := controller.check(decision):
                 controller.record(decision, "rejected", f"Rejected: {reason}")
                 continue
-            status, observation = await self._run_tool(decision)
-            controller.record(decision, status, observation)
+            status, observation, images = await self._run_tool(decision)
+            controller.record(decision, status, observation, images)
 
         return await self._answer(current_messages, controller)
