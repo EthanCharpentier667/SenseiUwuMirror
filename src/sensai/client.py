@@ -343,7 +343,7 @@ class OllamaClient:
         """
         if model in self._capabilities:
             return self._capabilities[model]
-        url = httpx.URL(self.base_url).join("show")
+        url = httpx.URL(self.base_url.rstrip("/")).join("show")
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as http_client:
                 response = await http_client.post(
