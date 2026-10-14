@@ -101,6 +101,7 @@ class Agent:
         self.features = features or Features()
         self.max_turns = DEFAULT_MAX_STEPS
         self.system_prompt: str | None = None
+        self.read_documents: list[str] = []
 
     def _prepare_messages(
         self,
@@ -213,15 +214,26 @@ class Agent:
                 )
             return "failed", f"Tool '{decision.action}' not found.", []
 
-        images: list[str] = []
-        if isinstance(res, dict) and "images" in res:
-            res = dict(res)
-            images = list(res.pop("images") or [])
+        res, images = self._take_attachments(res)
         if self.ui_handler:
             show_output = bool(getattr(tool, "show_output", False))
             await self.ui_handler.on_tool_call_result(decision.action, res, show_output=show_output)
         observation, images = await self._observe(res, images)
         return "done", observation, images
+
+    def _take_attachments(self, res: Any) -> tuple[Any, list[str]]:
+        """Take a tool result's attachments out of it: its images and its document.
+
+        A dict result's "images" (base64) are returned apart, for the model to look at; its
+        "document" (a file path) is kept in ``read_documents``, for the app to ingest.
+        """
+        if not isinstance(res, dict):
+            return res, []
+        res = dict(res)
+        images = list(res.pop("images", None) or [])
+        if document := res.pop("document", None):
+            self.read_documents.append(document)
+        return res, images
 
     async def _observe(self, res: Any, images: list[str]) -> tuple[str, list[str]]:
         """Turn a tool's result into the observation text and the images the model can see.
@@ -339,6 +351,7 @@ class Agent:
             msg = "max_turns must be at least 1."
             raise ValueError(msg)
 
+        self.read_documents = []
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
         formatted_tools = self._format_tools(await self._usable_tools())
         controller = ReActController(formatted_tools)
