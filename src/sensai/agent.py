@@ -8,6 +8,7 @@ from typing import Any
 from sensai.client import OllamaClient, Response
 from sensai.features.features import MCP, REACT, TOOLS, Features
 from sensai.features.react.react import DEFAULT_MAX_STEPS, Decision, ReActController
+from sensai.features.react.stream import StreamingThoughtExtractor
 from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.ui.protocol import AsyncUIHandler
 
@@ -236,18 +237,25 @@ class Agent:
         if self.ui_handler:
             await self.ui_handler.start_spinner("Thinking...")
         payload = _with_instructions(messages, controller.plan_instructions())
+        on_chunk = self.ui_handler.on_thinking_chunk if self.ui_handler else None
+        extractor = StreamingThoughtExtractor(on_chunk)
         response = await self._chat(
             payload,
             [],
-            stream=False,
+            stream=True,
+            on_chunk=extractor.feed,
             response_format=controller.schema(),
             options=PLAN_OPTIONS,
         )
         decision = controller.parse(response.response)
         if self.ui_handler:
             await self.ui_handler.stop_spinner()
+            if not extractor.has_emitted_thought and decision.thought:
+                await self.ui_handler.on_thinking_chunk(f"{decision.thought}\n")
+            elif extractor.has_emitted_thought:
+                await self.ui_handler.on_thinking_chunk("\n")
             await self.ui_handler.on_thinking_chunk(
-                f"{decision.thought}\n→ {decision.action} (missing: {decision.missing or '-'})\n\n"
+                f"→ {decision.action} (missing: {decision.missing or '-'})\n\n"
             )
         return decision
 
