@@ -1,5 +1,7 @@
 """Interactive CLI application using prompt_toolkit."""
 
+import asyncio
+from pathlib import Path
 from typing import Any
 
 from prompt_toolkit import PromptSession
@@ -10,15 +12,18 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient
 from sensai.config import Config
 from sensai.data.database.database import Database
+from sensai.data.session.document import get_document
 from sensai.data.session.manager import (
     build_messages,
     maybe_compress_session,
     retrieve_chunks,
     update_session,
 )
+from sensai.data.session.message import get_document_ids_by_session
 from sensai.data.session.session import Session
 from sensai.features.features import COMPRESSION, RAG
 from sensai.features.rag.embedder import Embedder
+from sensai.features.rag.rag import ingest_document
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands import setup_builtin_commands
 from sensai.ui.commands.mcp.mcp_commands import MCPCommands
@@ -128,6 +133,8 @@ class CLIApp:
                 raise ValueError(msg)
 
             self.session = updated_session
+            if features.is_enabled(RAG):
+                await self._ingest_read_documents()
 
             if features.is_enabled(COMPRESSION):
                 self.session = await maybe_compress_session(
@@ -141,6 +148,40 @@ class CLIApp:
         finally:
             if self.agent.ui_handler:
                 await self.agent.ui_handler.stop_spinner()
+
+    async def _ingest_read_documents(self) -> None:
+        """Ingest the files the agent read this turn, attached to the turn's user message.
+
+        Later turns then retrieve their relevant chunks, beyond the part of the file the
+        model saw in the tool's (truncated) observation. A file whose content the session
+        already holds (read at an earlier turn, attached on the command line, or reached
+        by another path) is skipped, so its chunks aren't retrieved twice.
+        """
+        if not self.agent.read_documents:
+            return
+        turn_message = next(
+            (message for message in reversed(self.session.messages) if message.role == "user"),
+            None,
+        )
+        if turn_message is None or turn_message.id is None:
+            return
+        known = {
+            document.content
+            for document_id in get_document_ids_by_session(self.database, turn_message.session_id)
+            if (document := get_document(self.database, document_id)) is not None
+        }
+        for path in dict.fromkeys(self.agent.read_documents):
+            try:
+                content = await asyncio.to_thread(Path(path).read_bytes)
+                if content in known:
+                    continue
+                await ingest_document(
+                    self.database, self.embedder, turn_message.id, content, Path(path).name
+                )
+                known.add(content)
+            except (OSError, ValueError) as e:
+                if self.agent.ui_handler:
+                    await self.agent.ui_handler.on_error(e, title=f"RAG: {path}")
 
     async def run(self) -> None:
         """Run the interactive REPL loop."""
