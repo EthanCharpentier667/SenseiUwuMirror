@@ -149,6 +149,7 @@ class OllamaClient:
         self.timeout = timeout
         self.verbose = verbose
         self.num_ctx = num_ctx
+        self._capabilities: dict[str, set[str]] = {}
 
     def _build_headers(self) -> dict[str, str]:
         """Construct authorization and content-type headers."""
@@ -322,6 +323,33 @@ class OllamaClient:
             tool_calls=parsed.tool_calls,
             stop_reason=parsed.done_reason,
         )
+
+    async def capabilities(self, model: str) -> set[str]:
+        """What a model can do (e.g. "vision", "tools"), from Ollama's `/api/show` endpoint.
+
+        The answer is cached per model. If it can't be fetched, the model is assumed to
+        have no capability, so callers fall back to plain text instead of failing.
+
+        Args:
+            model: Name of the Ollama model to inspect.
+
+        Returns:
+            set[str]: The model's capabilities, empty when unknown.
+        """
+        if model in self._capabilities:
+            return self._capabilities[model]
+        url = httpx.URL(self.base_url).join("show")
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as http_client:
+                response = await http_client.post(
+                    url, headers=self._build_headers(), json={"model": model}
+                )
+                response.raise_for_status()
+                data = cast("dict[str, Any]", response.json())
+        except (httpx.HTTPError, ValueError):
+            return set()
+        self._capabilities[model] = set(data.get("capabilities") or [])
+        return self._capabilities[model]
 
     async def embed(self, inputs: list[str], model: str) -> list[list[float]]:
         """Send an embedding request to Ollama's `/api/embed` endpoint.

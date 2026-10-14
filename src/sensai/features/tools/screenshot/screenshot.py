@@ -34,6 +34,7 @@ class Screenshot(Tool):
                 "properties": {},
             },
             safe=True,
+            requires={"vision"},
         )
 
     def execute(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
