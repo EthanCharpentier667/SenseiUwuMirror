@@ -36,7 +36,8 @@ class FileRead(Tool):
             **kwargs: Keyword arguments for the tool's execution.
 
         Returns:
-            dict[str, Any]: The contents of the specified file.
+            dict[str, Any]: The contents of the specified file. Its "document" key asks
+                the app to ingest the file for RAG, so later turns can retrieve it.
         """
         file_path = kwargs.get("file_path", "Unknown File Path")
         if not isinstance(file_path, str):
@@ -45,4 +46,4 @@ class FileRead(Tool):
             content = Path(file_path).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
             return {"file_path": file_path, "error": str(e)}
-        return {"file_path": file_path, "content": content}
+        return {"file_path": file_path, "content": content, "document": file_path}

@@ -189,6 +189,18 @@ class ImageTool(FakeTool):
         return {"message": "Screenshot saved.", "images": ["aW1n"]}
 
 
+class DocumentTool(FakeTool):
+    """Fake tool returning a document to ingest, like the file read tool."""
+
+    name = "file_read"
+
+    def define(self) -> dict[str, Any]:
+        return {"type": "function", "function": {"name": "file_read"}}
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]  # noqa: ARG002
+        return {"content": "notes", "document": "notes.md"}
+
+
 class BrokenTool(FakeTool):
     """Fake tool that always raises."""
 
@@ -516,6 +528,23 @@ async def test_agent_shows_tool_images_to_a_vision_model_only_for_this_run() -> 
         ("user", "What is on my screen?"),
         ("assistant", "A terminal."),
     ]
+
+
+@pytest.mark.asyncio
+async def test_agent_keeps_the_documents_tools_read_for_this_run_only() -> None:
+    client = ScriptedClient(steps=[_step("file_read")], answer="Notes.")
+    ui = MockUIHandler()
+    agent = Agent(tools=[DocumentTool()], trust_level="total", ui_handler=ui, client=client)
+
+    await agent.run("Read my notes.")
+
+    assert agent.read_documents == ["notes.md"]
+    assert ui.tool_results == [("file_read", {"content": "notes"})]
+    assert "notes.md" not in _trajectory(client.plans[1])
+
+    await agent.run("Hello.")
+
+    assert agent.read_documents == []
 
 
 @pytest.mark.asyncio
