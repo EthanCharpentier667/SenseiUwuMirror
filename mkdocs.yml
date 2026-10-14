@@ -74,4 +74,5 @@ nav:
   - Home: index.md
   - Event System & UI: events.md
   - MCP connections: mcp-server.md
+  - Benchmark Ollama: benchmark.md
   - API Reference: reference/
