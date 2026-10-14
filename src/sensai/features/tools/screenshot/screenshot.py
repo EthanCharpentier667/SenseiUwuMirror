@@ -33,7 +33,7 @@ class Screenshot(Tool):
                 "required": [],
                 "properties": {},
             },
-            safe=True,
+            safe=False,
             requires={"vision"},
         )
 
