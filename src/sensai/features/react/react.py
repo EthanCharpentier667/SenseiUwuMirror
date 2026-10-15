@@ -36,6 +36,10 @@ PLAN_PROMPT = (
     "Your previous steps for the user's latest message, if any, follow it: each of your "
     "actions, then its observation."
 )
+JSON_PROMPT = (
+    "Reply with only a JSON object, nothing before or after it: "
+    '{{"thought": "...", "action": "<one of: {actions}>", "args": {{...}}}}'
+)
 ANSWER_PROMPT = (
     "Notes prepared for the user's latest message (the user has not seen them):\n"
     "{notes}\n\n"
@@ -147,12 +151,17 @@ class ReActController:
     def parse(self, raw: str) -> Decision:
         """Read the model's step. Anything unreadable ends the loop with a final answer.
 
+        The JSON object may be surrounded by other text (e.g. a Markdown code fence, or a
+        stray closing brace), as when the schema couldn't be enforced (see
+        ``json_instructions``): the first complete object is read, the rest ignored.
+
         Arguments a known tool doesn't declare are dropped (the model tends to copy other
         fields, like its thought, into them). The final answer takes none: the model tends
         to write its whole reply there, which the answer step writes anyway.
         """
         try:
-            data = json.loads(raw)
+            start = raw.find("{")
+            data = json.JSONDecoder().raw_decode(raw, start)[0] if start >= 0 else json.loads(raw)
         except json.JSONDecodeError:
             return Decision(thought=raw.strip(), action=FINAL_ANSWER)
         if not isinstance(data, dict):
@@ -267,6 +276,14 @@ class ReActController:
         tools = [self._describe_action(name) for name in self.allowed_actions()[:-1]]
         final = f"- {FINAL_ANSWER}(): stop using tools and reply to the user."
         return PLAN_PROMPT.format(actions="\n".join([*tools, final]), final=FINAL_ANSWER)
+
+    def json_instructions(self) -> str:
+        """The step's JSON shape, spelled out for a model whose output isn't constrained.
+
+        Some servers (e.g. Ollama Cloud) answer nothing when given the schema as
+        ``format``; the step is then asked for in the instructions instead.
+        """
+        return JSON_PROMPT.format(actions=", ".join(self.allowed_actions()))
 
     def answer_instructions(self) -> str | None:
         """System instructions for the reply: the tool results, if any."""
