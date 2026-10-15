@@ -645,3 +645,35 @@ def test_agent_hides_a_single_disabled_tool() -> None:
     assert agent.available_tools() == []
     features.set_tool(tool.name, enabled=True)
     assert agent.available_tools() == [tool]
+
+
+class NoSchemaClient(ScriptedClient):
+    """Mock client of a server answering nothing to a schema, like Ollama Cloud.
+
+    Its planning calls are the non-streamed ones; those sent with a schema get an empty reply.
+    """
+
+    async def chat(self, messages: list[dict[str, Any]], *_args: Any, **kwargs: Any) -> Response:
+        if kwargs.get("stream", True):
+            return await super().chat(messages, **kwargs)
+        self.plans.append({"messages": messages, **kwargs})
+        if kwargs.get("response_format") is not None:
+            return _make_response("")
+        return _make_response(self.steps.pop(0) if self.steps else _step(FINAL_ANSWER))
+
+
+@pytest.mark.asyncio
+async def test_agent_plans_without_the_schema_once_the_server_ignores_it() -> None:
+    client = NoSchemaClient(steps=[_step("calculator", {"expr": "2+2"})], answer="4.")
+    agent = Agent(tools=[FakeTool()], trust_level="total", client=client)
+
+    result = await agent.run("What is 2+2?")
+
+    assert result.response == "4."
+    assert [call.get("response_format") is not None for call in client.plans] == [
+        True,
+        False,
+        False,
+    ]
+    assert '"action": "<one of: calculator, final_answer>"' in _instructions(client.plans[1])
+    assert "result: 2+2" in _system_texts(client.answers[0])
