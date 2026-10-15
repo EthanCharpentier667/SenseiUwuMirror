@@ -69,6 +69,15 @@ def test_failed_or_refused_calls_do_not_spend_budget() -> None:
             Decision("t", FINAL_ANSWER),
         ),
         ('{"thought": "t", "action": "web_search", "args": "bad"}', Decision("t", "web_search")),
+        (
+            'Ok:\n```json\n{"thought": "t", "action": "web_search", "args": {"query": "x"}}\n```',
+            Decision("t", "web_search", {"query": "x"}),
+        ),
+        (
+            '{"thought": "t", "action": "web_search", "args": {"query": "x"}}}',
+            Decision("t", "web_search", {"query": "x"}),
+        ),
+        ("", Decision("", FINAL_ANSWER)),
         ("plain text", Decision("plain text", FINAL_ANSWER)),
         ("[1, 2]", Decision("[1, 2]", FINAL_ANSWER)),
     ],
@@ -230,3 +239,9 @@ def test_images_only_come_from_done_steps_and_are_noted_in_the_observation() -> 
         "01234… [truncated]\n[1 image(s) from this tool are attached to the user's latest message.]"
     )
     assert controller.steps[2].observation == "r"
+
+
+def test_json_instructions_spell_out_the_allowed_actions() -> None:
+    instructions = ReActController([SEARCH]).json_instructions()
+
+    assert f'"action": "<one of: web_search, {FINAL_ANSWER}>"' in instructions
