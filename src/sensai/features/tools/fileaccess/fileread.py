@@ -44,6 +44,8 @@ class FileRead(Tool):
         file_path = kwargs.get("file_path", "Unknown File Path")
         if not isinstance(file_path, str):
             return {"file_path": file_path, "error": "Invalid file path. Must be a string."}
+        if not Path(file_path).is_file():
+            return {"file_path": file_path, "error": "File not found (or not a regular file)."}
         if not can_read_file(file_path=file_path):
             return {"file_path": file_path, "error": "File is not readable (Access Denied)."}
         try:
