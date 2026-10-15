@@ -19,7 +19,7 @@ def test_file_read_reports_an_unreadable_file_without_ingesting_it(tmp_path: Pat
 
     result = FileRead().execute(file_path=str(path))
 
-    assert set(result) == {"file_path", "error"}
+    assert result == {"file_path": str(path), "error": "File not found (or not a regular file)."}
 
 
 def test_file_read_rejects_a_path_that_is_not_a_string() -> None:
