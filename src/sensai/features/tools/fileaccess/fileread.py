@@ -5,6 +5,8 @@ from typing import Any
 
 from sensai.features.tools.tool import Tool
 
+from .fileperms import can_read_file
+
 
 class FileRead(Tool):
     """Tool reading a file's contents for the model."""
@@ -42,6 +44,8 @@ class FileRead(Tool):
         file_path = kwargs.get("file_path", "Unknown File Path")
         if not isinstance(file_path, str):
             return {"file_path": file_path, "error": "Invalid file path. Must be a string."}
+        if not can_read_file(file_path=file_path):
+            return {"file_path": file_path, "error": "File is not readable (Access Denied)."}
         try:
             content = Path(file_path).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
