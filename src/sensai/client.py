@@ -224,6 +224,9 @@ class OllamaClient:
             raise RuntimeError(msg)
 
         msg_obj = data.get("message", {})
+        if self.verbose:
+            raw = {key: msg_obj.get(key) for key in ("content", "thinking", "tool_calls")}
+            print(f"Received from Ollama: {raw} (done_reason={data.get('done_reason')})")  # noqa: T201
         return ChatResult(
             text=msg_obj.get("content", ""),
             tool_calls=msg_obj.get("tool_calls", []),

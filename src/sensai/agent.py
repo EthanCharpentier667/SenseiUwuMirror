@@ -102,6 +102,7 @@ class Agent:
         self.max_turns = DEFAULT_MAX_STEPS
         self.system_prompt: str | None = None
         self.read_documents: list[str] = []
+        self._unconstrained_models: set[str] = set()
 
     def _prepare_messages(
         self,
@@ -290,22 +291,41 @@ class Agent:
         for something the user said. The trajectory comes after the user's message, so
         the model reads the last observation last, and the images tools returned are sent
         along, so it can observe them before choosing its next action.
+
+        A server answering nothing to the schema (e.g. Ollama Cloud) is asked again with
+        the JSON shape spelled out in the instructions instead, and so is every later
+        step of that model, without trying the schema first.
         """
         if self.ui_handler:
             await self.ui_handler.start_spinner("Thinking...")
         payload = _with_images(messages, controller.images())
-        payload = _with_instructions(payload, controller.plan_instructions())
-        payload = [*payload, *controller.trajectory()]
         on_chunk = self.ui_handler.on_thinking_chunk if self.ui_handler else None
         extractor = StreamingThoughtExtractor(on_chunk)
-        response = await self._chat(
-            payload,
-            [],
-            stream=True,
-            on_chunk=extractor.feed,
-            response_format=controller.schema(),
-            options=PLAN_OPTIONS,
-        )
+        response = None
+        if self.model not in self._unconstrained_models:
+            response = await self._chat(
+                [
+                    *_with_instructions(payload, controller.plan_instructions()),
+                    *controller.trajectory(),
+                ],
+                [],
+                stream=True,
+                on_chunk=extractor.feed,
+                response_format=controller.schema(),
+                options=PLAN_OPTIONS,
+            )
+            if not response.response.strip():
+                self._unconstrained_models.add(self.model)
+                response = None
+        if response is None:
+            instructions = f"{controller.plan_instructions()}\n\n{controller.json_instructions()}"
+            response = await self._chat(
+                [*_with_instructions(payload, instructions), *controller.trajectory()],
+                [],
+                stream=True,
+                on_chunk=extractor.feed,
+                options=PLAN_OPTIONS,
+            )
         decision = controller.parse(response.response)
         if self.ui_handler:
             await self.ui_handler.stop_spinner()
