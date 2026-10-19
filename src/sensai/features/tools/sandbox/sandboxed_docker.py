@@ -71,7 +71,7 @@ class SandboxedDocker:
             mem_limit="512m",  # Limit memory usage
             read_only=True,
             tmpfs={
-                "/workspace": "rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
+                "/workspace": "rw,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
                 "/tmp": (  # noqa: S108 - Private, size-limited container mount.
                     "rw,noexec,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700"
                 ),

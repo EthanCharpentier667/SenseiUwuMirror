@@ -46,6 +46,10 @@ class SandboxedCode(Tool):
             },
         )
 
+    def run_in_sandbox(self, language: str, code: str) -> Any:
+        """Build the sandbox image and execute code in the worker thread."""
+        return SandboxedDocker(language).run_code(code)
+
     async def execute(self, *_args: Any, **kwargs: Any) -> dict[str, Any]:
         """Execute the provided code in a sandboxed environment.
 
@@ -58,6 +62,5 @@ class SandboxedCode(Tool):
         """
         code = kwargs.get("code", "")
         language = kwargs.get("language", "python").lower()
-        docker_sandbox = SandboxedDocker(language)
-        docker_output = await asyncio.to_thread(docker_sandbox.run_code, code)
+        docker_output = await asyncio.to_thread(self.run_in_sandbox, language, code)
         return {"result": f"Executed code: {code}", "output": docker_output}
