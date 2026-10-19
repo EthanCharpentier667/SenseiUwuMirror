@@ -1,7 +1,7 @@
 """Tests for OAuth storage, callback handling and the SDK authorization flow."""
 
 from unittest.mock import AsyncMock, Mock
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx2
 import pytest
@@ -11,6 +11,17 @@ from mcp.shared.auth import OAuthToken
 from sensai.features.mcp.oauth import OAuth, open_browser, wait_for_callback
 from sensai.features.mcp.oauth_config import OAuthConfig
 from sensai.features.mcp.token_storage import TokenStorage
+
+
+def _token_response(request: httpx2.Request, payload: dict[str, str | int]) -> httpx2.Response:
+    """Simulate GitHub's content negotiation at its token endpoint."""
+    if request.headers.get("Accept") != "application/json":
+        return httpx2.Response(
+            200,
+            text=urlencode(payload),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+    return httpx2.Response(200, json=payload)
 
 
 @pytest.mark.asyncio
@@ -114,17 +125,15 @@ async def test_oauth_flow_obtains_and_reuses_tokens(monkeypatch, expires_in, red
             )
         if request.url.path == "/token":
             token_requests.append(parse_qs(request.content.decode()))
-            return httpx2.Response(
-                200,
-                json={
-                    "access_token": "test-access",
-                    "token_type": "Bearer",
-                    "refresh_token": "test-refresh",
-                    "expires_in": 3600
-                    if token_requests[-1]["grant_type"] == ["refresh_token"]
-                    else expires_in,
-                },
-            )
+            payload: dict[str, str | int] = {
+                "access_token": "test-access",
+                "token_type": "Bearer",
+                "refresh_token": "test-refresh",
+                "expires_in": 3600
+                if token_requests[-1]["grant_type"] == ["refresh_token"]
+                else expires_in,
+            }
+            return _token_response(request, payload)
         pytest.fail(f"Unexpected OAuth request: {request.url}")
 
     async with httpx2.AsyncClient(auth=oauth, transport=httpx2.MockTransport(respond)) as client:
