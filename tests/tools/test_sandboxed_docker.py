@@ -142,7 +142,7 @@ def test_writes_are_restricted_to_size_limited_tmpfs(container: Mock) -> None:
     config = docker.from_env().containers.run.call_args.kwargs
     assert config["read_only"] is True
     assert config["tmpfs"] == {
-        "/workspace": "rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
+        "/workspace": "rw,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
         "/tmp": (  # noqa: S108 - Private container mount, not a host temporary file.
             "rw,noexec,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=0700"
         ),
