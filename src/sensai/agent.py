@@ -83,6 +83,7 @@ class Agent:
         self.features = features or Features()
         self.max_turns = DEFAULT_MAX_STEPS
         self.system_prompt: str | None = None
+        self.structured_output_schema: dict[str, Any] | None = None
 
     def _prepare_messages(
         self,
@@ -206,9 +207,13 @@ class Agent:
         **kwargs: Any,
     ) -> Response:
         """Send a chat request, reporting any error to the UI before re-raising it."""
+        kwargs.setdefault("response_format", self.structured_output_schema)
         try:
             return await self.client.chat(
-                messages=messages, model=self.model, tools=formatted_tools, **kwargs
+                messages=messages,
+                model=self.model,
+                tools=formatted_tools,
+                **kwargs,
             )
         except Exception as e:
             if self.ui_handler:
