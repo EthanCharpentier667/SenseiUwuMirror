@@ -1,8 +1,5 @@
 """Regression tests for sandbox container cleanup."""
 
-import io
-import socket
-import tarfile
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -10,9 +7,12 @@ import docker
 import pytest
 from requests.exceptions import ReadTimeout
 
-import sensai.features.tools.sandbox.sandboxed_docker as sandbox_module
-from sensai.features.tools.sandbox.sandboxed_docker import MAX_OUTPUT_BYTES, SandboxedDocker
-from sensai.features.tools.sandbox.sandboxed_docker import copy_project as send_project
+from sensai.features.tools.sandbox.sandboxed_docker import (
+    DOCKERFILE_BASH,
+    DOCKERFILE_PYTHON,
+    MAX_OUTPUT_BYTES,
+    SandboxedDocker,
+)
 
 APIError = docker.errors.APIError
 
@@ -24,15 +24,51 @@ def container(monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock_container.logs.return_value = (chunk for chunk in [b"hello\n"])
     client = Mock()
     client.containers.run.return_value = mock_container
+    client.images.build.return_value = (Mock(id="sandbox-image"), [])
     monkeypatch.setattr(docker, "from_env", Mock(return_value=client))
-    monkeypatch.setattr(SandboxedDocker, "_build_image_python", Mock(return_value="sandbox-image"))
-    monkeypatch.setattr(SandboxedDocker, "_build_image_bash", Mock(return_value="bash-image"))
     return mock_container
 
 
 def test_success_returns_output_and_removes_container(container: Mock) -> None:
     assert SandboxedDocker("python").run_code("print('hello')") == "hello\n"
 
+    container.wait.assert_called_once_with(timeout=20)
+    container.remove.assert_called_once_with(force=True)
+
+
+@pytest.mark.parametrize(
+    ("language", "dockerfile"),
+    [("python", DOCKERFILE_PYTHON), ("bash", DOCKERFILE_BASH)],
+)
+def test_build_selects_requested_dockerfile(
+    container: Mock, language: str, dockerfile: str
+) -> None:
+    sandbox = SandboxedDocker(language)
+
+    build = docker.from_env().images.build
+    build.assert_called_once()
+    assert build.call_args.kwargs["dockerfile"] == dockerfile
+    assert (Path(build.call_args.kwargs["path"]) / dockerfile).is_file()
+    assert sandbox.image == "sandbox-image"
+
+
+def test_unsupported_language_does_not_build_an_image(container: Mock) -> None:
+    with pytest.raises(ValueError, match="Unsupported type"):
+        SandboxedDocker("javascript")
+
+    docker.from_env().images.build.assert_not_called()
+
+
+def test_bash_forwards_command_and_reads_container_output(container: Mock) -> None:
+    code = 'printf "%s\\n" "Bash works"'
+
+    assert SandboxedDocker("bash").run_code(code) == "hello\n"
+
+    config = docker.from_env().containers.run.call_args.kwargs
+    assert config["command"] == ["-c", code]
+    assert config["image"] == "sandbox-image"
+    assert config["stdin_open"] is True
+    container.attach_socket.assert_not_called()
     container.wait.assert_called_once_with(timeout=20)
     container.remove.assert_called_once_with(force=True)
 
@@ -145,64 +181,3 @@ def test_truncation_omits_incomplete_utf8_character(container: Mock) -> None:
     container.logs.return_value = (chunk for chunk in [prefix, "é".encode()])
 
     assert SandboxedDocker("python").run_code("print('hello')") == prefix.decode()
-
-
-def test_project_archive_is_sent_to_stdin_without_hidden_files(
-    container: Mock, tmp_path: Path
-) -> None:
-    (tmp_path / "main.c").write_text("int main(void) { return 0; }", encoding="utf-8")
-    (tmp_path / ".env").write_text("SECRET=example", encoding="utf-8")
-    (tmp_path / ".git").mkdir()
-    (tmp_path / ".git" / "config").write_text("private", encoding="utf-8")
-    transport = Mock()
-    connection = Mock(_sock=transport)
-    container.attach_socket.return_value = connection
-
-    send_project(container, tmp_path)
-
-    data = b"".join(call.args[0] for call in transport.sendall.call_args_list)
-    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-        assert archive.getnames() == [".", "./main.c"]
-        content = archive.extractfile("./main.c")
-        assert content is not None
-        assert content.read() == b"int main(void) { return 0; }"
-        assert archive.getmember("./main.c").uid == 10001
-
-    container.put_archive.assert_not_called()
-    container.attach_socket.assert_called_once_with(params={"stdin": True, "stream": True})
-    transport.shutdown.assert_called_once_with(socket.SHUT_WR)
-    connection.close.assert_called_once_with()
-
-
-def test_bash_extracts_project_before_running_code(
-    container: Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    copy = Mock()
-    monkeypatch.setattr(sandbox_module, "copy_project", copy)
-    code = 'printf "%s" "quoted command"'
-
-    assert SandboxedDocker("bash").run_code(code) == "hello\n"
-
-    config = docker.from_env().containers.run.call_args.kwargs
-    assert config["read_only"] is True
-    assert config["stdin_open"] is True
-    command = config["command"]
-    assert "tar --extract" in command[1]
-    assert '&& exec /bin/bash -c "$1"' in command[1]
-    assert command[-1] == code
-    copy.assert_called_once_with(container, Path.cwd())
-    container.remove.assert_called_once_with(force=True)
-
-
-def test_project_transfer_failure_still_removes_container(
-    container: Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        sandbox_module, "copy_project", Mock(side_effect=OSError("Transfer failed"))
-    )
-
-    with pytest.raises(OSError, match="Transfer failed"):
-        SandboxedDocker("bash").run_code("ls")
-
-    container.wait.assert_not_called()
-    container.remove.assert_called_once_with(force=True)
