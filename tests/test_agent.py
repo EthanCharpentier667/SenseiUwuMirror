@@ -650,11 +650,11 @@ def test_agent_hides_a_single_disabled_tool() -> None:
 class NoSchemaClient(ScriptedClient):
     """Mock client of a server answering nothing to a schema, like Ollama Cloud.
 
-    Its planning calls are the non-streamed ones; those sent with a schema get an empty reply.
+    Its planning calls are those sent with options; those sent with a schema get an empty reply.
     """
 
     async def chat(self, messages: list[dict[str, Any]], *_args: Any, **kwargs: Any) -> Response:
-        if kwargs.get("stream", True):
+        if "options" not in kwargs:
             return await super().chat(messages, **kwargs)
         self.plans.append({"messages": messages, **kwargs})
         if kwargs.get("response_format") is not None:
