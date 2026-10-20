@@ -3,6 +3,7 @@
 import json
 import re
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -10,7 +11,7 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient, Response
 from sensai.data.session.message import Message
 from sensai.features.features import MCP, REACT, TOOLS, Features
-from sensai.features.react.react import FINAL_ANSWER
+from sensai.features.react.react import FINAL_ANSWER, ReActController
 from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.ui.protocol import AsyncUIHandler
 
@@ -258,6 +259,39 @@ async def test_agent_answers_directly_without_tools() -> None:
         ("user", "Hi"),
         ("assistant", "Hello!"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_agent_passes_output_schema_to_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    from sensai.config import Config  # noqa: PLC0415
+    from sensai.core.setup import setup_ai_engine  # noqa: PLC0415
+
+    config = Config()
+    config.parse_args(["--output-schema", '{"type":"object","required":["name"]}'])
+    monkeypatch.setattr("sensai.core.setup.get_tools", list)
+    client, agent = setup_ai_engine(config)
+    chat = AsyncMock(return_value=_make_response('{"name":"eliott"}'))
+    monkeypatch.setattr(client, "chat", chat)
+
+    result = await agent.run("My name is Eliott.")
+
+    assert result.response == '{"name":"eliott"}'
+    assert chat.await_count == 1
+    assert chat.call_args.kwargs["response_format"] == config.output_schema
+    assert "format" not in chat.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_agent_preserves_planning_schema_with_structured_output() -> None:
+    client = ScriptedClient(steps=[_step(FINAL_ANSWER)])
+    agent = Agent(client=client)
+    agent.structured_output_schema = {"type": "object", "required": ["name"]}
+    controller = ReActController([])
+
+    decision = await agent._plan([{"role": "user", "content": "Hi"}], controller)  # noqa: SLF001
+
+    assert decision.action == FINAL_ANSWER
+    assert client.plans[0]["response_format"] == controller.schema()
 
 
 @pytest.mark.asyncio

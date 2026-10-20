@@ -44,6 +44,7 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         client=client,
         features=config.features,
     )
+    agent.structured_output_schema = config.output_schema
     return client, agent
 
 

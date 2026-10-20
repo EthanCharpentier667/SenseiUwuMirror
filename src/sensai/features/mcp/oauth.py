@@ -4,6 +4,7 @@ import asyncio
 import webbrowser
 from urllib.parse import parse_qs, urlparse
 
+import httpx2
 from mcp.client.auth import AuthorizationCodeResult, OAuthClientProvider
 from prompt_toolkit import PromptSession, print_formatted_text
 
@@ -52,3 +53,17 @@ class OAuth(OAuthClientProvider):
             redirect_handler=open_browser,
             callback_handler=wait_for_callback,
         )
+
+    async def _exchange_token_authorization_code(
+        self, auth_code: str, code_verifier: str
+    ) -> httpx2.Request:
+        """Request JSON tokens from providers that otherwise return form data."""
+        request = await super()._exchange_token_authorization_code(auth_code, code_verifier)
+        request.headers["Accept"] = "application/json"
+        return request
+
+    async def _refresh_token(self) -> httpx2.Request:
+        """Keep token refresh responses in the JSON format expected by the SDK."""
+        request = await super()._refresh_token()
+        request.headers["Accept"] = "application/json"
+        return request

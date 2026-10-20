@@ -25,6 +25,27 @@ def test_config_uses_defaults_when_no_arguments_are_given() -> None:
     assert config.db_name == DEFAULT_DB_NAME
     assert config.compression_threshold == DEFAULT_COMPRESSION_TOKEN_THRESHOLD
     assert config.num_ctx == DEFAULT_NUM_CTX
+    assert config.output_schema is None
+
+
+def test_config_parses_output_schema() -> None:
+    config = Config()
+    config.parse_args(["--output-schema", '{"type":"object","required":["name"]}'])
+
+    assert config.output_schema == {"type": "object", "required": ["name"]}
+
+
+@pytest.mark.parametrize("value", ["not json", "[]", "null", '"object"'])
+def test_config_rejects_invalid_output_schema(
+    value: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = Config()
+
+    with pytest.raises(SystemExit) as exc:
+        config.parse_args(["--output-schema", value])
+
+    assert exc.value.code == 2
+    assert "--output-schema" in capsys.readouterr().err
 
 
 def test_config_parses_provided_arguments(tmp_path: Path) -> None:

@@ -1,6 +1,7 @@
 """Configuration for the Sensai CLI."""
 
-from argparse import SUPPRESS, ArgumentParser, Namespace
+import json
+from argparse import SUPPRESS, ArgumentParser, ArgumentTypeError, Namespace
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,17 @@ DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
 DEFAULT_NUM_CTX = 16384
 DEFAULT_PERSONAS_FILE = "personas.json"
+
+
+def _parse_output_schema(value: str) -> dict[str, Any]:
+    """Parse an inline JSON schema supplied on the command line."""
+    try:
+        schema = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ArgumentTypeError(f"invalid JSON: {exc.msg}") from exc
+    if not isinstance(schema, dict):
+        raise ArgumentTypeError("the output schema must be a JSON object")
+    return schema
 
 
 class Config:
@@ -53,6 +65,13 @@ class Config:
             "--model",
             default=DEFAULT_MODEL,
             help=f"The LLM model to use. Default: {DEFAULT_MODEL}.",
+        )
+        self.add_argument(
+            "--output-schema",
+            type=_parse_output_schema,
+            default=None,
+            metavar="JSON",
+            help="JSON Schema for final responses, supplied as an inline JSON object.",
         )
         self.add_argument(
             "--url",
@@ -160,6 +179,12 @@ class Config:
         if self.args is None:
             return self.parse_args()
         return self.args
+
+    @property
+    def output_schema(self) -> dict[str, Any] | None:
+        """The optional JSON schema for final agent responses."""
+        schema: dict[str, Any] | None = self._parsed().output_schema
+        return schema
 
     @property
     def model(self) -> str:

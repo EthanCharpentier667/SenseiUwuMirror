@@ -51,6 +51,17 @@ This command creates the `.venv` virtual environment, installs the project, and 
 uv run sensai
 ```
 
+To request final responses matching a JSON Schema, pass an inline JSON object:
+
+```bash
+uv run sensai --output-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"],"additionalProperties":false}'
+```
+
+For example, ask: `Eliott is 23 years old. Extract his name and age.`
+The schema applies to final responses throughout this run. The CLI checks that the
+argument is a JSON object and passes it to Ollama's `format` parameter; local
+response validation and bounded retries are not implemented yet.
+
 To add a Python dependency to the project:
 
 ```bash
