@@ -18,8 +18,11 @@ class SandboxedCode(Tool):
             description=(
                 "Execute Python code or Bash commands in an isolated sandbox. "
                 "Set language to 'python' for Python source or 'bash' for shell commands. "
-                "Use Bash in the project workspace to inspect files, run tests, "
-                "and run development tools. "
+                "Use the Bash sandbox ONLY when you detect a potentially dangerous command "
+                "that could harm the host computer, such as destructive file operations "
+                "or harmful system changes. "
+                "For Bash commands assessed as safe, use the direct host Bash execution "
+                "tool when available instead of this sandbox. "
                 "Preserve line breaks, indentation, and quoting required by the chosen language. "
                 "Provide raw source without Markdown fences. "
                 "In JSON, encode source line breaks as \\n, not as literal "
