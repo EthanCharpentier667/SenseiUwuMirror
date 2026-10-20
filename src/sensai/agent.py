@@ -296,6 +296,8 @@ class Agent:
         payload = _with_images(messages, controller.images())
         payload = _with_instructions(payload, controller.plan_instructions())
         payload = [*payload, *controller.trajectory()]
+        on_chunk = self.ui_handler.on_thinking_chunk if self.ui_handler else None
+        extractor = StreamingThoughtExtractor(on_chunk)
         response = await self._chat(
             payload,
             [],
@@ -307,10 +309,12 @@ class Agent:
         decision = controller.parse(response.response)
         if self.ui_handler:
             await self.ui_handler.stop_spinner()
+            if not extractor.has_emitted_thought and decision.thought:
+                await self.ui_handler.on_thinking_chunk(f"{decision.thought}\n")
+            elif extractor.has_emitted_thought:
+                await self.ui_handler.on_thinking_chunk("\n")
             args = f" {json.dumps(decision.args, ensure_ascii=False)}" if decision.args else ""
-            await self.ui_handler.on_thinking_chunk(
-                f"{decision.thought}\n→ {decision.action}{args}\n\n"
-            )
+            await self.ui_handler.on_thinking_chunk(f"→ {decision.action}{args}\n\n")
         return decision
 
     async def _answer(

@@ -489,7 +489,7 @@ async def test_agent_keeps_acting_until_the_model_chooses_the_final_answer() -> 
     trajectory = _trajectory(client.plans[2])
     assert '{"thought": "Compute it.", "action": "calculator"' in trajectory
     assert "Observation: async result: 2*2" in trajectory
-    assert ui.thinking[0] == 'Compute it.\n→ calculator {"expr": "2+2"}\n\n'
+    assert ui.thinking[:2] == ["Compute it.\n", '→ calculator {"expr": "2+2"}\n\n']
 
 
 @pytest.mark.asyncio
