@@ -7,6 +7,7 @@ from mcp import Client
 from mcp.types import CallToolResult, ListToolsResult, TextContent
 from mcp.types import Tool as MCPToolDefinition
 
+from sensai.features.tools.bash import BashJobTool, BashTool
 from sensai.features.tools.fileaccess.fileread import FileRead
 from sensai.features.tools.fileaccess.filewrite import FileWrite
 from sensai.features.tools.registry import get_mcp_tools, get_tools
@@ -19,13 +20,15 @@ from sensai.features.tools.web_search import WebSearch
 def test_get_tools_returns_tool_instances() -> None:
     tools = get_tools()
 
-    assert len(tools) == 7
+    assert len(tools) == 9
     assert isinstance(tools[0], WebSearch)
     assert isinstance(tools[1], TempToolExample)
     assert isinstance(tools[3], SandboxedCode)
     assert isinstance(tools[4], Screenshot)
     assert isinstance(tools[5], FileRead)
     assert isinstance(tools[6], FileWrite)
+    assert isinstance(tools[7], BashTool)
+    assert isinstance(tools[8], BashJobTool)
 
 
 @pytest.mark.asyncio
@@ -48,7 +51,7 @@ async def test_mcp_tools_are_discovered_and_executed_remotely() -> None:
     remote_tools = await get_mcp_tools(client)
     tools = get_tools() + remote_tools
 
-    assert len(tools) == 8
+    assert len(tools) == 10
     assert len(remote_tools) == 1
     client.call_tool.assert_not_awaited()
     adapter = remote_tools[0]
