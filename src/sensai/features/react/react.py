@@ -11,6 +11,7 @@ can go on.
 
 import json
 from collections import Counter
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -102,6 +103,7 @@ class ReActController:
         max_calls_per_tool: int = DEFAULT_MAX_CALLS_PER_TOOL,
         max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
         observation_limit: int = DEFAULT_OBSERVATION_LIMIT,
+        repeatable: Collection[str] = (),
     ) -> None:
         """Initialize the controller.
 
@@ -110,6 +112,8 @@ class ReActController:
             max_calls_per_tool: How many times a single tool may run in this run.
             max_tool_calls: How many tool runs, all tools together, this run allows.
             observation_limit: Maximum characters of a tool result kept for the model.
+            repeatable: Tools whose same call may run again, its result changing over time
+                (e.g. checking a background job).
         """
         self.functions: dict[str, dict[str, Any]] = {
             function["name"]: function
@@ -119,6 +123,7 @@ class ReActController:
         self.max_calls_per_tool = max_calls_per_tool
         self.max_tool_calls = max_tool_calls
         self.observation_limit = observation_limit
+        self.repeatable = frozenset(repeatable)
         self.steps: list[Step] = []
 
     def allowed_actions(self) -> list[str]:
@@ -188,6 +193,8 @@ class ReActController:
 
     def _already_made(self, decision: Decision) -> int | None:
         """The step at which this exact call already ran (not rejected), if it did."""
+        if decision.action in self.repeatable:
+            return None
         key = _canonical(decision.args)
         for index, step in enumerate(self.steps, start=1):
             same_call = step.decision.action == decision.action

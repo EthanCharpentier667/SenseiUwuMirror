@@ -245,3 +245,11 @@ def test_json_instructions_spell_out_the_allowed_actions() -> None:
     instructions = ReActController([SEARCH]).json_instructions()
 
     assert f'"action": "<one of: web_search, {FINAL_ANSWER}>"' in instructions
+
+
+def test_a_repeatable_tool_may_run_the_same_call_again() -> None:
+    controller = ReActController([SEARCH], repeatable=["web_search"])
+    controller.record(Decision("", "web_search", {"query": "x"}), "done", "r")
+
+    assert not controller.finishes(Decision("again", "web_search", {"query": "x"}))
+    assert controller.check(Decision("again", "web_search", {"query": "x"})) is None

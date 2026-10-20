@@ -377,8 +377,10 @@ class Agent:
 
         self.read_documents = []
         current_messages = self._prepare_messages(prompt, messages, system_prompt)
-        formatted_tools = self._format_tools(await self._usable_tools())
-        controller = ReActController(formatted_tools)
+        usable_tools = await self._usable_tools()
+        formatted_tools = self._format_tools(usable_tools)
+        repeatable = [tool.name for tool in usable_tools if getattr(tool, "repeatable", False)]
+        controller = ReActController(formatted_tools, repeatable=repeatable)
         if not self.features.is_enabled(REACT) or not formatted_tools:
             return await self._answer(current_messages, controller)
 

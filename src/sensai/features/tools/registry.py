@@ -4,6 +4,7 @@ from mcp import Client
 
 from sensai.features.tools.web_fetch import WebFetch
 
+from .bash import BashJobTool, BashTool
 from .fileaccess.fileread import FileRead
 from .fileaccess.filewrite import FileWrite
 from .mcp.mcp_tools import MCPTools
@@ -28,6 +29,8 @@ def get_tools() -> list[Tool]:
         Screenshot(),
         FileRead(),
         FileWrite(),
+        BashTool(),
+        BashJobTool(),
     ]
 
 
