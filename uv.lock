@@ -3,9 +3,9 @@ revision = 3
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform == 'win32'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.12.*' and sys_platform == 'win32'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version < '3.12' and sys_platform == 'win32'",
@@ -476,6 +476,24 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/b7/545d2c10c1fc15e48653c91efde329a790f2eecfbbf2bd16003b5db2bab0/dotenv-0.9.9-py2.py3-none-any.whl", hash = "sha256:29cf74a087b31dafdb5a446b6d7e11cbce8ed2741540e2339c69fbef92c94ce9", size = 1892, upload-time = "2025-02-19T22:15:01.647Z" },
+]
+
+[[package]]
+name = "easyprocess"
+version = "1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/e5/1071ad7de469bf3baae5b04d6c8019876c819c2d428cc1b0f15b4b31fc89/EasyProcess-1.1.tar.gz", hash = "sha256:885898302a57aab948973e8b5d32a4229392b9fb2d986ab1d4ffd590e5ba90ec", size = 11829, upload-time = "2022-01-15T10:58:56.146Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/cf/27d1f4b3bae5e566f94fc716e048120128cf603d5163638d22bcd0fc92d8/EasyProcess-1.1-py3-none-any.whl", hash = "sha256:82eed523a0a5eb12a81fa4eacd9f342caeb3f900eb4b798740e6696ad07e63f9", size = 8660, upload-time = "2022-01-15T10:58:54.473Z" },
+]
+
+[[package]]
+name = "entrypoint2"
+version = "1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/2b/513088059a4bfe89acd8ddb74f9350b399507a0fe6676c3346d54449a5b1/entrypoint2-1.1.tar.gz", hash = "sha256:fc0b7fe7b21acdab47a585ab9407ca7e5c4f96cb6888575db6b0ceb91f0e105a", size = 13393, upload-time = "2022-06-11T06:28:21.619Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/42/ee/84c8990b08efa0265bd10fc8781ef26e3157715bf0dfa47ee3c056b513d4/entrypoint2-1.1-py2.py3-none-any.whl", hash = "sha256:eeb8c327bdb65cdd1668c023a6b110b7e3d1a046fb05e043861ebd9264b3a257", size = 9864, upload-time = "2022-06-11T06:28:19.529Z" },
 ]
 
 [[package]]
@@ -1248,6 +1266,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mss"
+version = "10.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/5d/eee782a6d674f562c946ae6a026f4c595ea2b7b031f290bf9fbf60da09b5/mss-10.2.0.tar.gz", hash = "sha256:ab271860775545e62f29d7b11f82f279ac1048f5bbdd26cfad84830208dbd393", size = 200317, upload-time = "2026-04-23T10:44:57.305Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/c3/313e14f245c79b4c05bd0f3a84a4813aa26fa10f8993aebd91d04c5fad3f/mss-10.2.0-py3-none-any.whl", hash = "sha256:e79f428899280e7e64e38365b5bfed683851ebea807eeaeadaf06eb8e0d67197", size = 67106, upload-time = "2026-04-23T10:44:56.266Z" },
+]
+
+[[package]]
 name = "mypy"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1367,9 +1394,9 @@ version = "2.5.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.13' and sys_platform == 'win32'",
     "python_full_version >= '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.12.*' and sys_platform == 'win32'",
     "python_full_version == '3.12.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
@@ -1804,6 +1831,21 @@ wheels = [
 ]
 
 [[package]]
+name = "pyscreenshot"
+version = "3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "easyprocess" },
+    { name = "entrypoint2" },
+    { name = "jeepney", marker = "sys_platform == 'linux'" },
+    { name = "mss" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/bf/a051bea0ad0fb9877684d0f8b87e0e55970b53b117db80c5f729d6dda762/pyscreenshot-3.1.tar.gz", hash = "sha256:8c0e93f0aef66a6bfe55a86abfced6bd396ae4b4f6cc1e36f04a28ad2625594d", size = 29238, upload-time = "2023-03-12T06:34:24.652Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c6/fb/acc0b5a7251682cd11c67c40a1532ffb1dda71626e9ad7e7ba1e55cc3ae2/pyscreenshot-3.1-py3-none-any.whl", hash = "sha256:73d406d41a0977125bdfd2f6488f0caf1394e84d1d4c1065d5e8b1400b307096", size = 28796, upload-time = "2023-03-12T06:34:22.549Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2140,6 +2182,7 @@ dependencies = [
     { name = "mcp", extra = ["cli"] },
     { name = "peewee" },
     { name = "prompt-toolkit" },
+    { name = "pyscreenshot" },
     { name = "requests" },
     { name = "rich" },
     { name = "semantic-text-splitter" },
@@ -2177,6 +2220,7 @@ requires-dist = [
     { name = "mcp", extras = ["cli"], specifier = ">=2.2.0" },
     { name = "peewee", specifier = ">=4.5.1" },
     { name = "prompt-toolkit", specifier = ">=3.0.0" },
+    { name = "pyscreenshot", specifier = ">=3.1" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "semantic-text-splitter", specifier = ">=0.33.0" },

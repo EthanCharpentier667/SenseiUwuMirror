@@ -196,12 +196,9 @@ async def test_agent_plan_streams_thought_and_action() -> None:
         '{"tho',
         'ught": "Need ',
         'weather info", ',
-        '"missing": "temperature", "action": "final_answer", "args": {}}',
+        '"action": "final_answer", "args": {}}',
     ]
-    full_json = (
-        '{"thought": "Need weather info", "missing": "temperature", '
-        '"action": "final_answer", "args": {}}'
-    )
+    full_json = '{"thought": "Need weather info", "action": "final_answer", "args": {}}'
     client = StreamingPlanClient(chunks, full_json)
     ui = CapturingUIHandler()
     agent = Agent(client=client, ui_handler=ui)
@@ -213,8 +210,7 @@ async def test_agent_plan_streams_thought_and_action() -> None:
         thought="Need weather info",
         action="final_answer",
         args={},
-        missing="temperature",
     )
     thought_output = "".join(ui.thinking)
     assert "Need weather info" in thought_output
-    assert "→ final_answer (missing: temperature)" in thought_output
+    assert "→ final_answer\n" in thought_output

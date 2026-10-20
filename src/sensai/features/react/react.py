@@ -1,13 +1,17 @@
 """Code-owned controller for the agent's constrained ReAct loop.
 
-The model never drives the loop: at each step it only proposes one action, as JSON whose
-shape (and allowed actions) is constrained by a schema built here. The controller then
-validates that proposal, keeps the record of what was done, and the agent's code decides
-whether to run a tool, reject the step, or stop and answer.
+Each step follows ReAct's Thought -> Action -> Observation cycle: the model writes a
+thought and proposes one action, as JSON whose shape (and allowed actions) is constrained
+by a schema built here. The controller validates that proposal and keeps the trajectory,
+replayed after the user's message as assistant (thought and action) and tool
+(observation) messages, so the latest thing the model reads is the last observation.
+The model ends the loop by choosing the final answer; the budgets only bound how long it
+can go on.
 """
 
 import json
 from collections import Counter
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -18,19 +22,24 @@ DEFAULT_MAX_TOOL_CALLS = 3
 DEFAULT_OBSERVATION_LIMIT = 4000
 
 PLAN_PROMPT = (
-    "You are the planning step of an assistant. You do not write the reply to the user "
-    "here: you only choose the next action for the user's latest message.\n\n"
+    "You are the reasoning step of an assistant working in a loop: at each step you think, "
+    "pick one action, then see its result (the observation) at the next step. You do not "
+    "write the reply to the user here.\n\n"
     "Actions:\n{actions}\n\n"
-    "Rules:\n"
-    '- "thought": one or two sentences, in English, on what the conversation and the '
-    "results below already give. Never write the reply here.\n"
-    '- "missing": the information you still need to reply, that is in neither the '
-    'conversation nor the results below. Write "nothing" only if you can already give '
-    "the full reply.\n"
-    '- If "missing" is "nothing", or no tool can help, choose "{final}".\n'
-    '- Otherwise choose one tool and fill "args" with its parameters only.\n'
-    "- Never repeat a call already listed in the steps below.\n\n"
-    "Steps already taken for this message:\n{steps}"
+    "How to choose:\n"
+    '- "thought": in English, reason about what the user asks for and what the '
+    "observations below really contain. Rely on their content, not on which tools ran.\n"
+    "- If the reply needs information you do not have yet and a tool can get it, choose "
+    'that tool and fill "args" with its parameters only.\n'
+    '- Choose "{final}" once the conversation and the observations hold what the reply '
+    "needs, or when no tool can help.\n"
+    "- Never repeat a call you already made: use its observation instead.\n\n"
+    "Your previous steps for the user's latest message, if any, follow it: each of your "
+    "actions, then its observation."
+)
+JSON_PROMPT = (
+    "Reply with only a JSON object, nothing before or after it: "
+    '{{"thought": "...", "action": "<one of: {actions}>", "args": {{...}}}}'
 )
 ANSWER_PROMPT = (
     "Notes prepared for the user's latest message (the user has not seen them):\n"
@@ -39,8 +48,7 @@ ANSWER_PROMPT = (
     "Do not mention the tools."
 )
 FINDINGS_NOTE = "Information gathered with tools:\n{findings}"
-DRAFT_NOTE = "Draft written while planning (check it against the information above):\n{draft}"
-NOTHING_MISSING = {"", "nothing", "none", "nothing missing", "n/a", "na"}
+IMAGES_NOTE = "[{count} image(s) from this tool are attached to the user's latest message.]"
 
 _JSON_TYPES: dict[str, type | tuple[type, ...]] = {
     "string": str,
@@ -54,12 +62,11 @@ _JSON_TYPES: dict[str, type | tuple[type, ...]] = {
 
 @dataclass(frozen=True)
 class Decision:
-    """One step proposed by the model: its reasoning, what it still misses, and its action."""
+    """One step proposed by the model: its reasoning and its action."""
 
     thought: str
     action: str
     args: dict[str, Any] = field(default_factory=dict)
-    missing: str = ""
 
 
 @dataclass
@@ -67,21 +74,19 @@ class Step:
     """A proposed step and what came of it.
 
     ``status`` is "done" (the tool ran), "failed" (it raised), "refused" (the user denied
-    it) or "rejected" (the controller refused it before running anything).
+    it) or "rejected" (the controller refused it before running anything). ``images`` are
+    the base64 images the tool returned, kept apart from the text observation.
     """
 
     decision: Decision
     status: str
     observation: str
+    images: list[str] = field(default_factory=list)
 
 
 def _canonical(args: dict[str, Any]) -> str:
     """A stable key for a set of arguments, to spot a call made twice."""
     return json.dumps(args, sort_keys=True, ensure_ascii=False)
-
-
-def _nothing_missing(missing: str) -> bool:
-    return missing.strip().strip(".!").lower() in NOTHING_MISSING
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -98,6 +103,7 @@ class ReActController:
         max_calls_per_tool: int = DEFAULT_MAX_CALLS_PER_TOOL,
         max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
         observation_limit: int = DEFAULT_OBSERVATION_LIMIT,
+        repeatable: Collection[str] = (),
     ) -> None:
         """Initialize the controller.
 
@@ -106,6 +112,8 @@ class ReActController:
             max_calls_per_tool: How many times a single tool may run in this run.
             max_tool_calls: How many tool runs, all tools together, this run allows.
             observation_limit: Maximum characters of a tool result kept for the model.
+            repeatable: Tools whose same call may run again, its result changing over time
+                (e.g. checking a background job).
         """
         self.functions: dict[str, dict[str, Any]] = {
             function["name"]: function
@@ -115,8 +123,8 @@ class ReActController:
         self.max_calls_per_tool = max_calls_per_tool
         self.max_tool_calls = max_tool_calls
         self.observation_limit = observation_limit
+        self.repeatable = frozenset(repeatable)
         self.steps: list[Step] = []
-        self.draft: str | None = None
 
     def allowed_actions(self) -> list[str]:
         """Tools that still have call budget left, then the final answer."""
@@ -126,31 +134,39 @@ class ReActController:
         tools = [name for name in self.functions if calls[name] < self.max_calls_per_tool]
         return [*tools, FINAL_ANSWER]
 
+    def exhausted(self) -> bool:
+        """Whether no tool can run anymore, so planning another step is pointless."""
+        return self.allowed_actions() == [FINAL_ANSWER]
+
     def schema(self) -> dict[str, Any]:
         """JSON schema the model's next step must follow (Ollama's ``format``).
 
-        ``thought`` then ``missing`` come first, so the model has to say what it still
-        lacks before it commits to an action.
+        ``thought`` comes first, so the model reasons before it commits to an action.
         """
         return {
             "type": "object",
             "properties": {
                 "thought": {"type": "string"},
-                "missing": {"type": "string"},
                 "action": {"type": "string", "enum": self.allowed_actions()},
                 "args": {"type": "object"},
             },
-            "required": ["thought", "missing", "action", "args"],
+            "required": ["thought", "action", "args"],
         }
 
     def parse(self, raw: str) -> Decision:
         """Read the model's step. Anything unreadable ends the loop with a final answer.
 
+        The JSON object may be surrounded by other text (e.g. a Markdown code fence, or a
+        stray closing brace), as when the schema couldn't be enforced (see
+        ``json_instructions``): the first complete object is read, the rest ignored.
+
         Arguments a known tool doesn't declare are dropped (the model tends to copy other
-        fields, like its thought, into them).
+        fields, like its thought, into them). The final answer takes none: the model tends
+        to write its whole reply there, which the answer step writes anyway.
         """
         try:
-            data = json.loads(raw)
+            start = raw.find("{")
+            data = json.JSONDecoder().raw_decode(raw, start)[0] if start >= 0 else json.loads(raw)
         except json.JSONDecodeError:
             return Decision(thought=raw.strip(), action=FINAL_ANSWER)
         if not isinstance(data, dict):
@@ -162,29 +178,29 @@ class ReActController:
             parameters = self.functions[action].get("parameters") or {}
             declared = parameters.get("properties", {})
             args = {name: value for name, value in args.items() if name in declared}
-        return Decision(
-            thought=str(data.get("thought", "")).strip(),
-            action=action,
-            args=args,
-            missing=str(data.get("missing", "")).strip(),
-        )
+        elif action == FINAL_ANSWER:
+            args = {}
+        return Decision(thought=str(data.get("thought", "")).strip(), action=action, args=args)
 
     def finishes(self, decision: Decision) -> bool:
-        """Whether this step ends the loop, decided by the code rather than the model.
+        """Whether this step ends the loop.
 
-        It does when the model chose the final answer, but also when, with tool results
-        already in hand, it says nothing is missing while still picking a tool: that step's
-        thought then often holds the answer already, so it's kept as a draft for the reply.
-        Before any result, "nothing missing" with a tool is just the model copying the
-        prompt's default value, so the tool call wins.
+        It does when the model chooses the final answer, or proposes a call that already
+        ran: it has nothing new to do, and small models at temperature 0 would otherwise
+        propose that same call again until the step budget is spent.
         """
-        if decision.action == FINAL_ANSWER:
-            return True
-        has_results = any(step.status == "done" for step in self.steps)
-        if has_results and _nothing_missing(decision.missing):
-            self.draft = decision.thought or None
-            return True
-        return False
+        return decision.action == FINAL_ANSWER or self._already_made(decision) is not None
+
+    def _already_made(self, decision: Decision) -> int | None:
+        """The step at which this exact call already ran (not rejected), if it did."""
+        if decision.action in self.repeatable:
+            return None
+        key = _canonical(decision.args)
+        for index, step in enumerate(self.steps, start=1):
+            same_call = step.decision.action == decision.action
+            if same_call and step.status != "rejected" and _canonical(step.decision.args) == key:
+                return index
+        return None
 
     def _arguments_error(self, decision: Decision) -> str | None:
         parameters = self.functions[decision.action].get("parameters") or {}
@@ -206,16 +222,25 @@ class ReActController:
             return f"'{decision.action}' is not available now. Choose one of: {', '.join(allowed)}."
         if error := self._arguments_error(decision):
             return error
-        key = _canonical(decision.args)
-        for index, step in enumerate(self.steps, start=1):
-            same_call = step.decision.action == decision.action
-            if same_call and step.status != "rejected" and _canonical(step.decision.args) == key:
-                return f"this exact call was already made at step {index}; use its result."
+        if (index := self._already_made(decision)) is not None:
+            return f"this exact call was already made at step {index}; use its result."
         return None
 
-    def record(self, decision: Decision, status: str, observation: str) -> None:
-        """Keep a step and its (truncated) result for the next decisions and the answer."""
-        self.steps.append(Step(decision, status, _truncate(observation, self.observation_limit)))
+    def record(
+        self, decision: Decision, status: str, observation: str, images: list[str] | None = None
+    ) -> None:
+        """Keep a step and its (truncated) result for the next decisions and the answer.
+
+        ``images`` (base64) are never truncated; the observation says they are attached.
+        """
+        observation = _truncate(observation, self.observation_limit)
+        if images:
+            observation = f"{observation}\n{IMAGES_NOTE.format(count=len(images))}"
+        self.steps.append(Step(decision, status, observation, images or []))
+
+    def images(self) -> list[str]:
+        """The base64 images the tools that ran returned, for the model to look at."""
+        return [image for step in self.steps if step.status == "done" for image in step.images]
 
     def _describe_action(self, name: str) -> str:
         function = self.functions[name]
@@ -228,35 +253,52 @@ class ReActController:
         description = " ".join(function.get("description", "").split())
         return f"- {name}({params}): {description}"
 
-    def _describe_steps(self) -> str:
-        if not self.steps:
-            return "(none yet)"
-        lines = []
-        for index, step in enumerate(self.steps, start=1):
-            call = f"{step.decision.action} {_canonical(step.decision.args)}"
-            lines.append(f"{index}. {call} -> {step.status}\n   {step.observation}")
-        return "\n".join(lines)
+    def trajectory(self) -> list[dict[str, Any]]:
+        """The steps so far as messages to replay after the user's: action, then observation.
+
+        They are ephemeral: only meant for this run's planning, never for the session.
+        """
+        messages: list[dict[str, Any]] = []
+        for step in self.steps:
+            decision = step.decision
+            action = {"thought": decision.thought, "action": decision.action, "args": decision.args}
+            label = "Observation" if step.status == "done" else f"Observation ({step.status})"
+            messages += [
+                {
+                    "role": "assistant",
+                    "content": json.dumps(action, ensure_ascii=False),
+                    "ephemeral": True,
+                },
+                {
+                    "role": "tool",
+                    "tool_name": decision.action,
+                    "content": f"{label}: {step.observation}",
+                    "ephemeral": True,
+                },
+            ]
+        return messages
 
     def plan_instructions(self) -> str:
-        """System instructions for the next planning call, with the steps taken so far."""
+        """System instructions for the next planning call: the actions it may choose."""
         tools = [self._describe_action(name) for name in self.allowed_actions()[:-1]]
         final = f"- {FINAL_ANSWER}(): stop using tools and reply to the user."
-        return PLAN_PROMPT.format(
-            actions="\n".join([*tools, final]), final=FINAL_ANSWER, steps=self._describe_steps()
-        )
+        return PLAN_PROMPT.format(actions="\n".join([*tools, final]), final=FINAL_ANSWER)
+
+    def json_instructions(self) -> str:
+        """The step's JSON shape, spelled out for a model whose output isn't constrained.
+
+        Some servers (e.g. Ollama Cloud) answer nothing when given the schema as
+        ``format``; the step is then asked for in the instructions instead.
+        """
+        return JSON_PROMPT.format(actions=", ".join(self.allowed_actions()))
 
     def answer_instructions(self) -> str | None:
-        """System instructions for the reply: the tool results and the draft, if any."""
+        """System instructions for the reply: the tool results, if any."""
         findings = [
             f"- {step.decision.action} {_canonical(step.decision.args)}:\n{step.observation}"
             for step in self.steps
             if step.status == "done"
         ]
-        notes = []
-        if findings:
-            notes.append(FINDINGS_NOTE.format(findings="\n\n".join(findings)))
-        if self.draft:
-            notes.append(DRAFT_NOTE.format(draft=self.draft))
-        if not notes:
+        if not findings:
             return None
-        return ANSWER_PROMPT.format(notes="\n\n".join(notes))
+        return ANSWER_PROMPT.format(notes=FINDINGS_NOTE.format(findings="\n\n".join(findings)))
