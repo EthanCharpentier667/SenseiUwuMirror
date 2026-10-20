@@ -11,7 +11,6 @@ from prompt_toolkit.document import Document
 
 def _json_argument(text: str) -> str | None:
     """Read the three complete shell arguments before the unfinished JSON."""
-    # A final separator lets us distinguish a complete name from one still being typed.
     stream = StringIO(text + "\n")
     lexer = shlex.shlex(stream, posix=True)
     lexer.whitespace_split = True

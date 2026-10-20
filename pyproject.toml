@@ -23,6 +23,7 @@ dependencies = [
     "semantic-text-splitter>=0.33.0",
     "markitdown[docx,pdf]>=0.1.8",
     "docker>=6.1.0",
+    "pyscreenshot>=3.1",
 ]
 
 [project.scripts]
