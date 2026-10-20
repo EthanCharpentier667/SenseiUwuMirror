@@ -263,6 +263,11 @@ class OllamaClient:
         Returns:
             Response: The parsed response, including metadata and token usage.
         """
+        should_end_ui_stream = (
+            ui_handler is not None
+            and (on_chunk is None or on_chunk == getattr(ui_handler, "on_stream_chunk", None))
+            and hasattr(ui_handler, "on_stream_end")
+        )
         if on_chunk is None and ui_handler is not None:
             on_chunk = ui_handler.on_stream_chunk
         headers = self._build_headers()
@@ -303,7 +308,7 @@ class OllamaClient:
                         response.raise_for_status()
                         parsed = await self._parse_stream(response, on_chunk)
                 finally:
-                    if ui_handler is not None and hasattr(ui_handler, "on_stream_end"):
+                    if should_end_ui_stream and ui_handler is not None:
                         await ui_handler.on_stream_end()
 
         respond_time = time.time()
