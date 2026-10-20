@@ -16,9 +16,10 @@ class FileWrite(Tool):
         super().__init__(
             name="file_write",
             description=(
-                "Write content to a file."
-                "The file must be accessible and writable by the system."
-                "If the file already exists, it will be overwritten. If it does not exist, it will be created."
+                "Write content to a file. "
+                "The file must be accessible and writable by the system. "
+                "If the file already exists, it will be overwritten. "
+                "If it does not exist, it will be created."
             ),
             tool_type="function",
             parameters={
@@ -52,15 +53,28 @@ class FileWrite(Tool):
         if not isinstance(content, str):
             return {"file_path": file_path, "error": "Invalid content. Must be a string."}
         try:
-            if not can_write_to_file(file_path=file_path):
-                return {"file_path": file_path, "error": "File is not writable (Access Denied)."}
-            if not Path(file_path).parent.exists():
-                return {"file_path": file_path, "error": "Directory does not exist."}
-            if Path(file_path).exists() and not Path(file_path).is_file():
-                return {"file_path": file_path, "error": "Path exists but is not a file."}
-            if not Path(file_path).exists():
-                Path(file_path).touch()
+            error = _check_writable(Path(file_path))
+            if error:
+                return {"file_path": file_path, "error": error}
             Path(file_path).write_text(content, encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
             return {"file_path": file_path, "error": str(e)}
         return {"file_path": file_path, "content": content, "document": file_path}
+
+
+def _check_writable(path: Path) -> str | None:
+    """Return why the file can't be written, or None when it can.
+
+    Args:
+        path (Path): The file to write.
+
+    Returns:
+        str | None: The error message, or None if the file is writable.
+    """
+    if not can_write_to_file(file_path=str(path)):
+        return "File is not writable (Access Denied)."
+    if not path.parent.exists():
+        return "Directory does not exist."
+    if path.exists() and not path.is_file():
+        return "Path exists but is not a file."
+    return None
