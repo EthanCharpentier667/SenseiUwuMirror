@@ -207,7 +207,9 @@ class Agent:
         **kwargs: Any,
     ) -> Response:
         """Send a chat request, reporting any error to the UI before re-raising it."""
-        kwargs.setdefault("response_format", self.structured_output_schema)
+        kwargs.setdefault(
+            "response_format", self.structured_output_schema
+        ) if self.structured_output_schema else None
         try:
             return await self.client.chat(
                 messages=messages,
