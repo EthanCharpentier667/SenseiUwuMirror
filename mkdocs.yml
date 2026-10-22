@@ -72,6 +72,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - "Use case: testing assistant": use-case.md
   - Event System & UI: events.md
   - MCP connections: mcp-server.md
   - Benchmark Ollama: benchmark.md
