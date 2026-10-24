@@ -121,7 +121,7 @@ def _assert_agent_calls(calls: list[dict[str, Any]], expected_route: str | None)
         assert call["messages"] == [{"role": "user", "content": text}]
         tools = call["tools"]
         remote_enabled = expected_route is not None and text == "second question"
-        assert len(tools) == (10 if remote_enabled else 9)
+        assert len(tools) == (15 if remote_enabled else 14)
         assert isinstance(tools[0], WebSearch)
         assert isinstance(tools[1], TempToolExample)
         if remote_enabled:
