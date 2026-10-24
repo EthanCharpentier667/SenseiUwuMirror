@@ -16,15 +16,17 @@ from dataclasses import dataclass, field
 from typing import Any
 
 FINAL_ANSWER = "final_answer"
-DEFAULT_MAX_STEPS = 5
+DEFAULT_MAX_STEPS = 10
 DEFAULT_MAX_CALLS_PER_TOOL = 2
-DEFAULT_MAX_TOOL_CALLS = 3
-DEFAULT_OBSERVATION_LIMIT = 4000
+DEFAULT_MAX_TOOL_CALLS = 10
+DEFAULT_OBSERVATION_LIMIT = 6000
 
 PLAN_PROMPT = (
     "You are the reasoning step of an assistant working in a loop: at each step you think, "
     "pick one action, then see its result (the observation) at the next step. You do not "
     "write the reply to the user here.\n\n"
+    "The tools run on the user's own machine: they reach its files, its screen, its "
+    "terminal and its local servers (localhost included).\n\n"
     "Actions:\n{actions}\n\n"
     "How to choose:\n"
     '- "thought": in English, reason about what the user asks for and what the '
@@ -33,7 +35,9 @@ PLAN_PROMPT = (
     'that tool and fill "args" with its parameters only.\n'
     '- Choose "{final}" once the conversation and the observations hold what the reply '
     "needs, or when no tool can help.\n"
-    "- Never repeat a call you already made: use its observation instead.\n\n"
+    "- Never repeat a call you already made: use its observation instead.\n"
+    "- An observation holding an error means that action failed and changed nothing: "
+    "never assume it worked.\n\n"
     "Your previous steps for the user's latest message, if any, follow it: each of your "
     "actions, then its observation."
 )
@@ -45,9 +49,13 @@ ANSWER_PROMPT = (
     "Notes prepared for the user's latest message (the user has not seen them):\n"
     "{notes}\n\n"
     "Reply to the user's latest message now, using these notes when they are relevant. "
-    "Do not mention the tools."
+    "Do not mention the tools. Report only what the notes show: they are all you could "
+    "do for this message, so never promise to do more later."
 )
-FINDINGS_NOTE = "Information gathered with tools:\n{findings}"
+FINDINGS_NOTE = (
+    "Information gathered with tools (a step marked failed did not happen, so it "
+    "changed nothing):\n{findings}"
+)
 IMAGES_NOTE = "[{count} image(s) from this tool are attached to the user's latest message.]"
 
 _JSON_TYPES: dict[str, type | tuple[type, ...]] = {
@@ -87,6 +95,12 @@ class Step:
 def _canonical(args: dict[str, Any]) -> str:
     """A stable key for a set of arguments, to spot a call made twice."""
     return json.dumps(args, sort_keys=True, ensure_ascii=False)
+
+
+def _first_json(raw: str) -> Any:
+    """The first JSON value in a planning reply, from its first "{" if it has one."""
+    start = raw.find("{")
+    return json.JSONDecoder().raw_decode(raw, start)[0] if start >= 0 else json.loads(raw)
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -153,6 +167,18 @@ class ReActController:
             "required": ["thought", "action", "args"],
         }
 
+    def readable(self, raw: str) -> bool:
+        """Whether a planning reply holds a step at all: a JSON object.
+
+        A server ignoring the schema may answer nothing, or the model's own tool-call
+        syntax (e.g. ``action: web_fetch(url: "…")``), which ``parse`` would read as
+        the final answer, ending the loop before any tool ran.
+        """
+        try:
+            return isinstance(_first_json(raw), dict)
+        except json.JSONDecodeError:
+            return False
+
     def parse(self, raw: str) -> Decision:
         """Read the model's step. Anything unreadable ends the loop with a final answer.
 
@@ -165,8 +191,7 @@ class ReActController:
         to write its whole reply there, which the answer step writes anyway.
         """
         try:
-            start = raw.find("{")
-            data = json.JSONDecoder().raw_decode(raw, start)[0] if start >= 0 else json.loads(raw)
+            data = _first_json(raw)
         except json.JSONDecodeError:
             return Decision(thought=raw.strip(), action=FINAL_ANSWER)
         if not isinstance(data, dict):
@@ -293,11 +318,16 @@ class ReActController:
         return JSON_PROMPT.format(actions=", ".join(self.allowed_actions()))
 
     def answer_instructions(self) -> str | None:
-        """System instructions for the reply: the tool results, if any."""
+        """System instructions for the reply: the tool results, if any.
+
+        Failed steps are kept, marked as such: without them, a reply could report as done
+        an action that failed (e.g. a login whose fields were never filled).
+        """
         findings = [
-            f"- {step.decision.action} {_canonical(step.decision.args)}:\n{step.observation}"
+            f"- {step.decision.action} {_canonical(step.decision.args)}"
+            f"{' (failed)' if step.status == 'failed' else ''}:\n{step.observation}"
             for step in self.steps
-            if step.status == "done"
+            if step.status in {"done", "failed"}
         ]
         if not findings:
             return None

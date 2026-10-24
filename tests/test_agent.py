@@ -190,6 +190,18 @@ class ImageTool(FakeTool):
         return {"message": "Screenshot saved.", "images": ["aW1n"]}
 
 
+class FailingTool(FakeTool):
+    """Fake tool reporting an error in its result, like a browser click on a missing ref."""
+
+    name = "browser_click"
+
+    def define(self) -> dict[str, Any]:
+        return {"type": "function", "function": {"name": "browser_click"}}
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]  # noqa: ARG002
+        return {"error": "No element has ref '3', so nothing was done."}
+
+
 class DocumentTool(FakeTool):
     """Fake tool returning a document to ingest, like the file read tool."""
 
@@ -684,16 +696,41 @@ def test_agent_hides_a_single_disabled_tool() -> None:
 class NoSchemaClient(ScriptedClient):
     """Mock client of a server answering nothing to a schema, like Ollama Cloud.
 
-    Its planning calls are those sent with options; those sent with a schema get an empty reply.
+    Its planning calls are those sent with options; those sent with a schema get
+    ``schema_reply``: nothing, or (like Gemma on Ollama Cloud) the model's own syntax.
     """
+
+    schema_reply = ""
 
     async def chat(self, messages: list[dict[str, Any]], *_args: Any, **kwargs: Any) -> Response:
         if "options" not in kwargs:
             return await super().chat(messages, **kwargs)
         self.plans.append({"messages": messages, **kwargs})
         if kwargs.get("response_format") is not None:
-            return _make_response("")
+            return _make_response(self.schema_reply)
         return _make_response(self.steps.pop(0) if self.steps else _step(FINAL_ANSWER))
+
+
+class NativeSyntaxClient(NoSchemaClient):
+    schema_reply = (
+        'thought\nI will compute it.<channel|>action: calculator(expr: "2+2")<tool_call|>'
+    )
+
+
+@pytest.mark.asyncio
+async def test_agent_plans_without_the_schema_once_the_server_answers_without_json() -> None:
+    client = NativeSyntaxClient(steps=[_step("calculator", {"expr": "2+2"})], answer="4.")
+    agent = Agent(tools=[FakeTool()], trust_level="total", client=client)
+
+    result = await agent.run("What is 2+2?")
+
+    assert result.response == "4."
+    assert [call.get("response_format") is not None for call in client.plans] == [
+        True,
+        False,
+        False,
+    ]
+    assert "result: 2+2" in _system_texts(client.answers[0])
 
 
 @pytest.mark.asyncio
@@ -711,3 +748,14 @@ async def test_agent_plans_without_the_schema_once_the_server_ignores_it() -> No
     ]
     assert '"action": "<one of: calculator, final_answer>"' in _instructions(client.plans[1])
     assert "result: 2+2" in _system_texts(client.answers[0])
+
+
+@pytest.mark.asyncio
+async def test_a_tool_result_with_an_error_is_a_failed_step_and_reported_as_such() -> None:
+    client = ScriptedClient(steps=[_step("browser_click")], answer="The login failed.")
+    agent = Agent(tools=[FailingTool()], trust_level="total", client=client)
+
+    await agent.run("Log in.")
+
+    assert "Observation (failed): " in _trajectory(client.plans[1])
+    assert '- browser_click {} (failed):\n{"error": "No element' in _system_texts(client.answers[0])

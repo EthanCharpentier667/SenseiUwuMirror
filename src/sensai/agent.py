@@ -221,7 +221,8 @@ class Agent:
             show_output = bool(getattr(tool, "show_output", False))
             await self.ui_handler.on_tool_call_result(decision.action, res, show_output=show_output)
         observation, images = await self._observe(res, images)
-        return "done", observation, images
+        status = "failed" if isinstance(res, dict) and res.get("error") else "done"
+        return status, observation, images
 
     def _take_attachments(self, res: Any) -> tuple[Any, list[str]]:
         """Take a tool result's attachments out of it: its images and its document.
@@ -299,9 +300,9 @@ class Agent:
         the model reads the last observation last, and the images tools returned are sent
         along, so it can observe them before choosing its next action.
 
-        A server answering nothing to the schema (e.g. Ollama Cloud) is asked again with
-        the JSON shape spelled out in the instructions instead, and so is every later
-        step of that model, without trying the schema first.
+        A server ignoring the schema (e.g. Ollama Cloud), answering nothing or no JSON, is
+        asked again with the JSON shape spelled out in the instructions instead, and so is
+        every later step of that model, without trying the schema first.
         """
         if self.ui_handler:
             await self.ui_handler.start_spinner("Thinking...")
@@ -321,7 +322,7 @@ class Agent:
                 response_format=controller.schema(),
                 options=PLAN_OPTIONS,
             )
-            if not response.response.strip():
+            if not controller.readable(response.response):
                 self._unconstrained_models.add(self.model)
                 response = None
         if response is None:
