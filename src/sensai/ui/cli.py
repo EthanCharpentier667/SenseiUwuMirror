@@ -12,13 +12,36 @@ from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.segment import Segment
 from rich.syntax import Syntax
 from rich.text import Text
 
 from .protocol import AsyncUIHandler
 
 if TYPE_CHECKING:
+    from rich.console import ConsoleOptions, RenderResult
     from rich.status import Status
+
+
+class _Tail:
+    """The end of a streamed Markdown reply: as many of its last lines as fit on screen.
+
+    Rich's ``Live`` can't redraw lines that scrolled above the top of the terminal: with
+    a reply taller than the screen, every refresh printed it all again. The live view
+    shows the tail only, and the whole reply is printed once streaming ends.
+    """
+
+    def __init__(self, text: str) -> None:
+        """Keep the Markdown text streamed so far."""
+        self.text = text
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        """Render the reply, then keep the lines that fit, leaving one for the cursor."""
+        lines = console.render_lines(Markdown(self.text), options, pad=False)
+        height = max((options.height or console.height) - 1, 1)
+        for line in lines[-height:]:
+            yield from line
+            yield Segment.line()
 
 
 class CLIHandler(AsyncUIHandler):
@@ -56,20 +79,22 @@ class CLIHandler(AsyncUIHandler):
         self._stream_buffer += chunk
         if self._live is None:
             self._live = Live(
-                Markdown(self._stream_buffer),
+                _Tail(self._stream_buffer),
                 console=self.console,
                 refresh_per_second=12,
-                vertical_overflow="visible",
+                vertical_overflow="crop",
+                transient=True,
             )
             self._live.start()
         else:
-            self._live.update(Markdown(self._stream_buffer))
+            self._live.update(_Tail(self._stream_buffer))
 
     async def on_stream_end(self) -> None:
         """Called when text streaming has finished."""
         if self._live is not None:
             self._live.stop()
             self._live = None
+            self.console.print(Markdown(self._stream_buffer))
             self._stream_buffer = ""
 
     async def on_tool_call_request(self, name: str, arguments: dict[str, Any]) -> bool:

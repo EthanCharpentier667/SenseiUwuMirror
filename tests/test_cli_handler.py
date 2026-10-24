@@ -6,6 +6,7 @@ import pytest
 from rich.console import Console
 
 from sensai.ui import CLIHandler
+from sensai.ui.cli import _Tail
 
 
 @pytest.mark.asyncio
@@ -17,6 +18,20 @@ async def test_on_stream_chunk(capsys: pytest.CaptureFixture[str]) -> None:
 
     captured = capsys.readouterr()
     assert "Hello World" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_a_reply_taller_than_the_screen_is_printed_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    handler = CLIHandler()
+    for n in range(200):
+        await handler.on_stream_chunk(f"Line {n} of the reply.\n\n")
+    await handler.on_stream_end()
+
+    out = capsys.readouterr().out
+    assert out.count("Line 0 of the reply.") == 1
+    assert out.count("Line 199 of the reply.") == 1
 
 
 @pytest.mark.asyncio
@@ -216,3 +231,15 @@ async def test_render_output_direct(capsys: pytest.CaptureFixture[str]) -> None:
     captured = capsys.readouterr()
     assert "My Sandbox" in captured.out
     assert "custom command output" in captured.out
+
+
+def test_the_live_view_shows_the_end_of_a_reply_that_fits_on_screen() -> None:
+    console = Console(width=40, height=5, record=True)
+    text = "\n\n".join(f"Line {n}" for n in range(20))
+
+    console.print(_Tail(text))
+
+    shown = console.export_text().split()
+    assert "19" in shown
+    assert "0" not in shown
+    assert console.export_text().count("Line") <= 4
