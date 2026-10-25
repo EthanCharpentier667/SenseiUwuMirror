@@ -303,6 +303,29 @@ class ReActController:
             ]
         return messages
 
+    def transcript(self) -> list[dict[str, Any]]:
+        """The steps as tool messages for the session's history, a trace of what ran.
+
+        Unlike ``trajectory()``, they're persisted, but never sent back to the model: the
+        raw observations would bloat the next prompts and lead the model to misread them.
+        """
+        return [
+            {
+                "role": "tool",
+                "content": json.dumps(
+                    {
+                        "tool": step.decision.action,
+                        "args": step.decision.args,
+                        "thought": step.decision.thought,
+                        "status": step.status,
+                        "observation": step.observation,
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+            for step in self.steps
+        ]
+
     def plan_instructions(self) -> str:
         """System instructions for the next planning call: the actions it may choose."""
         tools = [self._describe_action(name) for name in self.allowed_actions()[:-1]]

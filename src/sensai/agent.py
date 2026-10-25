@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from sensai.client import OllamaClient, Response
+from sensai.data.session.message import Message
 from sensai.features.features import MCP, REACT, TOOLS, Features
 from sensai.features.react.react import DEFAULT_MAX_STEPS, Decision, ReActController
 from sensai.features.react.stream import StreamingThoughtExtractor
@@ -61,6 +62,23 @@ def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Respo
         for index, message in enumerate(response.messages)
         if index >= len(payload) or not payload[index].get("ephemeral")
     ]
+    return response
+
+
+def _with_steps(response: Response, controller: ReActController) -> Response:
+    """Add the steps that ran to ``response.messages``, just before the reply.
+
+    They're the trace of what the agent actually did, persisted with the session.
+    """
+    steps = [
+        Message(role=step["role"], content=step["content"], response_time=response.request_time)
+        for step in controller.transcript()
+    ]
+    if not steps:
+        return response
+    has_reply = bool(response.response) and bool(response.messages)
+    at = len(response.messages) - 1 if has_reply else len(response.messages)
+    response.messages = [*response.messages[:at], *steps, *response.messages[at:]]
     return response
 
 
@@ -355,7 +373,7 @@ class Agent:
         payload = _with_images(messages, controller.images())
         payload = _with_instructions(payload, instructions) if instructions else payload
         response = await self._chat(payload, [], stream=True, ui_handler=self.ui_handler)
-        return _strip_ephemeral(response, payload)
+        return _with_steps(_strip_ephemeral(response, payload), controller)
 
     async def run(
         self,

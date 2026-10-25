@@ -169,6 +169,31 @@ def test_trajectory_replays_each_action_then_its_observation() -> None:
     ]
 
 
+def test_transcript_keeps_every_step_as_a_tool_message() -> None:
+    controller = ReActController([SEARCH, COUNT])
+    assert controller.transcript() == []
+
+    controller.record(Decision("Look it up.", "web_search", {"query": "fox"}), "done", "A fox.")
+    controller.record(Decision("", "count", {}), "rejected", "Rejected: missing argument(s): n.")
+
+    assert controller.transcript() == [
+        {
+            "role": "tool",
+            "content": (
+                '{"tool": "web_search", "args": {"query": "fox"}, "thought": "Look it up.", '
+                '"status": "done", "observation": "A fox."}'
+            ),
+        },
+        {
+            "role": "tool",
+            "content": (
+                '{"tool": "count", "args": {}, "thought": "", "status": "rejected", '
+                '"observation": "Rejected: missing argument(s): n."}'
+            ),
+        },
+    ]
+
+
 def test_answer_instructions_carry_results_and_mark_failures() -> None:
     controller = ReActController([SEARCH])
     assert controller.answer_instructions() is None

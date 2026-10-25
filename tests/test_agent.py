@@ -387,6 +387,13 @@ async def test_agent_runs_tool_then_answers_with_its_result() -> None:
     assert "result: 2+2" in _system_texts(client.answers[0])
     assert [(m.role, m.content) for m in result.messages] == [
         ("user", "What is 2+2?"),
+        (
+            "tool",
+            (
+                '{"tool": "calculator", "args": {"expr": "2+2"}, "thought": "thinking", '
+                '"status": "done", "observation": "result: 2+2"}'
+            ),
+        ),
         ("assistant", "The answer is 4."),
     ]
 
@@ -570,10 +577,8 @@ async def test_agent_shows_tool_images_to_a_vision_model_only_for_this_run() -> 
         }
         assert "aW1n" not in _instructions(call)
     assert "1 image(s) from this tool are attached" in _instructions(client.answers[0])
-    assert [(m.role, m.content) for m in result.messages] == [
-        ("user", "What is on my screen?"),
-        ("assistant", "A terminal."),
-    ]
+    assert [m.role for m in result.messages] == ["user", "tool", "assistant"]
+    assert all("aW1n" not in m.content for m in result.messages)
 
 
 @pytest.mark.asyncio
