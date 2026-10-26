@@ -1,0 +1,220 @@
+{
+  "recorded_on": "2026-10-26",
+  "source_commit": "9ade1cc90637e9362bcb53f7e8529be248cced88",
+  "kind": "scripted real-component workflows, including actual questions and responses through the application chat path where applicable",
+  "playback": "paced for readability; not wall-clock performance evidence",
+  "ollama_version": "0.34.2",
+  "model_inventory": [
+    {
+      "name": "nomic-embed-text:latest",
+      "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+      "size": 274302450,
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "nomic-bert",
+        "families": [
+          "nomic-bert"
+        ],
+        "parameter_size": "137M",
+        "quantization_level": "F16",
+        "context_length": 2048,
+        "embedding_length": 768
+      }
+    },
+    {
+      "name": "qwen3.5:9b",
+      "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+      "size": 6550825550,
+      "details": {
+        "parent_model": "model.gguf",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "9.0B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 4096
+      }
+    },
+    {
+      "name": "llama3.2:latest",
+      "digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+      "size": 2019393189,
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama"
+        ],
+        "parameter_size": "3.2B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 131072,
+        "embedding_length": 3072
+      }
+    }
+  ],
+  "fixtures": "fictional Atelier Nova data; mutable workspaces and databases isolated in temporary directories",
+  "web_scope": "missing-token path only; no external provider response claimed",
+  "browser_scope": "real tools with a preopened portable headless Chromium page; normal product launcher uses visible Google Chrome",
+  "screenshot_scope": "Dedicated nested X display; actual captured fictional preview then qwen3.5:9b reply reading title, subtotal 30 and empty-cart amount 0.",
+  "compression_scope": "Actual summary plus follow-up answer: 5 to 3 messages, 694 to 991 context characters; summary introduces an unsupported payment-test claim.",
+  "recordings": [
+    {
+      "feature": "file-access",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/file-access.gif",
+      "capture": "docs/demo_assets/artifacts/demos/file-access.cast",
+      "frames": 13,
+      "playback_duration_seconds": 13.78,
+      "capture_sha256": "7532b76661f4ec31177adf748429e922554b8ac94b2eb2bbc107148373734ee9",
+      "gif_sha256": "b98761c6aaa72cbafbe867cba6a179d29d5a083a9d5cd427c03482b12943a002"
+    },
+    {
+      "feature": "screenshot",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/screenshot.gif",
+      "capture": "docs/demo_assets/artifacts/demos/screenshot.cast",
+      "frames": 7,
+      "playback_duration_seconds": 13.91,
+      "capture_sha256": "0d7d574566d1d9f591346781e86f12cf9e6eb72e51e7ab61c3c2f9b0e21594c6",
+      "gif_sha256": "254d69566f0f55009c2e563758512aece25600b4714ef1cbace7158b397c0624",
+      "includes_model_answer": true,
+      "updated_at": "2026-10-26T17:18:18.210291+00:00"
+    },
+    {
+      "feature": "browser",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/browser.gif",
+      "capture": "docs/demo_assets/artifacts/demos/browser.cast",
+      "frames": 13,
+      "playback_duration_seconds": 13.16,
+      "capture_sha256": "4fda8230ac1dfef646dc4de6b3655900caff5ed2ec692d5dc7f2a01a5153e0ec",
+      "gif_sha256": "db21384788b1352d49c77807d0b1ccbfbb98788a2c91a1087a81c274c07d6b4b"
+    },
+    {
+      "feature": "sandbox",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/sandbox.gif",
+      "capture": "docs/demo_assets/artifacts/demos/sandbox.cast",
+      "frames": 6,
+      "playback_duration_seconds": 9.67,
+      "capture_sha256": "34c96d0d9f8826e287e9c06c38296ed9fdcf49daea59d69729dc7035a90f2fad",
+      "gif_sha256": "a1af68ceff50fe9a6ab3c4e19d361d2866c4f50e69b2c25fd88b2c76b5e72568"
+    },
+    {
+      "feature": "web",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/web.gif",
+      "capture": "docs/demo_assets/artifacts/demos/web.cast",
+      "frames": 6,
+      "playback_duration_seconds": 7.52,
+      "capture_sha256": "2b6cbafe24e5b97e766be550e288d00bdb98b3962069f54b635d9370fdbf9bf0",
+      "gif_sha256": "a34008f21deb44602536b32993a31cbde081ec5c00f9ab7852aedf8532106176"
+    },
+    {
+      "feature": "mcp",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/mcp.gif",
+      "capture": "docs/demo_assets/artifacts/demos/mcp.cast",
+      "frames": 11,
+      "playback_duration_seconds": 12.28,
+      "capture_sha256": "1e6ea0b6e0277bf4a104116c7447fce401af3aed6ab719461e4d24a14a9674a6",
+      "gif_sha256": "2c570a3901a86ff218aa2c2616f1944b60ef92fc99b50f920f92f10a53be66aa"
+    },
+    {
+      "feature": "rag",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/rag.gif",
+      "capture": "docs/demo_assets/artifacts/demos/rag.cast",
+      "frames": 16,
+      "playback_duration_seconds": 21.0,
+      "capture_sha256": "503c1b081bceb717ee12e25302f62b2aabbae4b339cdda4f85bb5e2670b9e535",
+      "gif_sha256": "3024751f780db8ba82b0101f1c94592302ec6d794f93733523da735062d67bdf",
+      "includes_model_answer": true,
+      "updated_at": "2026-10-26T17:15:28.736894+00:00"
+    },
+    {
+      "feature": "compression",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/compression.gif",
+      "capture": "docs/demo_assets/artifacts/demos/compression.cast",
+      "frames": 12,
+      "playback_duration_seconds": 15.04,
+      "capture_sha256": "4695ca278a8d9e4f50d43c6a4dd1d7f7d3b66f50d00f02d0bbeb75dec0d702d6",
+      "gif_sha256": "8ebd9cf679f9b1dc8720f6e2eb744556aa0093bfe90919e0690cd14bd7e6595a",
+      "includes_model_answer": true,
+      "updated_at": "2026-10-26T17:15:44.713026+00:00"
+    },
+    {
+      "feature": "profiles",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/profiles.gif",
+      "capture": "docs/demo_assets/artifacts/demos/profiles.cast",
+      "frames": 15,
+      "playback_duration_seconds": 17.17,
+      "capture_sha256": "f28dd65dd95c54452c0e63d76219732f1d3055ddc1458aeaaf6a7b0b40c03004",
+      "gif_sha256": "261836ae0e4cc6c826f4c3f324b2451cca439f03e2236b67a3256f4af2850413",
+      "includes_model_answer": true,
+      "updated_at": "2026-10-26T17:15:37.096963+00:00"
+    },
+    {
+      "feature": "personas",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/personas.gif",
+      "capture": "docs/demo_assets/artifacts/demos/personas.cast",
+      "frames": 18,
+      "playback_duration_seconds": 20.5,
+      "capture_sha256": "603f7cde3c473d7e7dee515515beca91b7434e3e00cc6ece4f3d8b7a96f4caff",
+      "gif_sha256": "dfc56cbda821de791ca358542af300ba1f5e7ece69fd16141a45011253cf8afa",
+      "includes_model_answer": true,
+      "updated_at": "2026-10-26T17:15:14.144773+00:00"
+    },
+    {
+      "feature": "models",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/models.gif",
+      "capture": "docs/demo_assets/artifacts/demos/models.cast",
+      "frames": 16,
+      "playback_duration_seconds": 18.62,
+      "capture_sha256": "0d4f84678de23880e685c18fb1339c6bf99b6b5b236b73263a2f013977c45aef",
+      "gif_sha256": "f0c7bcfdaaf61439ec765fc759bf367b663e3822e815bc10846e4399c0814905",
+      "includes_model_answer": true,
+      "updated_at": "2026-10-26T17:17:42.958000+00:00"
+    },
+    {
+      "feature": "flags",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/flags.gif",
+      "capture": "docs/demo_assets/artifacts/demos/flags.cast",
+      "frames": 10,
+      "playback_duration_seconds": 11.92,
+      "capture_sha256": "9f6f67cb969029c3d4da8cb899249292357c2f5dc85e37c3837a881ccc3a7bc6",
+      "gif_sha256": "42f1c1bb889a18bba7bbc11231d8549b86e0395329bb8b84a0018ca4eda4ccb5"
+    },
+    {
+      "feature": "streaming",
+      "completed": true,
+      "gif": "docs/demo_assets/assets/demos/streaming.gif",
+      "capture": "docs/demo_assets/artifacts/demos/streaming.cast",
+      "frames": 5,
+      "playback_duration_seconds": 7.52,
+      "capture_sha256": "23159e0a20994af6c4cc79184d7bdb3351caf33b97a2715e00fde4f4ed82b36a",
+      "gif_sha256": "dbd7acf0c0ff0d1a658219500ef1bb904549feaaf1afc924169a85144fe09e30"
+    }
+  ],
+  "updated_at": "2026-10-26T17:26:59.796004+00:00",
+  "model_usage": "Personas, RAG, profiles, compression and models include real application chat replies; screenshot includes an actual vision-model reply.",
+  "rag_scope": "Real embeddings, retrieved document, answer with CART-EMPTY-001 and NOVA-QA-4827; document-free session retrieves zero chunks but model invents a section reference.",
+  "manual_replay_guide": "docs/demo_assets/demos/replay.md",
+  "interactive_replay_script": "docs/demo_assets/scripts/demos/replay.py",
+  "prior_compression_capture": "docs/demo_assets/artifacts/demos/compression-before-followup.cast",
+  "path_base": "repository root",
+  "intermediate_images": [
+    "docs/demo_assets/artifacts/demos/browser-captured.png",
+    "docs/demo_assets/artifacts/demos/screenshot-captured.jpg"
+  ]
+}

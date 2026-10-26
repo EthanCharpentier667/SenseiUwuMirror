@@ -1,0 +1,10 @@
+{"version": 2, "width": 100, "height": 34, "title": "Sensai \u2014 streaming"}
+[1.2641103630012367, "o", "SENSAI | STREAMING\nActual component execution; fictional Atelier Nova data."]
+[1.2641264970006887, "o", "\n"]
+[2.065244083001744, "o", "\n\u001b[36m>>> Stream an English testing explanation through the actual CLI event handler\u001b[0m"]
+[2.0652715309988707, "o", "\n"]
+[2.8665228600002592, "o", "Here are three short checks for an empty-cart subtotal function in English:     \n\n 1 If the cart contains no items.                                               \n 2 If the total price of all items in the cart is zero.                         \n 3 If the number of items in the cart is zero.                                  \n"]
+[2.8665733550005825, "o", "{\n  \"stream_callbacks\": 51,\n  \"generated_tokens\": 52,\n  \"completed_response\": true\n}"]
+[2.8665810380007315, "o", "\n"]
+[3.8688901079985953, "o", "\nComponent demonstration completed."]
+[3.868907987001876, "o", "\n"]

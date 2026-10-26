@@ -1,0 +1,13 @@
+{"version": 2, "width": 100, "height": 34, "title": "Sensai \u2014 sandbox"}
+[1.0323254899994936, "o", "SENSAI | SANDBOX\nActual component execution; fictional Atelier Nova data."]
+[1.0323416930004896, "o", "\n"]
+[1.8335764009971172, "o", "\n\u001b[36m>>> sandboxed_code: check both cart cases inside Docker\u001b[0m"]
+[1.8336088079995534, "o", "\n"]
+[2.253372652998223, "o", "2 cart checks passed\nuid: 10001\n"]
+[2.253385503998288, "o", "\n"]
+[3.0546628789998067, "o", "\n\u001b[36m>>> sandboxed_code: a failing assertion is reported as an error\u001b[0m"]
+[3.054699057000107, "o", "\n"]
+[3.246306110999285, "o", "Error executing code in sandboxed environment: Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nAssertionError: empty cart regression\n"]
+[3.2463174250005977, "o", "\n"]
+[4.248081319998164, "o", "\nComponent demonstration completed."]
+[4.2481094659997325, "o", "\n"]
