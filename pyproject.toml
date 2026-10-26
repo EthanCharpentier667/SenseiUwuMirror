@@ -95,7 +95,7 @@ ignore = [
     "PT011",   # pytest.raises(ValueError) is fine here, message already asserted separately
 ]
 "__init__.py" = ["D104"] # package docstring optional at the root
-"docs/gen_ref_pages.py" = ["INP001"] # build-time script, not part of a package
+"docs/demo_assets/scripts/docs/gen_ref_pages.py" = ["INP001"] # build-time script
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
