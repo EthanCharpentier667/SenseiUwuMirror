@@ -706,3 +706,102 @@ async def test_retrieve_chunks_only_searches_the_sessions_documents(
 
     assert [chunk.content for chunk in chunks] == ["proche"]
     assert client.requests == [["search_query: question"]]
+
+
+def test_update_session_persists_tool_messages_as_a_trace(db: Database, profile_id: int) -> None:
+    session = create_new_session(db, profile_id)
+    response = _make_response(
+        messages=[
+            Message(role="user", content="run the tests", response_time=1.0),
+            Message(role="tool", content='{"tool": "bash", "status": "done"}', response_time=1.5),
+            Message(role="assistant", content="All tests pass.", response_time=2.0),
+        ]
+    )
+
+    result = update_session(db, session, response)
+
+    assert result is not None
+    assert [m.role for m in result.messages] == ["user", "tool", "assistant"]
+
+
+def test_build_messages_never_sends_tool_messages_back() -> None:
+    session = Session(
+        profile_id=1,
+        messages=[
+            SessionMessage(session_id=1, content="run the tests", role="user", response_time=1.0),
+            SessionMessage(session_id=1, content="{}", role="tool", response_time=1.5),
+            SessionMessage(session_id=1, content="All pass.", role="assistant", response_time=2.0),
+        ],
+    )
+
+    messages = build_messages(session, "and the lint?")
+
+    assert messages == [
+        {"role": "user", "content": "run the tests"},
+        {"role": "assistant", "content": "All pass."},
+        {"role": "system", "content": HISTORY_CONTEXT_NOTE},
+        {"role": "user", "content": "and the lint?"},
+    ]
+
+
+def test_update_session_skips_the_history_it_sent_even_with_tool_messages_in_it(
+    db: Database, profile_id: int
+) -> None:
+    session: Session | None = create_new_session(db, profile_id)
+    assert session is not None
+    first_turn = _make_response(
+        messages=[
+            Message(role="user", content="run the tests", response_time=1.0),
+            Message(role="tool", content='{"tool": "bash"}', response_time=1.5),
+            Message(role="assistant", content="All pass.", response_time=2.0),
+        ]
+    )
+    session = update_session(db, session, first_turn)
+    assert session is not None
+    sent = build_messages(session, "and the lint?")
+    second_turn = _make_response(
+        messages=[
+            *(Message(role=m["role"], content=m["content"], response_time=3.0) for m in sent),
+            Message(role="assistant", content="Clean.", response_time=4.0),
+        ]
+    )
+
+    result = update_session(db, session, second_turn, sent_prefix_length=len(sent) - 1)
+
+    assert result is not None
+    assert [m.content for m in result.messages] == [
+        "run the tests",
+        '{"tool": "bash"}',
+        "All pass.",
+        "and the lint?",
+        "Clean.",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_compress_session_leaves_tool_messages_out_of_the_summary(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session: Session | None = create_new_session(db, profile_id)
+    assert session is not None
+    assert session.id is not None
+    create_message(db, session.id, "run the tests", "user", 1.0)
+    create_message(db, session.id, '{"tool": "bash", "observation": "raw output"}', "tool", 1.5)
+    create_message(db, session.id, "All pass.", "assistant", 2.0)
+    session = get_session(db, session.id)
+    assert session is not None
+    captured_prompts: list[str] = []
+
+    async def fake_chat(
+        _self: OllamaClient, messages: list[dict[str, str]], **_kwargs: object
+    ) -> Response:
+        captured_prompts.append(messages[0]["content"])
+        return _make_response()
+
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+
+    await compress_session(db, session, client)
+
+    assert "raw output" not in captured_prompts[0]
+    assert "assistant: All pass." in captured_prompts[0]

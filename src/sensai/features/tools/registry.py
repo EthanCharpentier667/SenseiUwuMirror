@@ -5,6 +5,11 @@ from mcp import Client
 from sensai.features.tools.web_fetch import WebFetch
 
 from .bash import BashJobTool, BashTool
+from .browser.browser_click import BrowserClick
+from .browser.browser_navigate import BrowserNavigate
+from .browser.browser_screenshot import BrowserScreenshot
+from .browser.browser_snapshot import BrowserSnapshot
+from .browser.browser_type import BrowserType
 from .fileaccess.fileread import FileRead
 from .fileaccess.filewrite import FileWrite
 from .mcp.mcp_tools import MCPTools
@@ -31,6 +36,11 @@ def get_tools() -> list[Tool]:
         FileWrite(),
         BashTool(),
         BashJobTool(),
+        BrowserNavigate(),
+        BrowserSnapshot(),
+        BrowserClick(),
+        BrowserType(),
+        BrowserScreenshot(),
     ]
 
 

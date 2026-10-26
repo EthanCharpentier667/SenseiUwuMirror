@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from sensai.client import OllamaClient, Response
+from sensai.data.session.message import Message
 from sensai.features.features import MCP, REACT, TOOLS, Features
 from sensai.features.react.react import DEFAULT_MAX_STEPS, Decision, ReActController
 from sensai.features.react.stream import StreamingThoughtExtractor
@@ -61,6 +62,23 @@ def _strip_ephemeral(response: Response, payload: list[dict[str, Any]]) -> Respo
         for index, message in enumerate(response.messages)
         if index >= len(payload) or not payload[index].get("ephemeral")
     ]
+    return response
+
+
+def _with_steps(response: Response, controller: ReActController) -> Response:
+    """Add the steps that ran to ``response.messages``, just before the reply.
+
+    They're the trace of what the agent actually did, persisted with the session.
+    """
+    steps = [
+        Message(role=step["role"], content=step["content"], response_time=response.request_time)
+        for step in controller.transcript()
+    ]
+    if not steps:
+        return response
+    has_reply = bool(response.response) and bool(response.messages)
+    at = len(response.messages) - 1 if has_reply else len(response.messages)
+    response.messages = [*response.messages[:at], *steps, *response.messages[at:]]
     return response
 
 
@@ -221,7 +239,8 @@ class Agent:
             show_output = bool(getattr(tool, "show_output", False))
             await self.ui_handler.on_tool_call_result(decision.action, res, show_output=show_output)
         observation, images = await self._observe(res, images)
-        return "done", observation, images
+        status = "failed" if isinstance(res, dict) and res.get("error") else "done"
+        return status, observation, images
 
     def _take_attachments(self, res: Any) -> tuple[Any, list[str]]:
         """Take a tool result's attachments out of it: its images and its document.
@@ -299,9 +318,9 @@ class Agent:
         the model reads the last observation last, and the images tools returned are sent
         along, so it can observe them before choosing its next action.
 
-        A server answering nothing to the schema (e.g. Ollama Cloud) is asked again with
-        the JSON shape spelled out in the instructions instead, and so is every later
-        step of that model, without trying the schema first.
+        A server ignoring the schema (e.g. Ollama Cloud), answering nothing or no JSON, is
+        asked again with the JSON shape spelled out in the instructions instead, and so is
+        every later step of that model, without trying the schema first.
         """
         if self.ui_handler:
             await self.ui_handler.start_spinner("Thinking...")
@@ -321,7 +340,7 @@ class Agent:
                 response_format=controller.schema(),
                 options=PLAN_OPTIONS,
             )
-            if not response.response.strip():
+            if not controller.readable(response.response):
                 self._unconstrained_models.add(self.model)
                 response = None
         if response is None:
@@ -354,7 +373,7 @@ class Agent:
         payload = _with_images(messages, controller.images())
         payload = _with_instructions(payload, instructions) if instructions else payload
         response = await self._chat(payload, [], stream=True, ui_handler=self.ui_handler)
-        return _strip_ephemeral(response, payload)
+        return _with_steps(_strip_ephemeral(response, payload), controller)
 
     async def run(
         self,

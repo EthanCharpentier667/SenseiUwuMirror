@@ -24,6 +24,7 @@ from sensai.data.session.session import Session
 from sensai.features.features import COMPRESSION, RAG
 from sensai.features.rag.embedder import Embedder
 from sensai.features.rag.rag import ingest_document
+from sensai.features.tools.browser.page import close_browser
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands import setup_builtin_commands
 from sensai.ui.commands.mcp.mcp_commands import MCPCommands
@@ -216,3 +217,4 @@ class CLIApp:
             self.console.print("\n[bold red]Program terminated by user.[/bold red]")
         finally:
             await self.mcp_commands.aclose()
+            await close_browser()

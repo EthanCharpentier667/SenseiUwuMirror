@@ -169,17 +169,45 @@ def test_trajectory_replays_each_action_then_its_observation() -> None:
     ]
 
 
-def test_answer_instructions_only_carry_successful_results() -> None:
+def test_transcript_keeps_every_step_as_a_tool_message() -> None:
+    controller = ReActController([SEARCH, COUNT])
+    assert controller.transcript() == []
+
+    controller.record(Decision("Look it up.", "web_search", {"query": "fox"}), "done", "A fox.")
+    controller.record(Decision("", "count", {}), "rejected", "Rejected: missing argument(s): n.")
+
+    assert controller.transcript() == [
+        {
+            "role": "tool",
+            "content": (
+                '{"tool": "web_search", "args": {"query": "fox"}, "thought": "Look it up.", '
+                '"status": "done", "observation": "A fox."}'
+            ),
+        },
+        {
+            "role": "tool",
+            "content": (
+                '{"tool": "count", "args": {}, "thought": "", "status": "rejected", '
+                '"observation": "Rejected: missing argument(s): n."}'
+            ),
+        },
+    ]
+
+
+def test_answer_instructions_carry_results_and_mark_failures() -> None:
     controller = ReActController([SEARCH])
     assert controller.answer_instructions() is None
 
-    controller.record(Decision("t", "web_search", {"query": "a"}), "failed", "Error: boom")
+    controller.record(Decision("t", "web_search", {"query": "a"}), "rejected", "Rejected: x")
+    controller.record(Decision("t", "web_search", {"query": "b"}), "refused", "Cancelled.")
     assert controller.answer_instructions() is None
 
-    controller.record(Decision("t", "web_search", {"query": "b"}), "done", "A fox.")
+    controller.record(Decision("t", "web_search", {"query": "c"}), "failed", "Error: boom")
+    controller.record(Decision("t", "web_search", {"query": "d"}), "done", "A fox.")
     instructions = controller.answer_instructions() or ""
-    assert "A fox." in instructions
-    assert "boom" not in instructions
+    assert '- web_search {"query": "c"} (failed):\nError: boom' in instructions
+    assert '- web_search {"query": "d"}:\nA fox.' in instructions
+    assert "a step marked failed did not happen" in instructions
 
 
 def test_tool_without_parameters_is_described_and_callable() -> None:
@@ -253,3 +281,17 @@ def test_a_repeatable_tool_may_run_the_same_call_again() -> None:
 
     assert not controller.finishes(Decision("again", "web_search", {"query": "x"}))
     assert controller.check(Decision("again", "web_search", {"query": "x"})) is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "readable"),
+    [
+        ('{"thought": "t", "action": "final_answer", "args": {}}', True),
+        ('```json\n{"thought": "t", "action": "search", "args": {}}\n```', True),
+        ("", False),
+        ('thought\nGo.<channel|>action: search(query: "x")<tool_call|>', False),
+        ('["not", "an", "object"]', False),
+    ],
+)
+def test_readable_tells_a_step_from_a_reply_without_one(raw: str, *, readable: bool) -> None:
+    assert ReActController([SEARCH]).readable(raw) is readable

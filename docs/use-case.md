@@ -120,9 +120,8 @@ and checks that the error is gone. That's a complete test cycle: **read → run 
 observe → conclude → fix → check again**.
 
 !!! note "Budgets"
-    This scenario uses 4 tool calls in one message. The ReAct loop currently allows
-    3 per message by default (see [Current limits](#current-limits)), so the default
-    budgets must be raised for it to run in one go.
+    This scenario uses 4 tool calls in one message, within the ReAct loop's budgets
+    (10 tool calls and 10 steps per message, see [Current limits](#current-limits)).
 
 ---
 
@@ -135,6 +134,7 @@ observe → conclude → fix → check again**.
 | [Bash: `bash_tool` and `bash_job`](#bash-bash_tool-and-bash_job) | Builds, runs test suites, launches programs and servers |
 | [File access: `file_read` and `file_write`](#file-access-file_read-and-file_write) | Reads the code and the test reports, writes tests and fixes |
 | [Screenshot](#screenshot) | Observes graphical output |
+| [Browser](#browser) | Tests websites and web apps like a user: open, read, click, type |
 | [Sandboxed code](#sandboxed-code) | Runs throwaway or risky code away from the host |
 | [Web search and web fetch](#web-search-and-web-fetch) | Finds documentation, checks deployed pages |
 | [MCP servers](#mcp-servers) | Plugs in external tools: GitHub, browsers, databases… |
@@ -230,6 +230,35 @@ layout. Without eyes, the agent can only check that the program didn't crash.
 **Use case.** The [flagship scenario](#flagship-scenario-does-ethans-vulkan-window-open):
 the screenshot proves the window opened and shows the expected render, which logs
 alone can't.
+
+### Browser
+
+**What it is.** Five tools drive the user's Chrome (visible, launched on first use and
+kept open between calls, closed when Sensai exits), through Playwright:
+
+| Tool | Role | Safe |
+|---|---|---|
+| `browser_navigate(url)` | Opens an http(s) URL, returns its title and snapshot | Yes |
+| `browser_snapshot()` | Reads the open page again | Yes |
+| `browser_click(name or ref)` | Clicks a button, link, checkbox… of the page | No |
+| `browser_type(name or ref, text, submit?)` | Fills a field, optionally presses Enter | No |
+| `browser_screenshot()` | Shows the page as an image (vision models only) | Yes |
+
+The snapshot is the page's accessibility tree as text (`- button "Log in" [ref=e2]`),
+compact enough for a small model. Click and type find an element by its name as the
+snapshot quotes it (`Log in`), or by its `ref` (`e2`) when two elements share a name:
+small models give names reliably, but tend to guess refs. An element that can't be
+found is reported as a failure, with the current page to try again. Click and type
+return the page as it is afterwards, saving a snapshot call.
+`browser_navigate` refuses `file://` URLs, so it can't read local files without the
+approval `file_read` asks for.
+
+**Why it matters.** A web app's behavior lives in the browser: forms, redirects,
+JavaScript, rendering. `web_fetch` reads a page; the browser *uses* it.
+
+**Use case.** *"Check that login works on http://localhost:3000."* The model opens
+the page, types the email and password, submits, and checks the snapshot now shows
+the dashboard; with a wrong password, it checks an error message appears.
 
 ### Sandboxed code
 
@@ -372,13 +401,13 @@ step: the command, the job check, the failing test, the analysis.
 
 | Limit | Value | Impact |
 |---|---|---|
-| Tool calls per message | 3 in total, 2 per tool | The flagship scenario needs 4 calls: raise `DEFAULT_MAX_TOOL_CALLS` |
-| Planned steps per message | 5 (`DEFAULT_MAX_STEPS`) | Long procedures are split across several messages |
+| Tool calls per message | 10 in total, 2 per tool | A flow with more than 2 clicks needs `DEFAULT_MAX_CALLS_PER_TOOL` raised |
+| Planned steps per message | 10 (`DEFAULT_MAX_STEPS`) | Long procedures are split across several messages |
 | Observation kept for the model | 4,000 characters | Long logs are truncated; ask for a targeted `grep` |
 | Foreground command | 30 s | Use `background: true` for builds, apps and servers |
 | Screenshot | Vision model and a display needed | No visual check on a headless machine |
 | Host Bash | Runs with the user's rights | Keep the trust level at `none` or `partial` on sensitive machines |
-| Web browsing | No built-in browser | Connect a browser MCP server (e.g. Playwright MCP) |
+| Browser | Google Chrome must be installed | `browser_navigate` reports it if Chrome can't be launched |
 
 `get_temperature` is an example tool showing the tool interface; it plays no part in
 the testing use case.
