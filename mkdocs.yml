@@ -73,6 +73,9 @@ markdown_extensions:
 nav:
   - Home: index.md
   - "Use case: testing assistant": use-case.md
+  - Scope and decisions: scope-and-decisions.md
+  - Limits, impact and risks: responsibility.md
+  - If we started over: retrospective.md
   - Event System & UI: events.md
   - MCP connections: mcp-server.md
   - Benchmark Ollama: benchmark.md
