@@ -1,9 +1,14 @@
 """Registry of the tools available to Sensai."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from mcp import Client
 
 from sensai.features.tools.web_fetch import WebFetch
 
+from .ask_user import AskUserTool
 from .bash import BashJobTool, BashTool
 from .browser.browser_click import BrowserClick
 from .browser.browser_navigate import BrowserNavigate
@@ -19,14 +24,17 @@ from .temperature_example import TempToolExample
 from .tool import Tool
 from .web_search import WebSearch
 
+if TYPE_CHECKING:
+    from sensai.ui.protocol import AsyncUIHandler
 
-def get_tools() -> list[Tool]:
+
+def get_tools(ui_handler: AsyncUIHandler | None = None) -> list[Tool]:
     """Create tools that can be passed to the language model.
 
     Returns:
         list[Tool]: Instantiated tools ready to be defined and executed.
     """
-    return [
+    tools: list[Tool] = [
         WebSearch(),
         TempToolExample(),
         WebFetch(),
@@ -42,6 +50,9 @@ def get_tools() -> list[Tool]:
         BrowserType(),
         BrowserScreenshot(),
     ]
+    if ui_handler is not None:
+        tools.append(AskUserTool(ui_handler))
+    return tools
 
 
 async def get_mcp_tools(client: Client) -> list[Tool]:
