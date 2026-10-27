@@ -1,9 +1,9 @@
-"""Tests for the ``sensai.embedder`` module."""
+"""Tests for the ``sensai.features.rag.embedder`` module."""
 
 import pytest
 
 from sensai.client import OllamaClient
-from sensai.embedder import DEFAULT_EMBEDDING_MODEL, Embedder
+from sensai.features.rag.embedder import DEFAULT_EMBEDDING_MODEL, Embedder
 
 
 class MockClient(OllamaClient):

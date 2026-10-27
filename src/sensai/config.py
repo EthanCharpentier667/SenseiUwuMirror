@@ -1,10 +1,13 @@
 """Configuration for the Sensai CLI."""
 
-from argparse import SUPPRESS, ArgumentParser, Namespace
+import json
+from argparse import SUPPRESS, ArgumentParser, ArgumentTypeError, Namespace
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+
+from sensai.features.features import FEATURES, Features
 
 load_dotenv()
 
@@ -16,6 +19,18 @@ DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
 DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
 DEFAULT_NUM_CTX = 16384
+DEFAULT_PERSONAS_FILE = "personas.json"
+
+
+def _parse_output_schema(value: str) -> dict[str, Any]:
+    """Parse an inline JSON schema supplied on the command line."""
+    try:
+        schema = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ArgumentTypeError(f"invalid JSON: {exc.msg}") from exc
+    if not isinstance(schema, dict):
+        raise ArgumentTypeError("the output schema must be a JSON object")
+    return schema
 
 
 class Config:
@@ -41,6 +56,7 @@ class Config:
         self.description = description
         self.parser = ArgumentParser(prog=name, description=description)
         self.args: Namespace | None = None
+        self._features: Features | None = None
         self._register_arguments()
 
     def _register_arguments(self) -> None:
@@ -49,6 +65,13 @@ class Config:
             "--model",
             default=DEFAULT_MODEL,
             help=f"The LLM model to use. Default: {DEFAULT_MODEL}.",
+        )
+        self.add_argument(
+            "--output-schema",
+            type=_parse_output_schema,
+            default=None,
+            metavar="JSON",
+            help="JSON Schema for final responses, supplied as an inline JSON object.",
         )
         self.add_argument(
             "--url",
@@ -98,9 +121,35 @@ class Config:
             help="Files to attach to the session. Default: none.",
         )
         self.add_argument(
+            "--disable",
+            nargs="*",
+            choices=list(FEATURES),
+            default=[],
+            metavar="FEATURE",
+            help=f"Features to disable, among: {', '.join(FEATURES)}. Default: none.",
+        )
+        self.add_argument(
+            "--disable-tool",
+            nargs="*",
+            default=[],
+            metavar="TOOL",
+            help="Tools to disable, by name (see /tool). Default: none.",
+        )
+        self.add_argument(
             "--verbose",
             action="store_true",
             help=SUPPRESS,
+        )
+        self.add_argument(
+            "--persona",
+            default=None,
+            help="Persona key to use from the personas file (e.g. 'sensei_wu').",
+        )
+        self.add_argument(
+            "--list-personas",
+            action="store_true",
+            default=False,
+            help="List available personas from the personas file and exit.",
         )
 
     def add_argument(self, *args: Any, **kwargs: Any) -> None:
@@ -118,6 +167,7 @@ class Config:
         for path in self.args.files:
             if not path.is_file():
                 self.parser.error(f"file not found: {path}")
+        self._features = Features.from_disabled(self.args.disable, self.args.disable_tool)
         return self.args
 
     def get_args(self) -> Namespace | None:
@@ -129,6 +179,12 @@ class Config:
         if self.args is None:
             return self.parse_args()
         return self.args
+
+    @property
+    def output_schema(self) -> dict[str, Any] | None:
+        """The optional JSON schema for final agent responses."""
+        schema: dict[str, Any] | None = self._parsed().output_schema
+        return schema
 
     @property
     def model(self) -> str:
@@ -180,3 +236,27 @@ class Config:
     def verbose(self) -> bool:
         """Whether verbose mode is enabled."""
         return bool(self._parsed().verbose)
+
+    @property
+    def persona(self) -> str | None:
+        """The persona key to use from the personas file."""
+        persona = self._parsed().persona
+        return str(persona) if persona is not None else None
+
+    @property
+    def personas_file(self) -> str:
+        """Path to the personas JSON file."""
+        return DEFAULT_PERSONAS_FILE
+
+    @property
+    def list_personas(self) -> bool:
+        """Whether to list available personas and exit."""
+        return bool(self._parsed().list_personas)
+
+    @property
+    def features(self) -> Features:
+        """The feature flags, shared by everything that reads them."""
+        if self._features is None:
+            args = self._parsed()
+            self._features = Features.from_disabled(args.disable, args.disable_tool)
+        return self._features

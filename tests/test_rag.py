@@ -1,4 +1,4 @@
-"""Tests for the ``sensai.rag`` module."""
+"""Tests for the ``sensai.features.rag.rag`` module."""
 
 from itertools import pairwise
 
@@ -11,8 +11,8 @@ from sensai.data.session.chunk import EMBEDDING_DIMENSIONS, get_chunks_by_docume
 from sensai.data.session.document import Document, get_document
 from sensai.data.session.message import create_message
 from sensai.data.session.session import create_session
-from sensai.embedder import Embedder
-from sensai.rag import ingest_document, split_text
+from sensai.features.rag.embedder import Embedder
+from sensai.features.rag.rag import ingest_document, split_text
 
 
 class MockClient(OllamaClient):

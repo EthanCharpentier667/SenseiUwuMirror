@@ -1,5 +1,6 @@
 """Command registry and management for the CLI."""
 
+import shlex
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,7 @@ class Command:
     description: str
     execute: Callable[[CommandContext, list[str]], Awaitable[None]]
     subcommands: list[str] = field(default_factory=list)
+    argument_completer: Completer | None = None
 
 
 class SlashCommandCompleter(Completer):  # type: ignore[misc,unused-ignore]
@@ -76,6 +78,10 @@ class SlashCommandCompleter(Completer):  # type: ignore[misc,unused-ignore]
                             display=subcmd,
                         )
 
+        command = self.commands.get(words[0])
+        if command is not None and command.argument_completer is not None:
+            yield from command.argument_completer.get_completions(document, _complete_event)
+
 
 class CommandRegistry:
     """Registry for CLI slash commands."""
@@ -108,7 +114,6 @@ class CommandRegistry:
             return
 
         command_name = parts[0]
-        args = parts[1:]
 
         if command_name not in self._commands:
             await context.ui.on_system_message(
@@ -119,6 +124,7 @@ class CommandRegistry:
 
         command = self._commands[command_name]
         try:
+            args = shlex.split(user_input)[1:]
             await command.execute(context, args)
         except SystemExit:
             raise

@@ -149,6 +149,7 @@ class OllamaClient:
         self.timeout = timeout
         self.verbose = verbose
         self.num_ctx = num_ctx
+        self._capabilities: dict[str, set[str]] = {}
 
     def _build_headers(self) -> dict[str, str]:
         """Construct authorization and content-type headers."""
@@ -223,6 +224,9 @@ class OllamaClient:
             raise RuntimeError(msg)
 
         msg_obj = data.get("message", {})
+        if self.verbose:
+            raw = {key: msg_obj.get(key) for key in ("content", "thinking", "tool_calls")}
+            print(f"Received from Ollama: {raw} (done_reason={data.get('done_reason')})")  # noqa: T201
         return ChatResult(
             text=msg_obj.get("content", ""),
             tool_calls=msg_obj.get("tool_calls", []),
@@ -263,6 +267,11 @@ class OllamaClient:
         Returns:
             Response: The parsed response, including metadata and token usage.
         """
+        should_end_ui_stream = (
+            ui_handler is not None
+            and (on_chunk is None or on_chunk == getattr(ui_handler, "on_stream_chunk", None))
+            and hasattr(ui_handler, "on_stream_end")
+        )
         if on_chunk is None and ui_handler is not None:
             on_chunk = ui_handler.on_stream_chunk
         headers = self._build_headers()
@@ -296,11 +305,15 @@ class OllamaClient:
                 response.raise_for_status()
                 parsed = self._parse_non_stream(response)
             else:
-                async with http_client.stream(
-                    "POST", self.base_url, headers=headers, json=payload
-                ) as response:
-                    response.raise_for_status()
-                    parsed = await self._parse_stream(response, on_chunk)
+                try:
+                    async with http_client.stream(
+                        "POST", self.base_url, headers=headers, json=payload
+                    ) as response:
+                        response.raise_for_status()
+                        parsed = await self._parse_stream(response, on_chunk)
+                finally:
+                    if should_end_ui_stream and ui_handler is not None:
+                        await ui_handler.on_stream_end()
 
         respond_time = time.time()
         return Response(
@@ -318,6 +331,33 @@ class OllamaClient:
             tool_calls=parsed.tool_calls,
             stop_reason=parsed.done_reason,
         )
+
+    async def capabilities(self, model: str) -> set[str]:
+        """What a model can do (e.g. "vision", "tools"), from Ollama's `/api/show` endpoint.
+
+        The answer is cached per model. If it can't be fetched, the model is assumed to
+        have no capability, so callers fall back to plain text instead of failing.
+
+        Args:
+            model: Name of the Ollama model to inspect.
+
+        Returns:
+            set[str]: The model's capabilities, empty when unknown.
+        """
+        if model in self._capabilities:
+            return self._capabilities[model]
+        url = httpx.URL(self.base_url.rstrip("/")).join("show")
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as http_client:
+                response = await http_client.post(
+                    url, headers=self._build_headers(), json={"model": model}
+                )
+                response.raise_for_status()
+                data = cast("dict[str, Any]", response.json())
+        except (httpx.HTTPError, ValueError):
+            return set()
+        self._capabilities[model] = set(data.get("capabilities") or [])
+        return self._capabilities[model]
 
     async def embed(self, inputs: list[str], model: str) -> list[list[float]]:
         """Send an embedding request to Ollama's `/api/embed` endpoint.

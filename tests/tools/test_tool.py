@@ -1,10 +1,10 @@
-"""Tests for the ``sensai.tools.tool`` module."""
+"""Tests for the ``sensai.features.tools.tool`` module."""
 
 from typing import Any
 
 import pytest
 
-from sensai.tools.tool import CALL_GUARD_PREFIX, Tool
+from sensai.features.tools.tool import Tool
 
 
 class ConcreteTool(Tool):
@@ -35,6 +35,7 @@ def test_tool_init_sets_attributes() -> None:
     assert tool.description == "Does nothing."
     assert tool.type == "function"
     assert tool.parameters == {"type": "object", "properties": {}}
+    assert tool.show_output is False
 
 
 def test_tool_define_returns_openai_style_schema() -> None:
@@ -44,7 +45,7 @@ def test_tool_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "noop",
-            "description": CALL_GUARD_PREFIX + "Does nothing.",
+            "description": "Does nothing.",
             "parameters": {"type": "object", "properties": {}},
         },
     }

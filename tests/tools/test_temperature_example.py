@@ -1,12 +1,11 @@
-"""Tests for the ``sensai.tools.temperature_example`` module."""
+"""Tests for the ``sensai.features.tools.temperature_example`` module."""
 
 from typing import Any
 
 import httpx
 import pytest
 
-from sensai.tools.temperature_example import TempToolExample
-from sensai.tools.tool import CALL_GUARD_PREFIX
+from sensai.features.tools.temperature_example import TempToolExample
 
 WTTR_PAYLOAD = {
     "current_condition": [
@@ -41,7 +40,7 @@ def test_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "get_temperature",
-            "description": CALL_GUARD_PREFIX + "Get the current temperature for a city.",
+            "description": "Get the current temperature for a city.",
             "parameters": {
                 "type": "object",
                 "required": ["city"],

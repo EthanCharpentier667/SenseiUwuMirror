@@ -1,10 +1,10 @@
-"""Tests for the ``sensai.react`` module."""
+"""Tests for the ``sensai.features.react.react`` module."""
 
 from typing import Any
 
 import pytest
 
-from sensai.react import FINAL_ANSWER, Decision, ReActController
+from sensai.features.react.react import FINAL_ANSWER, Decision, ReActController
 
 
 def _definition(name: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
@@ -27,7 +27,7 @@ def test_schema_puts_thought_first_and_lists_allowed_actions() -> None:
 
     schema = controller.schema()
 
-    assert list(schema["properties"]) == ["thought", "missing", "action", "args"]
+    assert list(schema["properties"]) == ["thought", "action", "args"]
     assert schema["properties"]["action"]["enum"] == ["web_search", "count", FINAL_ANSWER]
 
 
@@ -53,11 +53,8 @@ def test_failed_or_refused_calls_do_not_spend_budget() -> None:
     ("raw", "expected"),
     [
         (
-            (
-                '{"thought": " look it up ", "missing": " names ", "action": "web_search", '
-                '"args": {"query": "x"}}'
-            ),
-            Decision("look it up", "web_search", {"query": "x"}, "names"),
+            ('{"thought": " look it up ", "action": "web_search", "args": {"query": "x"}}'),
+            Decision("look it up", "web_search", {"query": "x"}),
         ),
         (
             '{"thought": "t", "action": "web_search", "args": {"query": "x", "thought": "t"}}',
@@ -67,7 +64,20 @@ def test_failed_or_refused_calls_do_not_spend_budget() -> None:
             '{"thought": "t", "action": "nope", "args": {"a": 1}}',
             Decision("t", "nope", {"a": 1}),
         ),
+        (
+            '{"thought": "t", "action": "final_answer", "args": {"message": "Voici..."}}',
+            Decision("t", FINAL_ANSWER),
+        ),
         ('{"thought": "t", "action": "web_search", "args": "bad"}', Decision("t", "web_search")),
+        (
+            'Ok:\n```json\n{"thought": "t", "action": "web_search", "args": {"query": "x"}}\n```',
+            Decision("t", "web_search", {"query": "x"}),
+        ),
+        (
+            '{"thought": "t", "action": "web_search", "args": {"query": "x"}}}',
+            Decision("t", "web_search", {"query": "x"}),
+        ),
+        ("", Decision("", FINAL_ANSWER)),
         ("plain text", Decision("plain text", FINAL_ANSWER)),
         ("[1, 2]", Decision("[1, 2]", FINAL_ANSWER)),
     ],
@@ -116,30 +126,88 @@ def test_record_truncates_long_observations() -> None:
     assert controller.steps[0].observation == "01234… [truncated]"
 
 
-def test_plan_instructions_describe_tools_and_steps() -> None:
-    controller = ReActController([SEARCH, COUNT])
-    assert "(none yet)" in controller.plan_instructions()
-
-    controller.record(Decision("t", "web_search", {"query": "fox"}), "done", "A fox.")
-    instructions = controller.plan_instructions()
+def test_plan_instructions_describe_the_tools() -> None:
+    instructions = ReActController([SEARCH, COUNT]).plan_instructions()
 
     assert "- web_search(query: string): The web_search tool." in instructions
     assert "- count(n: integer, unit: string (optional)): The count tool." in instructions
     assert f"- {FINAL_ANSWER}(): " in instructions
-    assert '1. web_search {"query": "fox"} -> done\n   A fox.' in instructions
 
 
-def test_answer_instructions_only_carry_successful_results() -> None:
+def test_trajectory_replays_each_action_then_its_observation() -> None:
+    controller = ReActController([SEARCH, COUNT])
+    assert controller.trajectory() == []
+
+    controller.record(Decision("Look it up.", "web_search", {"query": "fox"}), "done", "A fox.")
+    controller.record(Decision("", "count", {}), "rejected", "Rejected: missing argument(s): n.")
+
+    assert controller.trajectory() == [
+        {
+            "role": "assistant",
+            "content": (
+                '{"thought": "Look it up.", "action": "web_search", "args": {"query": "fox"}}'
+            ),
+            "ephemeral": True,
+        },
+        {
+            "role": "tool",
+            "tool_name": "web_search",
+            "content": "Observation: A fox.",
+            "ephemeral": True,
+        },
+        {
+            "role": "assistant",
+            "content": '{"thought": "", "action": "count", "args": {}}',
+            "ephemeral": True,
+        },
+        {
+            "role": "tool",
+            "tool_name": "count",
+            "content": "Observation (rejected): Rejected: missing argument(s): n.",
+            "ephemeral": True,
+        },
+    ]
+
+
+def test_transcript_keeps_every_step_as_a_tool_message() -> None:
+    controller = ReActController([SEARCH, COUNT])
+    assert controller.transcript() == []
+
+    controller.record(Decision("Look it up.", "web_search", {"query": "fox"}), "done", "A fox.")
+    controller.record(Decision("", "count", {}), "rejected", "Rejected: missing argument(s): n.")
+
+    assert controller.transcript() == [
+        {
+            "role": "tool",
+            "content": (
+                '{"tool": "web_search", "args": {"query": "fox"}, "thought": "Look it up.", '
+                '"status": "done", "observation": "A fox."}'
+            ),
+        },
+        {
+            "role": "tool",
+            "content": (
+                '{"tool": "count", "args": {}, "thought": "", "status": "rejected", '
+                '"observation": "Rejected: missing argument(s): n."}'
+            ),
+        },
+    ]
+
+
+def test_answer_instructions_carry_results_and_mark_failures() -> None:
     controller = ReActController([SEARCH])
     assert controller.answer_instructions() is None
 
-    controller.record(Decision("t", "web_search", {"query": "a"}), "failed", "Error: boom")
+    controller.record(Decision("t", "web_search", {"query": "a"}), "rejected", "Rejected: x")
+    controller.record(Decision("t", "web_search", {"query": "b"}), "refused", "Cancelled.")
     assert controller.answer_instructions() is None
 
-    controller.record(Decision("t", "web_search", {"query": "b"}), "done", "A fox.")
+    controller.record(Decision("t", "web_search", {"query": "c"}), "failed", "Error: boom")
+    controller.record(Decision("t", "web_search", {"query": "d"}), "done", "A fox.")
     instructions = controller.answer_instructions() or ""
-    assert "A fox." in instructions
-    assert "boom" not in instructions
+    assert '- web_search {"query": "c"} (failed):\nError: boom' in instructions
+    assert '- web_search {"query": "d"}:\nA fox.' in instructions
+    assert "a step marked failed did not happen" in instructions
 
 
 def test_tool_without_parameters_is_described_and_callable() -> None:
@@ -159,45 +227,71 @@ def test_total_tool_budget_leaves_only_final_answer() -> None:
 
 
 @pytest.mark.parametrize(
-    ("decision", "finishes", "draft"),
+    ("decision", "finishes"),
     [
-        (Decision("t", FINAL_ANSWER, missing="nothing"), True, None),
-        (Decision("t", FINAL_ANSWER, missing="the names"), True, None),
-        (Decision("t", "web_search", {"query": "a"}, "the names"), False, None),
-        (Decision("The answer.", "web_search", {"query": "a"}, "Nothing."), True, "The answer."),
-        (Decision("The answer.", "web_search", {"query": "a"}, ""), True, "The answer."),
-        (Decision("", "web_search", {"query": "a"}, "none"), True, None),
+        (Decision("Done.", FINAL_ANSWER), True),
+        (Decision("Need more.", "web_search", {"query": "a"}), False),
+        (Decision("", "unknown"), False),
+        (Decision("Again.", "web_search", {"query": "first"}), True),
     ],
 )
-def test_finishes_when_final_answer_or_nothing_missing(
+def test_finishes_on_the_final_answer_or_a_repeated_call(
     decision: Decision,
     finishes: bool,  # noqa: FBT001 - pytest parameter
-    draft: str | None,
 ) -> None:
     controller = ReActController([SEARCH])
     controller.record(Decision("t", "web_search", {"query": "first"}), "done", "result")
 
     assert controller.finishes(decision) is finishes
-    assert controller.draft == draft
 
 
-@pytest.mark.parametrize("status", [None, "failed", "refused", "rejected"])
-def test_nothing_missing_does_not_stop_a_tool_call_before_any_result(status: str | None) -> None:
-    controller = ReActController([SEARCH])
-    if status:
-        controller.record(Decision("t", "web_search", {"query": "first"}), status, "no result")
+def test_exhausted_once_no_tool_can_run() -> None:
+    controller = ReActController([SEARCH], max_calls_per_tool=1)
+    assert not controller.exhausted()
 
-    assert not controller.finishes(Decision("Need more.", "web_search", {"query": "a"}, "nothing"))
-    assert controller.draft is None
+    controller.record(Decision("t", "web_search", {"query": "a"}), "failed", "Error")
+    assert not controller.exhausted()
+
+    controller.record(Decision("t", "web_search", {"query": "b"}), "done", "r")
+    assert controller.exhausted()
 
 
-def test_answer_instructions_carry_the_draft() -> None:
-    controller = ReActController([SEARCH])
-    controller.record(Decision("t", "web_search", {"query": "names"}), "done", "A, B, C.")
-    controller.finishes(Decision("Ten names: A, B.", "web_search", {"query": "a"}, "nothing"))
+def test_images_only_come_from_done_steps_and_are_noted_in_the_observation() -> None:
+    controller = ReActController([SEARCH], observation_limit=5)
+    controller.record(Decision("t", "web_search", {"query": "a"}), "done", "0123456789", ["i1"])
+    controller.record(Decision("t", "web_search", {"query": "b"}), "failed", "Error", ["i2"])
+    controller.record(Decision("t", "web_search", {"query": "c"}), "done", "r")
 
-    instructions = controller.answer_instructions() or ""
+    assert controller.images() == ["i1"]
+    assert controller.steps[0].observation == (
+        "01234… [truncated]\n[1 image(s) from this tool are attached to the user's latest message.]"
+    )
+    assert controller.steps[2].observation == "r"
 
-    assert "Information gathered with tools:\n- web_search" in instructions
-    assert "Draft written while planning" in instructions
-    assert instructions.index("A, B, C.") < instructions.index("Ten names: A, B.")
+
+def test_json_instructions_spell_out_the_allowed_actions() -> None:
+    instructions = ReActController([SEARCH]).json_instructions()
+
+    assert f'"action": "<one of: web_search, {FINAL_ANSWER}>"' in instructions
+
+
+def test_a_repeatable_tool_may_run_the_same_call_again() -> None:
+    controller = ReActController([SEARCH], repeatable=["web_search"])
+    controller.record(Decision("", "web_search", {"query": "x"}), "done", "r")
+
+    assert not controller.finishes(Decision("again", "web_search", {"query": "x"}))
+    assert controller.check(Decision("again", "web_search", {"query": "x"})) is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "readable"),
+    [
+        ('{"thought": "t", "action": "final_answer", "args": {}}', True),
+        ('```json\n{"thought": "t", "action": "search", "args": {}}\n```', True),
+        ("", False),
+        ('thought\nGo.<channel|>action: search(query: "x")<tool_call|>', False),
+        ('["not", "an", "object"]', False),
+    ],
+)
+def test_readable_tells_a_step_from_a_reply_without_one(raw: str, *, readable: bool) -> None:
+    assert ReActController([SEARCH]).readable(raw) is readable

@@ -11,7 +11,9 @@ async def help_execute(context: CommandContext, _args: list[str]) -> None:
     table.add_column("Command", style="cyan")
     table.add_column("Description")
 
+    table.add_row("/mcp add-json <name> '<json>'", "Connect using an HTTP JSON configuration.")
     table.add_row("/help", "List all available commands.")
+    table.add_row("/tools", "List tools, or enable/disable one: /tools enable|disable <name>.")
     table.add_row("/logout", "Log out and clear saved credentials.")
     table.add_row("/prefs", "Manage preferences (list, add, remove, edit).")
     table.add_row("/inst", "Manage system instructions (list, add, remove, edit).")

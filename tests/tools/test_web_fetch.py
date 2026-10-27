@@ -1,4 +1,4 @@
-"""Tests for the ``sensai.tools.web_fetch`` module."""
+"""Tests for the ``sensai.features.tools.web_fetch`` module."""
 
 from typing import Any
 from unittest.mock import Mock
@@ -6,9 +6,8 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-import sensai.tools.web_fetch as web_fetch_module
-from sensai.tools.tool import CALL_GUARD_PREFIX
-from sensai.tools.web_fetch import DEFAULT_TIMEOUT, WebFetch, fetch_url
+import sensai.features.tools.web_fetch as web_fetch_module
+from sensai.features.tools.web_fetch import DEFAULT_TIMEOUT, WebFetch, fetch_url
 
 PAGE_URL = "https://example.com/game"
 FETCH_PAYLOAD = {
@@ -25,7 +24,7 @@ def test_define_returns_openai_style_schema() -> None:
         "type": "function",
         "function": {
             "name": "web_fetch",
-            "description": CALL_GUARD_PREFIX + tool.description,
+            "description": tool.description,
             "parameters": {
                 "type": "object",
                 "required": ["url"],

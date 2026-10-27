@@ -11,6 +11,7 @@ from sensai.config import (
     DEFAULT_DB_PATH,
     DEFAULT_MODEL,
     DEFAULT_NUM_CTX,
+    DEFAULT_PERSONAS_FILE,
     Config,
 )
 
@@ -24,6 +25,27 @@ def test_config_uses_defaults_when_no_arguments_are_given() -> None:
     assert config.db_name == DEFAULT_DB_NAME
     assert config.compression_threshold == DEFAULT_COMPRESSION_TOKEN_THRESHOLD
     assert config.num_ctx == DEFAULT_NUM_CTX
+    assert config.output_schema is None
+
+
+def test_config_parses_output_schema() -> None:
+    config = Config()
+    config.parse_args(["--output-schema", '{"type":"object","required":["name"]}'])
+
+    assert config.output_schema == {"type": "object", "required": ["name"]}
+
+
+@pytest.mark.parametrize("value", ["not json", "[]", "null", '"object"'])
+def test_config_rejects_invalid_output_schema(
+    value: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = Config()
+
+    with pytest.raises(SystemExit) as exc:
+        config.parse_args(["--output-schema", value])
+
+    assert exc.value.code == 2
+    assert "--output-schema" in capsys.readouterr().err
 
 
 def test_config_parses_provided_arguments(tmp_path: Path) -> None:
@@ -72,3 +94,55 @@ def test_config_properties_parse_lazily_when_accessed_without_parse_args(
 
     assert config.model == DEFAULT_MODEL
     assert config.get_args() is not None
+
+
+def test_config_persona_defaults_to_none() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.persona is None
+
+
+def test_config_personas_file_defaults_to_default_value() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.personas_file == DEFAULT_PERSONAS_FILE
+
+
+def test_config_parses_persona() -> None:
+    config = Config()
+    config.parse_args(["--persona", "sensei_wu"])
+
+    assert config.persona == "sensei_wu"
+    assert config.personas_file == DEFAULT_PERSONAS_FILE
+
+
+def test_config_enables_every_feature_by_default() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.features.disabled == set()
+
+
+def test_config_disables_the_features_given_on_the_command_line() -> None:
+    config = Config()
+    config.parse_args(["--disable", "rag", "react"])
+
+    assert config.features.disabled == {"rag", "react"}
+    assert not config.features.is_enabled("rag")
+    assert config.features.is_enabled("tools")
+
+
+def test_config_rejects_an_unknown_feature() -> None:
+    config = Config()
+
+    with pytest.raises(SystemExit):
+        config.parse_args(["--disable", "teleport"])
+
+
+def test_config_disables_the_tools_given_on_the_command_line() -> None:
+    config = Config()
+    config.parse_args(["--disable-tool", "web_search", "web_fetch"])
+
+    assert config.features.disabled_tools == {"web_search", "web_fetch"}

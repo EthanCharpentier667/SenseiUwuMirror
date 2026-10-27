@@ -51,6 +51,17 @@ This command creates the `.venv` virtual environment, installs the project, and 
 uv run sensai
 ```
 
+To request final responses matching a JSON Schema, pass an inline JSON object:
+
+```bash
+uv run sensai --output-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"],"additionalProperties":false}'
+```
+
+For example, ask: `Eliott is 23 years old. Extract his name and age.`
+The schema applies to final responses throughout this run. The CLI checks that the
+argument is a JSON object and passes it to Ollama's `format` parameter; local
+response validation and bounded retries are not implemented yet.
+
 To add a Python dependency to the project:
 
 ```bash
@@ -62,6 +73,25 @@ To add a development dependency:
 ```bash
 uv add --dev package-name
 ```
+
+## MCP connections
+
+Connect servers from the Sensai chat using `/mcp add-json <name> '<json>'`.
+The [MCP connection guide](docs/mcp-server.md) explains the JSON format and
+provides detailed examples for local tools, GitHub tokens and Gmail OAuth.
+
+### Local example server
+
+The example MCP server exposes an `add` tool, a greeting resource, and a prompt.
+Start it from the repository root:
+
+```bash
+uv run python src/sensai_mcp/sensai_server.py
+```
+
+It listens on `http://127.0.0.1:8000/mcp`. See the
+[MCP connection guide](docs/mcp-server.md) for a connection check and instructions
+for using it with Sensai.
 
 ## Code quality
 

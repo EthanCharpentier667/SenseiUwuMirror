@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from markitdown import MarkItDown
 
     from sensai.data.database.database import Database
-    from sensai.embedder import Embedder
+    from sensai.features.rag.embedder import Embedder
 
 DEFAULT_CHUNK_SIZE = 1500
 DEFAULT_CHUNK_OVERLAP = 200

@@ -12,7 +12,7 @@ from .message import Message, create_message, get_document_ids_by_session
 from .session import Session, add_session_usage, create_session, get_session, set_session_summary
 
 if TYPE_CHECKING:
-    from sensai.embedder import Embedder
+    from sensai.features.rag.embedder import Embedder
 
 DEFAULT_RETRIEVED_CHUNKS = 3
 
@@ -81,13 +81,17 @@ def _sendable_messages(session: Session) -> list[Message]:
 
     Messages folded into ``session.summary`` (their id is at or below
     ``summarized_message_id``) are represented by the summary instead, so they're excluded.
+    Tool messages are excluded too: they're only kept as a trace of what the agent did,
+    since sending raw tool results back would bloat the prompt and mislead the model.
     """
-    if session.summarized_message_id is None:
-        return session.messages
     return [
         message
         for message in session.messages
-        if message.id is not None and message.id > session.summarized_message_id
+        if message.role != "tool"
+        and (
+            session.summarized_message_id is None
+            or (message.id is not None and message.id > session.summarized_message_id)
+        )
     ]
 
 
@@ -170,7 +174,9 @@ def update_session(
     includes the session's known state (summary plus unsummarized history) when the
     request was built with ``build_messages``. Only the messages past that prefix are
     new to this turn, so only those are persisted here to avoid re-inserting duplicates
-    of past messages or turning the summary line into a stored message.
+    of past messages or turning the summary line into a stored message. Tool messages
+    are persisted as a trace of what the agent did, but never sent back to the model
+    (see ``_sendable_messages``).
 
     Args:
         db (Database): The database to write to.
@@ -193,7 +199,7 @@ def update_session(
     )
     new_messages = response.messages[prefix_length:]
     for message in new_messages:
-        if message.role != "tool" and len(message.content.strip()) > 0:
+        if message.role != "system" and len(message.content.strip()) > 0:
             create_message(db, session.id, message.content, message.role, message.response_time)
     add_session_usage(
         db, session.id, response.prompt_eval_count, response.eval_count, response.token_used
@@ -361,11 +367,7 @@ async def maybe_compress_session(  # noqa: PLR0913
         return session
 
     if ui_handler:
-        msg = (
-            f"Compressing session history (token count "
-            f"{response.prompt_eval_count} > {threshold})..."
-        )
-        await ui_handler.start_spinner(msg)
+        await ui_handler.start_spinner("Compressing...")
 
     try:
         return await compress_session(db, session, client, model=response.model)

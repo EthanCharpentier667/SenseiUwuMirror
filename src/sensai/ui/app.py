@@ -1,5 +1,7 @@
 """Interactive CLI application using prompt_toolkit."""
 
+import asyncio
+from pathlib import Path
 from typing import Any
 
 from prompt_toolkit import PromptSession
@@ -10,16 +12,22 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient
 from sensai.config import Config
 from sensai.data.database.database import Database
+from sensai.data.session.document import get_document
 from sensai.data.session.manager import (
     build_messages,
     maybe_compress_session,
     retrieve_chunks,
     update_session,
 )
+from sensai.data.session.message import get_document_ids_by_session
 from sensai.data.session.session import Session
-from sensai.embedder import Embedder
+from sensai.features.features import COMPRESSION, RAG
+from sensai.features.rag.embedder import Embedder
+from sensai.features.rag.rag import ingest_document
+from sensai.features.tools.browser.page import close_browser
 from sensai.ui.command import CommandContext, CommandRegistry
 from sensai.ui.commands import setup_builtin_commands
+from sensai.ui.commands.mcp.mcp_commands import MCPCommands
 
 
 class CLIApp:
@@ -57,6 +65,8 @@ class CLIApp:
 
         self.command_registry = CommandRegistry()
         setup_builtin_commands(self.command_registry)
+        self.mcp_commands = MCPCommands(agent)
+        self.mcp_commands.register(self.command_registry)
         self.prompt_session: PromptSession[str] | None = None
         self._setup_prompt_session()
 
@@ -65,8 +75,12 @@ class CLIApp:
         kb = KeyBindings()
 
         def _handle_enter(event: Any) -> None:
-            """Submit the input when Enter is pressed."""
-            event.current_buffer.validate_and_handle()
+            """Accept a selected completion before allowing the user to submit."""
+            buffer = event.current_buffer
+            if buffer.complete_state is not None and buffer.complete_state.current_completion:
+                buffer.complete_state = None
+                return
+            buffer.validate_and_handle()
 
         kb.add("enter")(_handle_enter)
 
@@ -98,27 +112,77 @@ class CLIApp:
 
     async def _handle_chat(self, user_input: str) -> None:
         """Process a standard chat message with the AI."""
-        retrieved = await retrieve_chunks(self.database, self.embedder, self.session, user_input)
-        messages = build_messages(self.session, user_input, retrieved)
-        sent_prefix_length = len(messages) - 1
+        features = self.config.features
+        if self.agent.ui_handler:
+            await self.agent.ui_handler.start_spinner("Thinking...")
+        try:
+            retrieved = (
+                await retrieve_chunks(self.database, self.embedder, self.session, user_input)
+                if features.is_enabled(RAG)
+                else []
+            )
+            messages = build_messages(self.session, user_input, retrieved)
+            sent_prefix_length = len(messages) - 1
 
-        response = await self.agent.run(messages=messages)
+            response = await self.agent.run(messages=messages)
 
-        updated_session = update_session(self.database, self.session, response, sent_prefix_length)
-        if updated_session is None:
-            msg = "Failed to update the session after the response."
-            raise ValueError(msg)
+            updated_session = update_session(
+                self.database, self.session, response, sent_prefix_length
+            )
+            if updated_session is None:
+                msg = "Failed to update the session after the response."
+                raise ValueError(msg)
 
-        self.session = updated_session
+            self.session = updated_session
+            if features.is_enabled(RAG):
+                await self._ingest_read_documents()
 
-        self.session = await maybe_compress_session(
-            self.database,
-            self.session,
-            response,
-            threshold=self.config.compression_threshold,
-            client=self.client,
-            ui_handler=self.agent.ui_handler,
+            if features.is_enabled(COMPRESSION):
+                self.session = await maybe_compress_session(
+                    self.database,
+                    self.session,
+                    response,
+                    threshold=self.config.compression_threshold,
+                    client=self.client,
+                    ui_handler=self.agent.ui_handler,
+                )
+        finally:
+            if self.agent.ui_handler:
+                await self.agent.ui_handler.stop_spinner()
+
+    async def _ingest_read_documents(self) -> None:
+        """Ingest the files the agent read this turn, attached to the turn's user message.
+
+        Later turns then retrieve their relevant chunks, beyond the part of the file the
+        model saw in the tool's (truncated) observation. A file whose content the session
+        already holds (read at an earlier turn, attached on the command line, or reached
+        by another path) is skipped, so its chunks aren't retrieved twice.
+        """
+        if not self.agent.read_documents:
+            return
+        turn_message = next(
+            (message for message in reversed(self.session.messages) if message.role == "user"),
+            None,
         )
+        if turn_message is None or turn_message.id is None:
+            return
+        known = {
+            document.content
+            for document_id in get_document_ids_by_session(self.database, turn_message.session_id)
+            if (document := get_document(self.database, document_id)) is not None
+        }
+        for path in dict.fromkeys(self.agent.read_documents):
+            try:
+                content = await asyncio.to_thread(Path(path).read_bytes)
+                if content in known:
+                    continue
+                await ingest_document(
+                    self.database, self.embedder, turn_message.id, content, Path(path).name
+                )
+                known.add(content)
+            except (OSError, ValueError) as e:
+                if self.agent.ui_handler:
+                    await self.agent.ui_handler.on_error(e, title=f"RAG: {path}")
 
     async def run(self) -> None:
         """Run the interactive REPL loop."""
@@ -143,8 +207,14 @@ class CLIApp:
                     try:
                         await self._handle_chat(user_input)
                     except Exception as e:  # noqa: BLE001
-                        self.console.print(f"[bold red]Chat failed:[/bold red] {e}")
+                        if self.agent.ui_handler:
+                            await self.agent.ui_handler.on_error(e, title="Chat Error")
+                        else:
+                            self.console.print(f"[bold red]Chat failed:[/bold red] {e}")
                     self.console.print("\n")
 
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n[bold red]Program terminated by user.[/bold red]")
+        finally:
+            await self.mcp_commands.aclose()
+            await close_browser()
