@@ -16,12 +16,13 @@ from rich.segment import Segment
 from rich.syntax import Syntax
 from rich.text import Text
 
-from .forms import Question
 from .protocol import AsyncUIHandler
 
 if TYPE_CHECKING:
     from rich.console import ConsoleOptions, RenderResult
     from rich.status import Status
+
+    from .forms import Question
 
 
 class _Tail:

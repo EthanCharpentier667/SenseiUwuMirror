@@ -139,6 +139,9 @@ class MockUIHandler(AsyncUIHandler):
     async def prompt_input(self, _title: str, _text: str) -> str | None:
         return "mock_input"
 
+    async def prompt_question(self, question: Any) -> str | None:
+        return question.choices[0][0] if question.choices else None
+
 
 class FakeTool:
     """Fake tool for agent tests."""
@@ -280,7 +283,7 @@ async def test_agent_passes_output_schema_to_client(monkeypatch: pytest.MonkeyPa
 
     config = Config()
     config.parse_args(["--output-schema", '{"type":"object","required":["name"]}'])
-    monkeypatch.setattr("sensai.core.setup.get_tools", list)
+    monkeypatch.setattr("sensai.core.setup.get_tools", lambda *_args, **_kwargs: [])
     client, agent = setup_ai_engine(config)
     chat = AsyncMock(return_value=_make_response('{"name":"eliott"}'))
     monkeypatch.setattr(client, "chat", chat)

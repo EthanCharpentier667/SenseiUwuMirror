@@ -16,6 +16,7 @@ class AskUserTool(Tool):
     """Ask the user a question with optional predefined choices."""
 
     def __init__(self, ui_handler: AsyncUIHandler) -> None:
+        """Initialize the AskUser tool with the active UI handler."""
         self._ui_handler = ui_handler
         super().__init__(
             name="ask_user",
@@ -39,7 +40,10 @@ class AskUserTool(Tool):
                     },
                     "allow_other": {
                         "type": "boolean",
-                        "description": "Whether to show a free-text 'Other' option alongside choices. Defaults to true.",
+                        "description": (
+                            "Whether to show a free-text 'Other' option alongside choices."
+                            " Defaults to true."
+                        ),
                     },
                 },
                 "required": ["question"],
@@ -48,6 +52,7 @@ class AskUserTool(Tool):
         )
 
     async def execute(self, *_args: Any, **kwargs: Any) -> str | None:
+        """Present the question to the user and return their answer."""
         question_text: str = kwargs["question"]
         raw_choices: list[str] = kwargs.get("choices") or []
         allow_other: bool = kwargs.get("allow_other", True)

@@ -67,6 +67,9 @@ class MockUIHandler(AsyncUIHandler):
     async def prompt_input(self, _title: str, _text: str) -> str | None:
         return "mock_input"
 
+    async def prompt_question(self, question: Any) -> str | None:
+        return question.choices[0][0] if question.choices else None
+
 
 @pytest.mark.asyncio
 async def test_client_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:

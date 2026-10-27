@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mcp import Client
-
 from sensai.features.tools.web_fetch import WebFetch
 
 from .ask_user import AskUserTool
@@ -21,11 +19,14 @@ from .mcp.mcp_tools import MCPTools
 from .sandbox.sandboxed_code import SandboxedCode
 from .screenshot.screenshot import Screenshot
 from .temperature_example import TempToolExample
-from .tool import Tool
 from .web_search import WebSearch
 
 if TYPE_CHECKING:
+    from mcp import Client
+
     from sensai.ui.protocol import AsyncUIHandler
+
+    from .tool import Tool
 
 
 def get_tools(ui_handler: AsyncUIHandler | None = None) -> list[Tool]:
@@ -34,7 +35,7 @@ def get_tools(ui_handler: AsyncUIHandler | None = None) -> list[Tool]:
     Returns:
         list[Tool]: Instantiated tools ready to be defined and executed.
     """
-    tools: list[Tool] = [
+    tools = [
         WebSearch(),
         TempToolExample(),
         WebFetch(),

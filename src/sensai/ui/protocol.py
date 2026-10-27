@@ -65,5 +65,5 @@ class AsyncUIHandler(Protocol):
         ...  # pragma: no cover
 
     async def prompt_question(self, question: Question) -> str | None:
-        """Prompt the user with a question combining predefined choices and a free-text 'Other' option."""
+        """Prompt the user with predefined choices and an optional free-text 'Other' fallback."""
         ...  # pragma: no cover

@@ -11,7 +11,10 @@ from sensai.ui.forms import Question, prompt_form
 @pytest.mark.asyncio
 async def test_prompt_form_collects_all_answers() -> None:
     questions = [
-        Question(key="color", title="Color", text="Pick a color", choices=[("red", "Red"), ("blue", "Blue")]),
+        Question(
+            key="color", title="Color", text="Pick a color",
+            choices=[("red", "Red"), ("blue", "Blue")],
+        ),
         Question(key="size", title="Size", text="Enter size", choices=[("s", "Small")]),
     ]
     handler = AsyncMock()
@@ -43,7 +46,10 @@ async def test_prompt_form_preserves_none_answers() -> None:
 @pytest.mark.asyncio
 async def test_prompt_question_predefined_choice() -> None:
     handler = CLIHandler()
-    question = Question(key="q", title="Title", text="Text", choices=[("a", "Option A"), ("b", "Option B")])
+    question = Question(
+        key="q", title="Title", text="Text",
+        choices=[("a", "Option A"), ("b", "Option B")],
+    )
 
     with patch("sensai.ui.cli.radiolist_dialog") as mock_dialog:
         mock_dialog.return_value.run_async = AsyncMock(return_value="a")
@@ -55,7 +61,10 @@ async def test_prompt_question_predefined_choice() -> None:
 @pytest.mark.asyncio
 async def test_prompt_question_other_triggers_input() -> None:
     handler = CLIHandler()
-    question = Question(key="q", title="Title", text="Text", choices=[("a", "Option A")], allow_other=True)
+    question = Question(
+        key="q", title="Title", text="Text",
+        choices=[("a", "Option A")], allow_other=True,
+    )
 
     with patch("sensai.ui.cli.radiolist_dialog") as mock_radio, patch(
         "sensai.ui.cli.input_dialog"
@@ -70,7 +79,10 @@ async def test_prompt_question_other_triggers_input() -> None:
 @pytest.mark.asyncio
 async def test_prompt_question_other_cancelled_returns_none() -> None:
     handler = CLIHandler()
-    question = Question(key="q", title="Title", text="Text", choices=[("a", "Option A")], allow_other=True)
+    question = Question(
+        key="q", title="Title", text="Text",
+        choices=[("a", "Option A")], allow_other=True,
+    )
 
     with patch("sensai.ui.cli.radiolist_dialog") as mock_radio, patch(
         "sensai.ui.cli.input_dialog"
@@ -85,7 +97,10 @@ async def test_prompt_question_other_cancelled_returns_none() -> None:
 @pytest.mark.asyncio
 async def test_prompt_question_allow_other_false() -> None:
     handler = CLIHandler()
-    question = Question(key="q", title="Title", text="Text", choices=[("a", "Option A")], allow_other=False)
+    question = Question(
+        key="q", title="Title", text="Text",
+        choices=[("a", "Option A")], allow_other=False,
+    )
 
     with patch("sensai.ui.cli.radiolist_dialog") as mock_dialog:
         mock_dialog.return_value.run_async = AsyncMock(return_value="a")
