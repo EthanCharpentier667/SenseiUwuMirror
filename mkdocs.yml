@@ -5,6 +5,11 @@ repo_name: EthanCharpentier667/SenseiUwuMirror
 repo_url: https://github.com/EthanCharpentier667/SenseiUwuMirror
 edit_uri: blob/main/docs/
 
+exclude_docs: |
+  demo_assets/scripts/
+  demo_assets/examples/
+  demo_assets/artifacts/
+
 theme:
   name: material
   language: en
@@ -37,7 +42,7 @@ plugins:
   - search
   - gen-files:
       scripts:
-        - docs/gen_ref_pages.py
+        - docs/demo_assets/scripts/docs/gen_ref_pages.py
   - literate-nav:
       nav_file: SUMMARY.md
   - section-index
@@ -73,6 +78,27 @@ markdown_extensions:
 nav:
   - Home: index.md
   - "Use case: testing assistant": use-case.md
+  - Use cases:
+      - ReAct loop: use_cases/ReAct.md
+      - Tools and trust levels: use_cases/Tools-and-trust-levels.md
+      - Bash tools: use_cases/Bash.md
+      - "File access: file_read and file_write": use_cases/File-access.md
+      - "Screenshot": use_cases/Screenshot.md
+      - "Browser": use_cases/Browser.md
+      - "Sandboxed code": use_cases/Sandboxed-code.md
+      - "Web search and web fetch": use_cases/Web-search-and-fetch.md
+      - "MCP servers": use_cases/MCP.md
+      - "RAG on documents": use_cases/RAG.md
+      - "Session compression": use_cases/Session-compression.md
+      - "Profiles, preferences and instructions": use_cases/Profiles.md
+      - "Personas": use_cases/Personas.md
+      - "Models and capabilities": use_cases/Models-and-capabilities.md
+      - "Feature flags and settings": use_cases/Feature-flags-and-settings.md
+      - "Streaming and event-driven UI": use_cases/Streaming-and-UI.md
+  - Demonstrations:
+      - Overview: demo_assets/README.md
+      - Manual replay: demo_assets/demos/replay.md
+      - Recording details: demo_assets/demos/recordings.md
   - Scope and decisions: scope-and-decisions.md
   - Limits, impact and risks: responsibility.md
   - If we started over: retrospective.md

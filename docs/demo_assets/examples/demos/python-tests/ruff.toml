@@ -1,0 +1,5 @@
+extend = "../../../../../pyproject.toml"
+
+[lint]
+# Ce support autonome n'est pas un package ; ses assertions sont des tests pytest.
+extend-ignore = ["INP001", "S101", "PLR2004"]

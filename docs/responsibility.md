@@ -109,7 +109,7 @@ What we do about it:
   through web tools and MCP.
 - **Leaky tools can be turned off.** `--disable-tool web_search --disable-tool
   web_fetch`, or `--disable mcp`, removes the other ways out (see
-  [Feature flags](use-case.md#feature-flags-and-settings)).
+  [Feature flags](use_cases/Feature-flags-and-settings.md)).
 - **Nothing is sent without being visible.** With the `none` and `partial` trust
   levels, every tool that isn't read-only asks for approval and shows its arguments
   first.
