@@ -189,6 +189,9 @@ class CapturingUIHandler(AsyncUIHandler):
     async def prompt_input(self, _title: str, _text: str) -> str | None:
         return None
 
+    async def prompt_question(self, question: Any) -> str | None:
+        return question.choices[0][0] if question.choices else None
+
 
 @pytest.mark.asyncio
 async def test_agent_plan_streams_thought_and_action() -> None:

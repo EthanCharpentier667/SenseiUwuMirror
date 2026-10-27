@@ -123,6 +123,7 @@ async def async_main() -> None:
     await app.run()
 
 
+
 def main() -> None:
     """Entry point for the ``sensai`` console script."""
     asyncio.run(async_main())
