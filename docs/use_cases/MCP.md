@@ -56,52 +56,63 @@ and JSON configuration.
 
 ## Demonstration
 
-![MCP servers: actual component walkthrough](../demo_assets/assets/demos/mcp.gif)
+![An MCP rule used in a real conversation](../demo_assets/assets/demos/mcp.gif)
 
-The recording starts a real, local, read-only MCP fixture and uses Sensai's connection
-manager over HTTP. It discovers `cart_rule`, retrieves the known rule, requests an
-unknown rule, then closes the connection and confirms tool removal. It calls the
-component directly; it does not demonstrate a remote GitHub write or OAuth flow.
+Camille connects the read-only Atelier Nova rule server with `/mcp add-json`.
+Sensai discovers its tool, then the model selects that MCP tool to retrieve
+`CART-EMPTY-001`. Camille sees the tool request and approves it. The bot uses the
+returned requirement—an empty cart has subtotal `0`—to explain the expected test
+value.
+
+A second question requests an unknown payment rule. The same MCP tool returns
+that no rule is available; the answer identifies the missing coverage instead of
+inventing a payment requirement. These are actual HTTP MCP calls to a local fixture,
+not a simulated external business service.
+
+The capture uses the real interactive CLI, the local `llama3.2:latest` model and a
+fictional preconfigured account. Only human messages and approval keystrokes are
+automated. Idle waits are shortened for readability; the displayed application
+output and generated answers are preserved.
 
 ## Replay this demonstration
 
-From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites),
+then launch from the repository root:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py mcp
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py mcp --model llama3.2:latest
 ```
 
-1. The launcher starts the read-only fixture on loopback port 18876. Connect it
-   through the actual chat command:
+At the `Vous >` prompt, submit the following messages in order. Inspect each
+proposed tool call before answering `y` to its approval prompt.
+
+1. The launcher starts the local fixture. Submit this slash command and check that one tool is discovered.
 
 ```text
 /mcp add-json atelier '{"url":"http://127.0.0.1:18876/mcp"}'
 ```
 
-2. Expect one discovered tool. Send:
+2. Approve the discovered MCP tool call. Expect `CART-EMPTY-001: An empty cart has subtotal 0.` in the answer, tied to an expected value of `0`.
 
 ```text
-Use cart_rule with rule_id CART-EMPTY-001, then report the actual rule returned by the server. Do not use web search or invent a rule.
+Use the MCP tool cart_rule with rule_id=CART-EMPTY-001. Quote the returned rule and explain what value my empty-cart test should expect. Do not answer from memory.
 ```
 
-3. Inspect and approve the tool call. Expect the requirement that an empty cart
-   has subtotal `0`.
-4. Send `Use cart_rule with rule_id MISSING and report the server response.`
-   Approve it. Expect an unknown-rule response, rather than an invented requirement.
-5. `/exit` closes the MCP connections and the local fixture.
+3. Approve the second MCP call. Expect an unknown-rule response and no invented payment requirement.
 
-The component GIF shows the same discovery and rule calls directly, then confirms
-that closing the connection removes the registered tool. The interactive path also
-lets you inspect the model's interpretation of the returned rule.
+```text
+Use cart_rule with rule_id=CART-PAYMENT-999. If the rule is unknown, say that payment is not covered by this source. Do not invent a rule.
+```
 
-For the exact automated component sequence and a new GIF:
+Finish with `/exit` to close connections and remove the temporary workspace.
+A fresh launch resets the scenario. Model wording and latency may vary; compare
+the actual tool calls, returned values and errors.
+
+To create a new capture and GIF of this same interactive scenario:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py mcp
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py mcp
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py mcp
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py mcp
 ```
 
 ## Architecture choices and tradeoffs
@@ -111,7 +122,7 @@ its advertised schema. It adds transport, authentication and remote-service life
 constraints. A built-in rule tool would be simpler for this one fixture, but would
 not generalize to independent services as easily.
 
-## Limitations
+## Current limits
 
 Authentication support depends on each server's OAuth registration behavior or a
 valid configured credential. Discovery does not imply permission to perform every

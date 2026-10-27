@@ -66,50 +66,56 @@ mount inside this sandbox.
 
 ## Demonstration
 
-![Sandboxed code: actual component walkthrough](../demo_assets/assets/demos/sandbox.gif)
+![Successful and failing code executed inside Docker](../demo_assets/assets/demos/sandbox.gif)
 
-The actual Docker runner executes two successful cart checks as UID 10001, then
-runs a deliberate failing assertion. Both calls use the Python sandbox. The
-failure remains visible in the component output; this is not a recording of the
-model generating the source or a proof of every security boundary.
+Camille asks the bot to run two cart checks inside the Python sandbox. The model
+requests `sandboxed_code`; Camille inspects and approves the source. The CLI shows
+the actual Docker execution output: `2 cart checks passed` and
+`container uid: 10001`.
+
+She then submits a deliberate failing assertion. A second sandbox call executes
+that source and the CLI displays the resulting `AssertionError`.
+The bot reports the failure. Both cases execute in disposable containers; neither
+imports the host project or runs the supplied Python on the host.
+
+The capture uses the real interactive CLI, the local `llama3.2:latest` model and a
+fictional preconfigured account. Only human messages and approval keystrokes are
+automated. Idle waits are shortened for readability; the displayed application
+output and generated answers are preserved.
 
 ## Replay this demonstration
 
-From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites),
+then launch from the repository root:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py sandbox
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py sandbox --model llama3.2:latest
 ```
 
-1. Check that Docker is running, then send this request:
+At the `Vous >` prompt, submit the following messages in order. Inspect each
+proposed tool call before answering `y` to its approval prompt.
+
+1. Check that Docker is running. Approve the sandbox request after inspecting `language` and `code`. Expect the two successful checks and UID `10001` in the tool output.
 
 ```text
-Use sandboxed_code with language=python and code="assert sum([10, 20]) == 30; assert sum([]) == 0; print('2 cart checks passed')". Do not run it on the host.
+Use sandboxed_code with language=python to execute: import os; assert sum([10, 20]) == 30; assert sum([]) == 0; print('2 cart checks passed'); print('container uid:', os.getuid()). Report the actual output in one short sentence, no JSON. Do not run on the host.
 ```
 
-2. Inspect and approve the sandbox call. Expect `2 cart checks passed`.
-3. Send:
+2. Approve this second execution. Expect an actual sandbox error containing `AssertionError`, followed by a failure report.
 
 ```text
-Use sandboxed_code with language=python and code="assert 1 == 0, 'empty cart regression'". Do not use host Bash.
+Actually execute sandboxed_code now with language=python and code="assert sum([]) == 1". I need the real Docker error, even if you can predict the result. Report the observed error in one short sentence, no JSON. Do not repair or retry.
 ```
 
-4. Approve the call with the supplied Python assertion.
-   Expect an assertion error, not a successful check. The container is removed
-   by the runner's cleanup path.
+Finish with `/exit` to close connections and remove the temporary workspace.
+A fresh launch resets the scenario. Model wording and latency may vary; compare
+the actual tool calls, returned values and errors.
 
-The GIF uses an equivalent reference function and additionally prints UID 10001.
-The supplied code is a standalone experiment; it does not import the host project.
-The exact component replay below uses the full recorded Python source.
-
-For the exact automated component sequence and a new GIF:
+To create a new capture and GIF of this same interactive scenario:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py sandbox
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py sandbox
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py sandbox
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py sandbox
 ```
 
 ## Architecture choices and tradeoffs
@@ -119,7 +125,7 @@ with limits more explicit than direct host execution. Image builds and startup a
 latency. A persistent restricted worker could reduce startup cost, but would need
 stronger state-reset and cross-request isolation controls.
 
-## Limitations
+## Current limits
 
 Docker availability and image builds are prerequisites; builds may require network
 access even though the code container has networking disabled. The 20-second wait

@@ -13,7 +13,7 @@ From the repository root, install the project and the optional recording depende
 
 ```bash
 uv sync
-uv pip install --python .venv/bin/python pyte pillow playwright pyscreenshot
+uv pip install --python .venv/bin/python pyte pillow playwright pyscreenshot pexpect
 ```
 
 Start a local Ollama instance if one is not already running:
@@ -63,6 +63,7 @@ The terminal prints a temporary workspace. It contains:
 | `cart-failing/` | The original intentional defect: one passing test and one failing test. |
 | `cart-passing/` | The correct implementation: two passing tests. |
 | `cart-working/` | Another faulty copy which can be edited during the file-access demo. |
+| `cart-readonly.py` | A mode-`444` source file for a real permission-denied write. |
 | `cart-spec.md` | The fictional specification, including its unique review marker. |
 | `personas.json` | The QA and reviewer personas used by the recordings. |
 | `.venv` | A link to the repository's Python environment for the commands below. |
@@ -76,8 +77,16 @@ at a time when they use the dedicated display or loopback fixture ports.
 RAG replay attaches and embeds the specification before showing the prompt.
 Compression replay loads the documented fictional review history and summarizes it
 before the follow-up question. The MCP and browser sessions start their local
-fixtures and stop them when the session ends. The web session deliberately has no
-`API_TOKEN`; it reproduces unavailability, not a provider-backed lookup.
+fixtures and stop them when the session ends. The web session uses `API_TOKEN`
+from the environment or local `.env` for actual searches and page fetches. Its value
+never needs to be typed into a recorded terminal. Add `--without-web-token` only
+when replaying the unavailable-service case.
+
+The five interactive recordings (file access, MCP, sandbox, streaming and web) use
+`--model llama3.2:latest`. The launcher configures an 8192-token context and limits the
+available tools to those needed by the selected feature. File and sandbox tool
+output is enabled using the real CLI output option. Tool decisions, permissions,
+HTTP responses, Docker execution and text streaming use the application unchanged.
 
 ## Expected results and variability
 
@@ -92,6 +101,23 @@ The recordings show some known failures, including lossy compression and invente
 references in a document-free RAG session. Their feature sheets distinguish the
 required behavior from what was actually observed.
 
+## Record the real interactive scenarios
+
+The five updated GIFs are captured from a real pseudo-terminal. The automation
+submits the documented messages and answers `y` at actual approval prompts; the
+Sensai agent chooses and executes the tools and generates every answer.
+
+```bash
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py file-access mcp sandbox streaming web
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py file-access mcp sandbox streaming web
+```
+
+The capture is an asciicast-compatible terminal stream. The renderer honors ANSI
+cursor movements and samples intermediate screen states, preserving incremental
+streaming. It shortens idle waits and keeps each GIF below 1000 KiB. These playback
+timings are not latency benchmarks. Per-recording metadata retains the model,
+messages, approval count, real elapsed time and artifact checksums.
+
 ## Replay the original component sequence
 
 For a step-for-step replay of a component GIF, including the recorded tool arguments:
@@ -101,7 +127,8 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.p
 PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py rag
 ```
 
-Replace `rag` with the name in the corresponding feature sheet. This optional path
+Use this component path for the remaining component GIFs. The five updated
+interactive GIFs use `record_cli.py` and `render_cli.py` above. This optional path
 calls the recorded components directly, writes a new capture to `docs/demo_assets/artifacts/demos/`
 and overwrites that feature's GIF in `docs/demo_assets/assets/demos/` when rendered. Executable
 fixtures live in `docs/demo_assets/examples/demos/`; guides and the cart specification remain in

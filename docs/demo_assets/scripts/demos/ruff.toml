@@ -1,7 +1,0 @@
-extend = "../../../../pyproject.toml"
-
-[lint]
-# These optional recording scripts print actual component output. Keep syntax,
-# import and correctness checks without imposing application UI-output rules.
-select = ["E", "F", "I"]
-ignore = ["E402", "E501"]

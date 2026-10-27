@@ -57,47 +57,48 @@ verified explanation of the model's internal reasoning.
 
 ## Demonstration
 
-![Streaming and event-driven UI: actual component walkthrough](../demo_assets/assets/demos/streaming.gif)
+![A response appearing progressively in the real terminal](../demo_assets/assets/demos/streaming.gif)
 
-The capture sends an actual English prompt to local `llama3.2:latest` through
-Sensai's HTTP client. The real CLI handler renders the response incrementally;
-the recorded run receives 51 content callbacks and reports 52 generated tokens.
-These are counts for one demonstration, not latency or quality benchmarks. The
-prompt requests an explanation rather than execution of tests.
+Camille asks the bot for a short cart-testing explanation. The GIF records the
+actual Sensai terminal while Ollama generates the answer: partial sentences and
+numbered points appear progressively before the completed response remains on
+screen. Cursor movements and Rich live refreshes come from the application itself.
+
+The request is explanatory. No tests are executed, and progressive display is not
+presented as evidence that the suggested tests have passed.
+
+The capture uses the real interactive CLI, the local `llama3.2:latest` model and a
+fictional preconfigured account. Only human messages and approval keystrokes are
+automated. Idle waits are shortened for readability; the displayed application
+output and generated answers are preserved.
 
 ## Replay this demonstration
 
-From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites),
+then launch from the repository root:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py streaming
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py streaming --model llama3.2:latest
 ```
 
-1. Send the recorded request:
+At the `Vous >` prompt, submit the following messages in order. Inspect each
+proposed tool call before answering `y` to its approval prompt.
+
+1. Watch the answer grow while generation is still running, then inspect the completed numbered response. No tool approval or test execution is expected.
 
 ```text
-In English, give three short numbered checks for an empty-cart subtotal function. Do not claim execution.
+I am reviewing our Python cart function before a merge. Explain in six short numbered points how to test normal prices, an empty cart, decimal prices, negative prices, invalid input and regressions. Use one sentence per point. Do not run tests or claim execution.
 ```
 
-2. Watch the actual terminal while the local model generates the answer. Content
-   should appear incrementally, then the finished answer should remain readable.
-3. The request is explanatory: no test suite has been run. Evaluate the text on
-   its own merits rather than treating streaming as correctness evidence.
-4. For the callback counts shown by the GIF, run the component replay below.
-   That run instruments the actual CLI handler and prints the count after completion.
+Finish with `/exit` to close connections and remove the temporary workspace.
+A fresh launch resets the scenario. Model wording and latency may vary; compare
+the actual tool calls, returned values and errors.
 
-The original capture observed 51 content callbacks and 52 generated tokens. A
-rerun can produce different counts, text and timings; progressive rendering and
-proper completion are the reproducible behaviors.
-
-For the exact automated component sequence and a new GIF:
+To create a new capture and GIF of this same interactive scenario:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py streaming
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py streaming
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py streaming
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py streaming
 ```
 
 ## Architecture choices and tradeoffs
@@ -107,7 +108,7 @@ model's total computation by itself. UI callbacks separate presentation from the
 agent and allow different frontends. A blocking single-response display would
 be simpler but provide less feedback during a longer local generation.
 
-## Limitations
+## Current limits
 
 Streamed text can still be inaccurate or incomplete. Not every network chunk is
 a token, and perceived progress is not a throughput measurement. The current

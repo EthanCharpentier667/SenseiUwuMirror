@@ -17,27 +17,30 @@ outcomes without rewriting either original fixture.
 
 ## Recorded scope
 
-The thirteen new GIFs are automated component walkthroughs. The recording script
+Eight GIFs remain automated component walkthroughs. Their recording script
 calls actual Sensai tools, command handlers, database functions and HTTP clients;
 it does not replace their outputs with scripted model replies. Component sequences
 are chosen by the recording script, rather than autonomously planned by the model.
-The earlier pytest GIF remains a separate recording of the interactive application.
+The earlier pytest GIF and the updated file-access, MCP, sandbox, streaming and
+web GIFs record the real interactive application. For those five updates, only the
+human messages and approvals are scripted: model decisions and tool execution
+come from Sensai itself.
 
 | Recording | Actual scope |
 | --- | --- |
-| File access | Read, supplied correction, failed/passed tests, missing-file error. |
+| File access | Real CLI: permission modes, denied write to a read-only file, approved correction, read-back and actual pytest result. |
 | Screenshot | Actual image acquisition on an isolated display, followed by a vision-model answer reading the displayed values. |
 | Browser | Real browser tools on the local cart form; a preopened portable Chromium page replaces the normal visible Chrome launch. |
-| Sandbox | Real Docker execution, successful checks and a failed assertion. |
-| Web | Actual missing-token responses; no successful provider request is claimed. |
-| MCP | Real HTTP connection to the read-only fixture, tool calls and cleanup. |
+| Sandbox | Real CLI: model-requested Docker execution with successful checks and UID, followed by an executed failing assertion. |
+| Web | Real CLI: successful provider-backed search for official pytest documentation, then a fetch of that page and a source-based reply. |
+| MCP | Real CLI: connection, discovery, approved MCP rule calls and answers using the returned values, including an unknown rule. |
 | RAG | Ingestion, actual document-based model reply with a unique marker, then a document-free session showing a hallucinated reference. |
 | Compression | Actual local model summary and a follow-up reply using it; observed summary drift and increased character count. |
 | Profiles | Saved preferences/instructions used in a real reply, followed by persistence and password verification. |
 | Personas | QA and reviewer selection followed by actual answers to the same message, plus an unknown-role warning. |
 | Models | Capability discovery, model selection and real answers from both models; no model-quality benchmark. |
 | Flags | Actual availability changes and a model reply with tools disabled. |
-| Streaming | Actual streamed model content delivered through the CLI handler. |
+| Streaming | Real CLI: partial answer text appears progressively before the final reply, captured with terminal cursor movements. |
 
 The GIF frame and captions are presentation elements. Playback pauses are adjusted
 for readability and are not timing benchmarks. Where an image is shown, its pixels
@@ -52,7 +55,8 @@ fixtures. The renderer resolves archived image events from `docs/demo_assets/art
 including events containing paths from before the reorganization.
 
 The generated recording manifest (`docs/demo_assets/artifacts/demos/feature-recordings.json`)
-identifies artifacts and checksums. It documents the recorded runs rather than
+identifies artifacts and checksums. The five updated interactive recordings also
+have individual `<feature>-cli.json` metadata files. It documents the recorded runs rather than
 claiming every user-story acceptance criterion passed.
 
 ## Interactive replay
@@ -94,6 +98,7 @@ it creates and closes its own `:88` display. It redirects the screenshot destina
 to the temporary workspace.
 
 Docker is required for sandbox recording. The MCP fixture binds only to loopback
-port 18876 and is stopped after the recording. Web recording intentionally removes
-`API_TOKEN` from its own process environment and makes no external lookup. The
-demo scripts do not modify the application's source or use a real account keyring.
+port 18876 and is stopped after the recording. The updated web recording requires
+a valid `API_TOKEN` and makes actual public-documentation lookups. No credential
+is printed or entered as a recorded command. The demo scripts do not modify the
+application's source or use a real account keyring.

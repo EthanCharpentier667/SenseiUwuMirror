@@ -55,43 +55,56 @@ hard-coded guarantee that the model will always choose the right source.
 
 ## Demonstration
 
-![Web search and web fetch: actual component walkthrough](../demo_assets/assets/demos/web.gif)
+![Searching for pytest documentation, then reading the page](../demo_assets/assets/demos/web.gif)
 
-This component capture shows the actual missing-token path for both tools. No API
-key is supplied and no external request is made. The implementation returns
-“Web search is not available.” for both calls, including fetch. The recording
-demonstrates unavailability handling, not successful web research.
+Camille asks Sensai to find the official pytest documentation on assertion
+introspection. The model calls `web_search` with the public query; Camille approves
+the request and receives an answer identifying the documentation URL.
+
+She then asks the bot to read that page. A separate `web_fetch` request shows the
+exact URL and waits for approval. The provider returns page content, which the bot
+uses to confirm that the cart tests can use ordinary Python `assert` statements. Both requests use the application's
+actual Ollama web-service tools and the configured credential. No private cart
+source or credential is included in the query or the recording.
+
+The capture uses the real interactive CLI, the local `llama3.2:latest` model and a
+fictional preconfigured account. Only human messages and approval keystrokes are
+automated. Idle waits are shortened for readability; the displayed application
+output and generated answers are preserved.
 
 ## Replay this demonstration
 
-From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites),
+then launch from the repository root:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py web
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py web --model llama3.2:latest
 ```
 
-1. The launcher intentionally removes `API_TOKEN` from its own environment while
-   leaving the original shell and `.env` unchanged.
-2. Send `Use web_search for pytest assertion failure empty cart. Report the actual tool response; do not invent search results.`
-   Approve if prompted. Expect `Web search is not available.`
-3. Send `Use web_fetch for https://docs.pytest.org/. Report whether any page content was returned.`
-   Approve if prompted. The current implementation returns the same unavailable
-   message for fetch when its token is absent.
-4. Confirm that the answer does not claim to have read documentation from a page
-   that was not returned.
+At the `Vous >` prompt, submit the following messages in order. Inspect each
+proposed tool call before answering `y` to its approval prompt.
 
-This reproduces the GIF's unavailable-service case. A successful web lookup needs
-a real provider credential and is not demonstrated by this recording. Supplying
-a chat token does not replace the separate web `API_TOKEN`.
+1. Configure `API_TOKEN` in your local `.env` before launching; its value is never typed into the recorded terminal. Approve the `web_search` request and check that the reply identifies official pytest documentation.
 
-For the exact automated component sequence and a new GIF:
+```text
+Use web_search to find official pytest documentation for our failing cart assertion. Search for: site:docs.pytest.org how to assert. Give one documentation title and its URL from the actual results. No JSON. Do not fetch yet.
+```
+
+2. Approve `web_fetch` for the specified page. Check that the tool completes and that the answer refers to the returned documentation and includes its URL.
+
+```text
+Use web_fetch on https://docs.pytest.org/en/stable/how-to/assert.html . Based on the returned page, state whether pytest supports ordinary Python assert statements for our cart tests. Answer in one short sentence and include the source URL. No JSON. Do not search again.
+```
+
+Finish with `/exit` to close connections and remove the temporary workspace.
+A fresh launch resets the scenario. Model wording and latency may vary; compare
+the actual tool calls, returned values and errors.
+
+To create a new capture and GIF of this same interactive scenario:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py web
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py web
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py web
+PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py web
 ```
 
 ## Architecture choices and tradeoffs
@@ -101,10 +114,9 @@ a network dependency and sends queries or URLs outside the local machine. A loca
 documentation corpus would keep more data local and work without this credential,
 but would need ingestion, maintenance and coverage of the relevant references.
 
-## Limitations
+## Current limits
 
-Successful provider-backed search and fetch are not demonstrated in this capture.
-Unavailable and failed responses use `message` rather than the agent's structured
+A valid provider credential and network access are required. A valid provider credential and network access are required. A valid provider credential and network access are required. Unavailable and failed responses use `message` rather than the agent's structured
 `error` key, so a tool can be recorded as completed despite returning no content.
 The model must not mistake that for evidence. Network exceptions may propagate to
 the agent; retrieved pages may contain incomplete, irrelevant or untrusted text.

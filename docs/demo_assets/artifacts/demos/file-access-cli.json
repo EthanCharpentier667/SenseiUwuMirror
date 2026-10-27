@@ -1,0 +1,25 @@
+{
+  "recorded_on": "2026-10-27",
+  "kind": "real interactive CLI in a PTY",
+  "model": "llama3.2:latest",
+  "approvals": 7,
+  "prompts": [
+    "Use bash_tool with only the command argument to run stat -c '%a %n' cart-readonly.py cart-working/cart.py, then use file_read on cart-working/cart.py. Explain the empty-cart bug briefly. Do not write yet.",
+    "Use file_write to replace cart-readonly.py with \"def subtotal(prices): return sum(prices)\\n\". If access is denied, report it and stop. Do not change permissions or use Bash.",
+    "Use file_write to replace cart-working/cart.py with \"def subtotal(prices): return sum(prices)\\n\". Report success in one short sentence, no JSON.",
+    "Read cart-working/cart.py from disk now using file_read. I need a fresh read, not the content from our chat. Show only the saved function, no JSON or metadata.",
+    "Use bash_tool with only the command argument to run .venv/bin/python -m pytest -c cart-working/pytest.ini --no-cov -q cart-working. Copy the actual test count exactly into one short sentence. No JSON."
+  ],
+  "wall_seconds": 38.99,
+  "output_substituted": false,
+  "tools_executed_by": "Sensai ReAct agent",
+  "gif_frames": 27,
+  "gif_bytes": 895151,
+  "gif_sha256": "9154e79b77a1ff7a478429c2634638da3ed7a11f50f24c874117ebddb537aabb",
+  "cast_sha256": "daa802bd868c3e73799bcf2ff8d53bf0e79317453298ed4d241d0c90a990ff83",
+  "playback": "Actual PTY states; idle intervals capped at 1.8 seconds",
+  "playback_seconds": 40.88,
+  "num_ctx": 8192,
+  "source_commit": "704aa90f9bb8652f5756e1ad16aa8c5db7b22205",
+  "execution_evidence_checked": true
+}
