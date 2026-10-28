@@ -50,8 +50,9 @@ Selection changes do not download the model automatically.
 The client calls Ollama's `/api/show` endpoint and caches capabilities per model.
 The agent compares each tool's declared requirements with those capabilities.
 `screenshot` and `browser_screenshot` require `vision`. Compatible image attachments
-are passed separately from the textual observation. `--num-ctx` requests a context
-window; the default is 16,384 tokens.
+are passed separately from the textual observation. Generation parameters
+(`--temperature`, `--top-p`, `--num-ctx` / `--context-length`) can be configured
+via CLI flags or modified interactively via `/settings` and saved to profile settings.
 
 ## Demonstration
 
@@ -114,6 +115,7 @@ simplify selection but impose its resource needs on every task. The
 
 A capability flag does not guarantee correct tool choices or visual interpretation.
 The runtime allowlist is narrower than Ollama's installed inventory. Stale cached
-metadata or an unavailable endpoint can change tool eligibility. Temperature and
-top-p are not both exposed as general user settings; the planning temperature is
-fixed in code. Context size alone does not prevent every truncation or loss.
+metadata or an unavailable endpoint can change tool eligibility. Planning temperature
+is fixed at 0 in code to ensure deterministic JSON action selection, while final
+answer generation uses user-configured temperature and top-p. Context size alone
+does not prevent every truncation or loss.
