@@ -764,3 +764,24 @@ async def test_a_tool_result_with_an_error_is_a_failed_step_and_reported_as_such
 
     assert "Observation (failed): " in _trajectory(client.plans[1])
     assert '- browser_click {} (failed):\n{"error": "No element' in _system_texts(client.answers[0])
+
+
+def test_agent_generation_parameter_properties() -> None:
+    client = ScriptedClient()
+    agent = Agent(client=client)
+
+    assert agent.temperature is None
+    assert agent.top_p is None
+    assert agent.num_ctx is None
+
+    agent.temperature = 0.65
+    agent.top_p = 0.9
+    agent.num_ctx = 4096
+
+    assert client.temperature == 0.65
+    assert client.top_p == 0.9
+    assert client.num_ctx == 4096
+
+    assert agent.temperature == 0.65
+    assert agent.top_p == 0.9
+    assert agent.num_ctx == 4096
