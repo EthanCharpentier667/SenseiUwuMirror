@@ -25,6 +25,7 @@ class WebFetch(Tool):
         """Initialize the Web fetch tool definition."""
         super().__init__(
             name="web_fetch",
+            group="web",
             description=(
                 "Read a specific web page to answer the user's question about its "
                 "readable content, purpose, or available activities. "

@@ -36,6 +36,7 @@ def test_tool_init_sets_attributes() -> None:
     assert tool.type == "function"
     assert tool.parameters == {"type": "object", "properties": {}}
     assert tool.show_output is False
+    assert tool.group == "misc"
 
 
 def test_tool_define_returns_openai_style_schema() -> None:

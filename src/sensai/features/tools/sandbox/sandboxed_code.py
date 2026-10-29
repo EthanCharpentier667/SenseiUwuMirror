@@ -15,6 +15,7 @@ class SandboxedCode(Tool):
         """Initialize the SandboxedCode tool."""
         super().__init__(
             name="sandboxed_code",
+            group="sandbox",
             description=(
                 "Execute Python code or Bash commands in an isolated sandbox. "
                 "Set language to 'python' for Python source or 'bash' for shell commands. "

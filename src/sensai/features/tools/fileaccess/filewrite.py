@@ -15,6 +15,7 @@ class FileWrite(Tool):
         """Initialize the FileWrite tool definition."""
         super().__init__(
             name="file_write",
+            group="files",
             description=(
                 "Write content to a file. "
                 "The file must be accessible and writable by the system. "

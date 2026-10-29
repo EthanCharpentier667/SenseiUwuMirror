@@ -69,7 +69,7 @@ class MCPCommands:
             return
         async with AsyncExitStack() as pending:
             client = await pending.enter_async_context(SensAIClient(config).activate())
-            tools = await get_mcp_tools(client)
+            tools = await get_mcp_tools(client, name)
             names = [tool.name for tool in tools]
             existing = {tool.name for tool in self.agent.tools}
             if len(names) != len(set(names)) or existing.intersection(names):

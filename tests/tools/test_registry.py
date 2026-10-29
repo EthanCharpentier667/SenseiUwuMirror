@@ -71,3 +71,9 @@ async def test_mcp_tools_are_discovered_and_executed_remotely() -> None:
     assert output == result.model_dump(mode="json", exclude_none=True)
     client.list_tools.assert_awaited_once_with()
     client.call_tool.assert_awaited_once_with("add", {"a": 2, "b": 3})
+    assert adapter.group == "mcp"
+    assert [tool.group for tool in await get_mcp_tools(client, "calc")] == ["mcp:calc"]
+
+
+def test_every_builtin_tool_has_a_group() -> None:
+    assert all(tool.group != "misc" for tool in get_tools())

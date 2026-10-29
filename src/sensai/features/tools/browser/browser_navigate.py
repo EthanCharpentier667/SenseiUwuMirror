@@ -16,6 +16,7 @@ class BrowserNavigate(Tool):
         """Initialize the BrowserNavigate tool definition."""
         super().__init__(
             name="browser_navigate",
+            group="browser",
             description=(
                 "Open a web page in the user's browser (launching it if needed), to test a "
                 "website or web app like a user would. Returns the page's title and a "
