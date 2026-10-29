@@ -199,3 +199,39 @@ def test_config_parses_embed_url_and_token() -> None:
 
     assert config.embed_url == "http://localhost:11434/api/chat"
     assert config.embed_token == "local"  # noqa: S105
+
+
+def test_config_parses_trust_max_steps_and_personas_file() -> None:
+    config = Config()
+    config.parse_args(["--trust", "partial", "--max-steps", "4", "--personas-file", "p.json"])
+
+    assert config.trust_level == "partial"
+    assert config.max_steps == 4
+    assert config.personas_file == "p.json"
+
+
+@pytest.mark.parametrize("args", [["--max-steps", "0"], ["--max-steps", "x"], ["--trust", "x"]])
+def test_config_rejects_invalid_trust_or_max_steps(args: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        Config().parse_args(args)
+
+
+def test_config_enable_flags_are_run_overrides() -> None:
+    config = Config()
+    config.parse_args(["--enable", "rag", "--enable-tool", "bash_tool"])
+    config.features.load_saved(["rag"], ["bash_tool"])
+
+    assert config.features.is_enabled("rag")
+    assert config.features.is_tool_enabled("bash_tool")
+    assert config.features.saved_disabled == {"rag"}
+
+
+def test_config_startup_value_ignores_later_edits() -> None:
+    config = Config()
+    config.parse_args(["--num-ctx", "2048"])
+    args = config.get_args()
+    assert args is not None
+    args.num_ctx = 4096
+
+    assert config.num_ctx == 4096
+    assert config.startup_value("num_ctx") == 2048

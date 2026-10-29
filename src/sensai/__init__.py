@@ -8,7 +8,7 @@ from rich.console import Console
 
 from sensai.agent import Agent
 from sensai.client import OllamaClient
-from sensai.config import Config
+from sensai.config import TRUST_LEVELS, Config
 from sensai.core.setup import (
     get_or_create_session,
     ingest_initial_files,
@@ -16,7 +16,7 @@ from sensai.core.setup import (
     setup_database,
     setup_embedder,
 )
-from sensai.features.features import FEATURES
+from sensai.data.profile.profile import load_profile_settings
 from sensai.features.persona.manager import get_persona, list_personas, load_personas
 from sensai.ui.app import CLIApp
 from sensai.ui.auth import authenticate_user
@@ -43,18 +43,18 @@ def _handle_list_personas(config: Config, console: Console) -> bool:
     return True
 
 
-def _apply_persona(config: Config, agent: Agent, console: Console) -> None:
-    """Load and apply the requested persona to the agent, if any."""
-    if not config.persona:
+def _apply_persona(config: Config, agent: Agent, console: Console, key: str | None) -> None:
+    """Load and apply the persona with this key to the agent, if any."""
+    if not key:
         return
     try:
         personas = load_personas(config.personas_file)
-        persona = get_persona(personas, config.persona)
+        persona = get_persona(personas, key)
         if persona is not None:
             agent.system_prompt = persona.system_prompt
-            agent.persona_key = config.persona
+            agent.persona_key = key
         else:
-            console.print(f"[red]Warning: persona '{config.persona}' not found.[/red]")
+            console.print(f"[red]Warning: persona '{key}' not found.[/red]")
     except FileNotFoundError:
         console.print(f"[red]Warning: personas file not found: {config.personas_file}[/red]")
     except ValueError as exc:
@@ -78,33 +78,46 @@ def _apply_generation_settings(
         client.num_ctx = settings["num_ctx"]
         if args and hasattr(args, "num_ctx"):
             args.num_ctx = settings["num_ctx"]
+    if "timeout" in settings and not config.was_explicitly_set("--timeout"):
+        client.timeout = settings["timeout"]
+        if args:
+            args.timeout = settings["timeout"]
 
 
 def _apply_profile_settings(
     config: Config, agent: Agent, client: OllamaClient, settings_json: str
 ) -> None:
-    """Apply persisted profile settings to the agent and client."""
+    """Apply persisted profile settings to the agent and client.
+
+    Flags given explicitly on the command line win over the saved settings.
+    """
     try:
         settings = json.loads(settings_json)
-        if not isinstance(settings, dict):
-            return
-        agent.trust_level = settings.get("trust_level", agent.trust_level)
-        agent.model = settings.get("model", agent.model)
-        for name in settings.get("disabled_features", []):
-            if name in FEATURES:
-                config.features.set(name, enabled=False)
-        for name in settings.get("disabled_tools", []):
-            config.features.set_tool(name, enabled=False)
-        args = config.get_args()
-        if args:
-            if "compression_threshold" in settings:
-                args.compression_threshold = settings["compression_threshold"]
-            if "url" in settings:
-                args.url = settings["url"]
-                client.base_url = settings["url"]
-        _apply_generation_settings(config, client, settings)
     except json.JSONDecodeError:
-        pass
+        return
+    if not isinstance(settings, dict):
+        return
+    config.features.load_saved(
+        settings.get("disabled_features", []), settings.get("disabled_tools", [])
+    )
+    if settings.get("trust_level") in TRUST_LEVELS and not config.was_explicitly_set("--trust"):
+        agent.trust_level = settings["trust_level"]
+    if "model" in settings and not config.was_explicitly_set("--model"):
+        agent.model = settings["model"]
+    if "max_steps" in settings and not config.was_explicitly_set("--max-steps"):
+        agent.max_turns = settings["max_steps"]
+    args = config.get_args()
+    if args:
+        if "compression_threshold" in settings and not config.was_explicitly_set(
+            "--compression-threshold"
+        ):
+            args.compression_threshold = settings["compression_threshold"]
+        if "url" in settings and not config.was_explicitly_set("--url"):
+            args.url = settings["url"]
+            client.base_url = settings["url"]
+            if settings.get("send_token") is False and not config.was_explicitly_set("--token"):
+                client.token = None
+    _apply_generation_settings(config, client, settings)
 
 
 async def async_main() -> None:
@@ -121,13 +134,13 @@ async def async_main() -> None:
     client, agent = setup_ai_engine(config)
     embedder = setup_embedder(config)
 
-    _apply_persona(config, agent, console)
-
     profile = await authenticate_user(database, console)
     session = get_or_create_session(database, profile)
 
     if profile.settings:
         _apply_profile_settings(config, agent, client, profile.settings)
+    persona = config.persona or load_profile_settings(profile).get("persona")
+    _apply_persona(config, agent, console, persona)
 
     await ingest_initial_files(
         database, embedder, session, config.files, console, features=config.features
