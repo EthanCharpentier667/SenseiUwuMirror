@@ -44,9 +44,20 @@ Preconditions: the chat model is reachable and the `tools` feature is disabled.
 ## How it works
 
 Startup options include `--disable` for `tools`, `react`, `rag`, `compression`
-and `mcp`, and `--disable-tool` for named tools. `/settings` changes feature and
-tool settings at runtime; `/tools enable|disable <name>` changes one tool.
-A shared feature-state object is used by configuration, the agent and the UI.
+and `mcp`, and `--disable-tool` for named tools. A shared feature-state object is
+used by configuration, the agent and the UI.
+
+Each tool belongs to a group: `web`, `browser`, `bash`, `files`, `sandbox`,
+`screenshot`, and `mcp:<server>` for the tools of a connected MCP server. At runtime:
+
+| Command | Effect |
+| --- | --- |
+| `/tools` | Opens a checkbox dialog with the `tools` and `mcp` feature switches and one entry per group (`browser (3/5 on)`). **Fine-tune…** then opens the tools of one group. **Cancel** or Esc changes nothing. |
+| `/tools list` | Shows each tool with its group, source (built-in or MCP server), `safe` flag and status. The status says why a tool is off: `disabled`, `tools feature off` or `mcp feature off`. |
+| `/tools enable\|disable <tool or group>...` | Changes several tools or whole groups at once, with Tab completion of names. Unknown names are reported. |
+
+`/settings` → **Tools** opens the same dialog. Every confirmed change is saved to
+the active profile right away.
 
 Disabling `tools` removes all execution tools from availability. Disabling `mcp`
 filters remote tools. Disabling `react` bypasses the orchestration loop and also
@@ -74,23 +85,23 @@ cleans up. Compare the stated facts and tool results, not identical model wordin
 PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py flags
 ```
 
-1. Type `/tools disable bash_tool`, then `/tools`. Expect host Bash to be shown
-   as off while unrelated tools retain their settings.
-2. Type `/tools enable bash_tool`, then `/tools`. Expect it to be on again.
-3. Open `/settings`, choose **Features**, disable **tools**, then leave the menu.
-   `/tools` now shows no available execution tools.
+1. Type `/tools disable bash_tool`, then `/tools list`. Expect host Bash to be shown
+   as `off (disabled)` while unrelated tools retain their settings.
+2. Type `/tools enable bash_tool`, then `/tools list`. Expect it to be on again.
+3. Type `/tools`, untick **[feature] tools**, then choose **Ok**.
+   `/tools list` now shows every tool as `off (tools feature off)`.
 4. Send:
 
-```text
-In one sentence, explain why an empty cart subtotal should be zero. Do not claim to have run tests.
-```
+   ```text
+   In one sentence, explain why an empty cart subtotal should be zero. Do not claim to have run tests.
+   ```
 
 5. Expect a real text response despite tools being disabled. It must not claim
    execution. This is the effect demonstrated by the GIF, beyond the settings change.
-6. Re-enable **tools** in the same settings menu if continuing to another tool scenario.
+6. Re-enable **tools** with `/tools` if continuing to another tool scenario.
 
 The component replay changes the same shared feature state directly after using
-the actual individual-tool commands. The interactive steps use the settings menu;
+the actual individual-tool commands. The interactive steps use the `/tools` dialog;
 neither path changes OS-level permissions.
 
 For the exact automated component sequence and a new GIF:

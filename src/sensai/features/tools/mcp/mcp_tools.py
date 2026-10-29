@@ -47,10 +47,13 @@ class MCPTools(Tool):
         client: Client,
         definition: MCPToolDefinition,
         argument_transform: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        *,
+        group: str = "mcp",
     ) -> None:
         """Initialize the MCP tool and its optional argument policy."""
         super().__init__(
             name=definition.name,
+            group=group,
             description=definition.description or "",
             tool_type="function",
             parameters=definition.input_schema,

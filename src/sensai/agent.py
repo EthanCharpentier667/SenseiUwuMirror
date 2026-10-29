@@ -123,6 +123,8 @@ class Agent:
         self.structured_output_schema: dict[str, Any] | None = None
         self.read_documents: list[str] = []
         self._unconstrained_models: set[str] = set()
+        self.persona_key: str | None = None
+        self.last_prompt_tokens: int | None = None
 
     @property
     def temperature(self) -> float | None:

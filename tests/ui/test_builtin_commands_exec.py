@@ -56,6 +56,17 @@ class MockUIHandler:
     async def prompt_input(self, _title: str, _text: str) -> str | None:
         return "mock_input"
 
+    async def prompt_checklist(
+        self,
+        _title: str,
+        _text: str,
+        _choices: list[tuple[str, str]],
+        checked: list[str],
+        *,
+        extra: str | None = None,  # noqa: ARG002
+    ) -> tuple[str, list[str]] | None:
+        return ("ok", checked)
+
 
 @pytest.mark.asyncio
 async def test_prefs_full(monkeypatch: pytest.MonkeyPatch) -> None:

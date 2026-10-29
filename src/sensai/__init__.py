@@ -52,6 +52,7 @@ def _apply_persona(config: Config, agent: Agent, console: Console) -> None:
         persona = get_persona(personas, config.persona)
         if persona is not None:
             agent.system_prompt = persona.system_prompt
+            agent.persona_key = config.persona
         else:
             console.print(f"[red]Warning: persona '{config.persona}' not found.[/red]")
     except FileNotFoundError:

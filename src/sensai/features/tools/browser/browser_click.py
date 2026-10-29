@@ -26,6 +26,7 @@ class BrowserClick(Tool):
         """Initialize the BrowserClick tool definition."""
         super().__init__(
             name="browser_click",
+            group="browser",
             description=(
                 "Click an element of the page open in the browser (a button, a link…), "
                 "given its name as the latest snapshot quotes it (Se connecter for "

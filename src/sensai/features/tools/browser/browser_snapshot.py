@@ -16,6 +16,7 @@ class BrowserSnapshot(Tool):
         """Initialize the BrowserSnapshot tool definition."""
         super().__init__(
             name="browser_snapshot",
+            group="browser",
             description=(
                 "Read the page currently open in the browser again: its URL, title and "
                 "snapshot, with a [ref=…] on each element you can act on. Use it when the "

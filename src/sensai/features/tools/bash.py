@@ -87,6 +87,7 @@ class BashTool(Tool):
         """Initialize the Bash tool definition."""
         super().__init__(
             name="bash_tool",
+            group="bash",
             description=(
                 "Execute a bash command on the user's machine. Commands run in the "
                 f"foreground for at most {TIMEOUT_SECONDS}s. For long commands (builds, "
@@ -172,6 +173,7 @@ class BashJobTool(Tool):
         """Initialize the Bash job tool definition."""
         super().__init__(
             name="bash_job",
+            group="bash",
             description=(
                 "Check a background job started by bash_tool: whether it still runs, its "
                 "exit code and the end of its output. Without job_id, checks the latest "

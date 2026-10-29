@@ -77,6 +77,11 @@ class Features:
         else:
             self.disabled_tools.add(name)
 
+    def set_tools(self, names: Iterable[str], *, enabled: bool) -> None:
+        """Enable or disable several tools at once, e.g. every tool of a group."""
+        for name in names:
+            self.set_tool(name, enabled=enabled)
+
     def toggle_tool(self, name: str) -> bool:
         """Flip a single tool, returning whether it is now enabled."""
         enabled = not self.is_tool_enabled(name)

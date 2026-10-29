@@ -34,6 +34,7 @@ async def persona_execute(context: CommandContext, args: list[str]) -> None:
             persona = get_persona(personas, key)
             if persona is not None:
                 context.agent.system_prompt = persona.system_prompt
+                context.agent.persona_key = key
                 await context.ui.on_system_message(
                     f"[bold green]Persona switched to '{key}': {persona.name}[/bold green]"
                 )

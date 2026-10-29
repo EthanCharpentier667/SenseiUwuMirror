@@ -25,6 +25,7 @@ class WebSearch(Tool):
         """Initialize the Web search tool definition."""
         super().__init__(
             name="web_search",
+            group="web",
             description=(
                 "Search the web for information. Use this tool only as a last resort, "
                 "when you do not know the answer and it cannot be found anywhere in the "

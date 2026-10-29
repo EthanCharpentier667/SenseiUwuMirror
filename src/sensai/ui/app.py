@@ -64,7 +64,7 @@ class CLIApp:
         self.console = Console()
 
         self.command_registry = CommandRegistry()
-        setup_builtin_commands(self.command_registry)
+        setup_builtin_commands(self.command_registry, agent)
         self.mcp_commands = MCPCommands(agent)
         self.mcp_commands.register(self.command_registry)
         self.prompt_session: PromptSession[str] | None = None
@@ -125,6 +125,7 @@ class CLIApp:
             sent_prefix_length = len(messages) - 1
 
             response = await self.agent.run(messages=messages)
+            self.agent.last_prompt_tokens = response.prompt_eval_count
 
             updated_session = update_session(
                 self.database, self.session, response, sent_prefix_length

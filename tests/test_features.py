@@ -45,3 +45,12 @@ def test_single_tools_can_be_disabled_and_toggled() -> None:
     assert features.toggle_tool("web_search") is True
     assert features.toggle_tool("web_fetch") is False
     assert features.disabled_tools == {"web_fetch"}
+
+
+def test_several_tools_can_be_set_at_once() -> None:
+    features = Features()
+
+    features.set_tools(["browser_click", "browser_type"], enabled=False)
+    assert features.disabled_tools == {"browser_click", "browser_type"}
+    features.set_tools(["browser_click"], enabled=True)
+    assert features.disabled_tools == {"browser_type"}

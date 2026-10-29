@@ -41,7 +41,7 @@ Replace this address with the MCP endpoint specified by your provider.
 
 To insert JSON from the CLI:
 
-1. Enter `/mcp add-json my-server `, with a space after the name.
+1. Enter `/mcp add-json my-server`, with a space after the name.
 2. Press **Tab** to display the **HTTP**, **HTTP + Bearer token**,
    and **HTTP + OAuth** templates. Select a template using the arrow keys, then
    press **Enter** to insert it without sending the command.
@@ -279,7 +279,7 @@ permissions, and access to the Preview program.
 - A name that is already connected is rejected. Using the same URL under another name does not open a second connection.
 - Multiple URLs can be connected if their tools have different names. The connection name is not used as a prefix for tool names.
 - Configurations, tokens, and OAuth information remain in memory. After closing the application, submit the commands again and authorize access again if needed.
-- `/tools` lists the currently available tools, including those from connected MCP servers.
+- `/tools list` lists the currently available tools, including those from connected MCP servers, grouped as `mcp:<server>`. `/tools disable mcp:<server>` turns off all the tools of one server.
 - `/help` displays the available syntax; `/exit` ends the session and closes the connections.
 
 Do not publish commands containing real tokens or secrets. The examples use
