@@ -1,8 +1,10 @@
 """Settings command."""
 
 import json
+import math
 from typing import Any
 
+from sensai.config import DEFAULT_NUM_CTX
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
 from sensai.features.features import FEATURES
@@ -45,6 +47,113 @@ async def _handle_url_setting(settings: dict[str, Any], context: CommandContext)
         if args:
             args.url = new_url
         context.agent.client.base_url = new_url
+
+
+async def _handle_temperature_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    current = settings.get("temperature", context.agent.temperature)
+    current_str = str(current) if current is not None else "default"
+    new_temp = await context.ui.prompt_input(
+        title="Temperature",
+        text=(
+            "Enter sampling temperature (float >= 0.0, or 'default' to clear, "
+            f"current: {current_str}):"
+        ),
+    )
+    if new_temp is None:
+        return
+    cleaned = new_temp.strip().lower()
+    if cleaned in ("default", "none", "clear", ""):
+        settings.pop("temperature", None)
+        context.agent.temperature = None
+        args = context.config.get_args()
+        if args and hasattr(args, "temperature"):
+            args.temperature = None
+        return
+    try:
+        val = float(cleaned)
+        if not math.isfinite(val) or val < 0.0:
+            await context.ui.on_system_message(
+                "[red]Temperature must be a finite, non-negative number.[/red]"
+            )
+            return
+        settings["temperature"] = val
+        context.agent.temperature = val
+        args = context.config.get_args()
+        if args and hasattr(args, "temperature"):
+            args.temperature = val
+    except ValueError:
+        await context.ui.on_system_message(
+            "[red]Invalid temperature format. Please enter a number.[/red]"
+        )
+
+
+async def _handle_top_p_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    current = settings.get("top_p", context.agent.top_p)
+    current_str = str(current) if current is not None else "default"
+    new_top_p = await context.ui.prompt_input(
+        title="Top P",
+        text=(
+            "Enter nucleus sampling top_p (0.0 to 1.0, or 'default' to clear, "
+            f"current: {current_str}):"
+        ),
+    )
+    if new_top_p is None:
+        return
+    cleaned = new_top_p.strip().lower()
+    if cleaned in ("default", "none", "clear", ""):
+        settings.pop("top_p", None)
+        context.agent.top_p = None
+        args = context.config.get_args()
+        if args and hasattr(args, "top_p"):
+            args.top_p = None
+        return
+    try:
+        val = float(cleaned)
+        if not (0.0 <= val <= 1.0):
+            await context.ui.on_system_message("[red]Top P must be between 0.0 and 1.0.[/red]")
+            return
+        settings["top_p"] = val
+        context.agent.top_p = val
+        args = context.config.get_args()
+        if args and hasattr(args, "top_p"):
+            args.top_p = val
+    except ValueError:
+        await context.ui.on_system_message(
+            "[red]Invalid Top P format. Please enter a number.[/red]"
+        )
+
+
+async def _handle_num_ctx_setting(settings: dict[str, Any], context: CommandContext) -> None:
+    current = settings.get("num_ctx", context.agent.num_ctx)
+    current_str = str(current) if current is not None else "default"
+    new_num_ctx = await context.ui.prompt_input(
+        title="Context Length",
+        text=(
+            "Enter context length in tokens (integer > 0, or 'default' to clear, "
+            f"current: {current_str}):"
+        ),
+    )
+    if new_num_ctx is None:
+        return
+    cleaned = new_num_ctx.strip().lower()
+    if cleaned in ("default", "none", "clear", ""):
+        settings.pop("num_ctx", None)
+        context.agent.num_ctx = DEFAULT_NUM_CTX
+        args = context.config.get_args()
+        if args and hasattr(args, "num_ctx"):
+            args.num_ctx = DEFAULT_NUM_CTX
+        return
+    if cleaned.isdigit() and int(cleaned) > 0:
+        val = int(cleaned)
+        settings["num_ctx"] = val
+        context.agent.num_ctx = val
+        args = context.config.get_args()
+        if args and hasattr(args, "num_ctx"):
+            args.num_ctx = val
+    else:
+        await context.ui.on_system_message(
+            "[red]Invalid context length. Please enter a positive integer.[/red]"
+        )
 
 
 async def _handle_features_setting(settings: dict[str, Any], context: CommandContext) -> None:
@@ -96,6 +205,12 @@ async def _prompt_settings_menu(context: CommandContext, settings: dict[str, Any
     url = settings.get("url", context.config.url)
     disabled = ", ".join(sorted(context.config.features.disabled)) or "none"
     disabled_tools = ", ".join(sorted(context.config.features.disabled_tools)) or "none"
+    temp = settings.get("temperature", context.agent.temperature)
+    top_p = settings.get("top_p", context.agent.top_p)
+    num_ctx = settings.get("num_ctx", context.agent.num_ctx)
+    temp_display = temp if temp is not None else "default"
+    top_p_display = top_p if top_p is not None else "default"
+    num_ctx_display = num_ctx if num_ctx is not None else "default"
 
     return await context.ui.prompt_choice(
         title="Settings Menu",
@@ -104,6 +219,9 @@ async def _prompt_settings_menu(context: CommandContext, settings: dict[str, Any
             ("trust", f"Tool Trust Level (Current: {trust})"),
             ("comp", f"Compression Threshold (Current: {comp})"),
             ("url", f"Ollama URL (Current: {url})"),
+            ("temperature", f"Temperature (Current: {temp_display})"),
+            ("top_p", f"Top P (Current: {top_p_display})"),
+            ("num_ctx", f"Context Length (Current: {num_ctx_display})"),
             ("features", f"Features (Disabled: {disabled})"),
             ("tools", f"Tools (Disabled: {disabled_tools})"),
             ("exit", "Exit Menu"),
@@ -120,6 +238,12 @@ async def _process_settings_choice(
         await _handle_comp_setting(settings, context)
     elif choice == "url":
         await _handle_url_setting(settings, context)
+    elif choice == "temperature":
+        await _handle_temperature_setting(settings, context)
+    elif choice == "top_p":
+        await _handle_top_p_setting(settings, context)
+    elif choice == "num_ctx":
+        await _handle_num_ctx_setting(settings, context)
     elif choice == "features":
         await _handle_features_setting(settings, context)
     elif choice == "tools":

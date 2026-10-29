@@ -123,6 +123,33 @@ class Agent:
         self.read_documents: list[str] = []
         self._unconstrained_models: set[str] = set()
 
+    @property
+    def temperature(self) -> float | None:
+        """Sampling temperature forwarded to client."""
+        return self.client.temperature
+
+    @temperature.setter
+    def temperature(self, value: float | None) -> None:
+        self.client.temperature = value
+
+    @property
+    def top_p(self) -> float | None:
+        """Nucleus sampling top_p forwarded to client."""
+        return self.client.top_p
+
+    @top_p.setter
+    def top_p(self, value: float | None) -> None:
+        self.client.top_p = value
+
+    @property
+    def num_ctx(self) -> int | None:
+        """Context window size forwarded to client."""
+        return self.client.num_ctx
+
+    @num_ctx.setter
+    def num_ctx(self, value: int | None) -> None:
+        self.client.num_ctx = value
+
     def _prepare_messages(
         self,
         prompt: str | None,

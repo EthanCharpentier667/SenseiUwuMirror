@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from typing import Any
 
 from rich.console import Console
 
@@ -59,6 +60,25 @@ def _apply_persona(config: Config, agent: Agent, console: Console) -> None:
         console.print(f"[red]Warning: invalid personas file: {exc}[/red]")
 
 
+def _apply_generation_settings(
+    config: Config, client: OllamaClient, settings: dict[str, Any]
+) -> None:
+    """Apply persisted generation parameters to the client and config args."""
+    args = config.get_args()
+    if "temperature" in settings and not config.was_explicitly_set("--temperature"):
+        client.temperature = settings["temperature"]
+        if args and hasattr(args, "temperature"):
+            args.temperature = settings["temperature"]
+    if "top_p" in settings and not config.was_explicitly_set("--top-p"):
+        client.top_p = settings["top_p"]
+        if args and hasattr(args, "top_p"):
+            args.top_p = settings["top_p"]
+    if "num_ctx" in settings and not config.was_explicitly_set("--num-ctx", "--context-length"):
+        client.num_ctx = settings["num_ctx"]
+        if args and hasattr(args, "num_ctx"):
+            args.num_ctx = settings["num_ctx"]
+
+
 def _apply_profile_settings(
     config: Config, agent: Agent, client: OllamaClient, settings_json: str
 ) -> None:
@@ -81,6 +101,7 @@ def _apply_profile_settings(
             if "url" in settings:
                 args.url = settings["url"]
                 client.base_url = settings["url"]
+        _apply_generation_settings(config, client, settings)
     except json.JSONDecodeError:
         pass
 

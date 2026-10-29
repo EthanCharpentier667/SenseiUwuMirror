@@ -1,6 +1,11 @@
 """Test builtin commands execution."""
 
-from typing import Any
+import json
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from sensai.agent import Agent
+    from sensai.client import OllamaClient
 
 import pytest
 
@@ -38,6 +43,9 @@ class MockUIHandler:
         pass
 
     async def on_error(self, error: Exception | str, *, title: str = "Error") -> None:
+        pass
+
+    async def on_thinking_chunk(self, chunk: str) -> None:
         pass
 
     async def prompt_choice(
@@ -144,3 +152,170 @@ async def testexit_execute() -> None:
 
     with pytest.raises(SystemExit):
         await exit_execute(ctx, [])
+
+
+class _CustomUI(MockUIHandler):
+    def __init__(self, inputs: list[str | None], choices: list[str | None]) -> None:
+        self.inputs = list(inputs)
+        self.choices = list(choices)
+        self.messages: list[Any] = []
+
+    async def prompt_input(self, *_args: Any, **_kwargs: Any) -> str | None:
+        return self.inputs.pop(0) if self.inputs else None
+
+    async def on_thinking_chunk(self, chunk: str) -> None:
+        pass
+
+    async def prompt_choice(self, *_args: Any, **_kwargs: Any) -> str | None:
+        return self.choices.pop(0) if self.choices else None
+
+    async def on_system_message(self, message: Any) -> None:
+        self.messages.append(message)
+
+
+class _FakeAgent:
+    def __init__(self, client: "OllamaClient") -> None:
+        self.client = client
+        self.trust_level = "none"
+        self.model = "llama3.2"
+
+    @property
+    def temperature(self) -> float | None:
+        return self.client.temperature
+
+    @temperature.setter
+    def temperature(self, val: float | None) -> None:
+        self.client.temperature = val
+
+    @property
+    def top_p(self) -> float | None:
+        return self.client.top_p
+
+    @top_p.setter
+    def top_p(self, val: float | None) -> None:
+        self.client.top_p = val
+
+    @property
+    def num_ctx(self) -> int | None:
+        return self.client.num_ctx
+
+    @num_ctx.setter
+    def num_ctx(self, val: int | None) -> None:
+        self.client.num_ctx = val
+
+
+@pytest.mark.asyncio
+async def test_settings_generation_handlers() -> None:
+    from sensai.client import OllamaClient  # noqa: PLC0415
+    from sensai.config import Config  # noqa: PLC0415
+    from sensai.ui.commands.settings import (  # noqa: PLC0415
+        _handle_num_ctx_setting,
+        _handle_temperature_setting,
+        _handle_top_p_setting,
+    )
+
+    config = Config()
+    config.parse_args([])
+    client = OllamaClient(base_url="http://test", token=None, timeout=10.0)
+    agent = _FakeAgent(client)
+
+    # Temperature
+    ui = _CustomUI(inputs=["0.7", "-0.1", "bad", "default", None], choices=[])
+    ctx = CommandContext(database=None, ui=ui, agent=agent, config=config, session=None)  # type: ignore[arg-type]
+    settings: dict[str, Any] = {}
+
+    await _handle_temperature_setting(settings, ctx)
+    assert settings["temperature"] == 0.7
+    await _handle_temperature_setting(settings, ctx)
+    assert "non-negative" in str(ui.messages[-1])
+    await _handle_temperature_setting(settings, ctx)
+    assert "Invalid temperature format" in str(ui.messages[-1])
+    await _handle_temperature_setting(settings, ctx)
+    assert "temperature" not in settings
+    await _handle_temperature_setting(settings, ctx)
+
+    # Top P
+    ui = _CustomUI(inputs=["0.85", "1.5", "bad", "default", None], choices=[])
+    ctx.ui = ui
+    await _handle_top_p_setting(settings, ctx)
+    assert settings["top_p"] == 0.85
+    await _handle_top_p_setting(settings, ctx)
+    assert "between 0.0 and 1.0" in str(ui.messages[-1])
+    await _handle_top_p_setting(settings, ctx)
+    assert "Invalid Top P format" in str(ui.messages[-1])
+    await _handle_top_p_setting(settings, ctx)
+    assert "top_p" not in settings
+    await _handle_top_p_setting(settings, ctx)
+
+    # Num Ctx
+    ui = _CustomUI(inputs=["8192", "-50", "bad", "default", None], choices=[])
+    ctx.ui = ui
+    await _handle_num_ctx_setting(settings, ctx)
+    assert settings["num_ctx"] == 8192
+    await _handle_num_ctx_setting(settings, ctx)
+    assert "positive integer" in str(ui.messages[-1])
+    await _handle_num_ctx_setting(settings, ctx)
+    assert "positive integer" in str(ui.messages[-1])
+    await _handle_num_ctx_setting(settings, ctx)
+    assert "num_ctx" not in settings
+    await _handle_num_ctx_setting(settings, ctx)
+
+
+@pytest.mark.asyncio
+async def test_settings_menu_and_profile_persistence(monkeypatch: pytest.MonkeyPatch) -> None:
+    from sensai import _apply_profile_settings  # noqa: PLC0415
+    from sensai.client import OllamaClient  # noqa: PLC0415
+    from sensai.config import Config  # noqa: PLC0415
+    from sensai.ui.commands.settings import settings_execute  # noqa: PLC0415
+
+    profile = Profile(name="test", password="test", id=1, settings="{}")  # noqa: S106
+    ProfileManager.current_profile = profile
+    saved: list[str] = []
+    monkeypatch.setattr(
+        "sensai.ui.commands.settings.update_profile_settings",
+        lambda _db, _pid, s: saved.append(s),
+    )
+
+    client = OllamaClient(base_url="http://test", token=None, timeout=10.0)
+    agent = _FakeAgent(client)
+    config = Config()
+    config.parse_args([])
+
+    ui = _CustomUI(
+        inputs=["0.5", "0.9", "4096"],
+        choices=["temperature", "top_p", "num_ctx", "exit"],
+    )
+    ctx = CommandContext(database=None, ui=ui, agent=agent, config=config, session=None)  # type: ignore[arg-type]
+    await settings_execute(ctx, [])
+    assert saved
+    saved_dict = json.loads(saved[-1])
+    assert saved_dict["temperature"] == 0.5
+    assert saved_dict["top_p"] == 0.9
+    assert saved_dict["num_ctx"] == 4096
+
+    # Restore in new client
+    client2 = OllamaClient(base_url="http://test", token=None, timeout=10.0)
+    agent2 = _FakeAgent(client2)
+    config2 = Config()
+    config2.parse_args([])
+    _apply_profile_settings(config2, cast("Agent", agent2), client2, saved[-1])
+    assert client2.temperature == 0.5
+    assert client2.top_p == 0.9
+    assert client2.num_ctx == 4096
+
+    # Verify explicit CLI flags take precedence over saved profile settings
+    client3 = OllamaClient(
+        base_url="http://test",
+        token=None,
+        timeout=10.0,
+        temperature=0.2,
+        top_p=0.4,
+        num_ctx=2048,
+    )
+    agent3 = _FakeAgent(client3)
+    config3 = Config()
+    config3.parse_args(["--temperature", "0.2", "--top-p", "0.4", "--num-ctx", "2048"])
+    _apply_profile_settings(config3, cast("Agent", agent3), client3, saved[-1])
+    assert client3.temperature == 0.2
+    assert client3.top_p == 0.4
+    assert client3.num_ctx == 2048

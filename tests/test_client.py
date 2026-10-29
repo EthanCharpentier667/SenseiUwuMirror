@@ -464,3 +464,56 @@ async def test_client_chat_sends_options(
 
     assert sent.get("options") == expected_options
     assert sent["format"] == schema
+
+
+@pytest.mark.asyncio
+async def test_client_chat_sends_client_temperature_and_top_p(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: dict[str, Any] = {}
+
+    class MockResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return {"message": {"content": "ok"}, "done_reason": "stop"}
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        async def post(self, *_args: Any, **kwargs: Any) -> MockResponse:
+            sent.update(kwargs["json"])
+            return MockResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    monkeypatch.setenv("TOKEN", "test_env_token")
+    client = OllamaClient(
+        base_url=TEST_BASE_URL,
+        token=None,
+        timeout=TEST_TIMEOUT,
+        num_ctx=4096,
+        temperature=0.8,
+        top_p=0.95,
+    )
+    await client.chat(messages=[{"role": "user", "content": "hi"}], stream=False)
+
+    assert sent.get("options") == {"num_ctx": 4096, "temperature": 0.8, "top_p": 0.95}
+
+    # Now verify explicit options override client defaults (like PLAN_OPTIONS overrides temperature)
+    sent.clear()
+    await client.chat(
+        messages=[{"role": "user", "content": "hi"}],
+        stream=False,
+        options={"temperature": 0},
+    )
+    assert sent.get("options") == {"num_ctx": 4096, "temperature": 0, "top_p": 0.95}
