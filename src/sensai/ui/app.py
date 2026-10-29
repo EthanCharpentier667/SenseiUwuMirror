@@ -125,6 +125,7 @@ class CLIApp:
             sent_prefix_length = len(messages) - 1
 
             response = await self.agent.run(messages=messages)
+            self.agent.last_prompt_tokens = response.prompt_eval_count
 
             updated_session = update_session(
                 self.database, self.session, response, sent_prefix_length
