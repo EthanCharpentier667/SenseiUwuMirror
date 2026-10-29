@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from sensai.ui.command import Command, CommandRegistry
 from sensai.ui.commands.auth import logout_execute
-from sensai.ui.commands.help import help_execute
+from sensai.ui.commands.help import make_help_execute
 from sensai.ui.commands.model import model_execute
 from sensai.ui.commands.persona import persona_execute
 from sensai.ui.commands.prefs import inst_execute, prefs_execute
@@ -25,7 +25,7 @@ def setup_builtin_commands(registry: CommandRegistry, agent: "Agent | None" = No
         agent (Agent | None): The agent whose tool names /tools completes. Default is
             None, which registers /tools without name completion.
     """
-    registry.register(Command("/help", "List all available commands.", help_execute))
+    registry.register(Command("/help", "List all available commands.", make_help_execute(registry)))
     registry.register(
         Command(
             "/tools",
@@ -55,14 +55,14 @@ def setup_builtin_commands(registry: CommandRegistry, agent: "Agent | None" = No
         )
     )
     registry.register(Command("/settings", "Open interactive settings menu.", settings_execute))
-    registry.register(Command("/stat", "Show statistics for the current session.", stat_execute))
+    registry.register(Command("/stats", "Show statistics for the current session.", stat_execute))
     registry.register(
         Command("/model", "Change the AI model used in the current session.", model_execute)
     )
     registry.register(
         Command(
             "/persona",
-            "Manage agent persona.",
+            "List personas, or switch to one (saved to your profile).",
             persona_execute,
             subcommands=["list", "switch"],
         )

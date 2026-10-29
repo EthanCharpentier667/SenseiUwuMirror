@@ -95,7 +95,7 @@ for using it with Sensai.
 
 ## Session statistics
 
-Type `/stat` in the Sensai chat to see a table for the current session: token
+Type `/stats` in the Sensai chat to see a table for the current session: token
 usage, message counts by role, how full the context window is and how close the
 session is to compression, plus the active model, persona and generation
 parameters. The [session statistics guide](docs/use_cases/Session-stats.md)

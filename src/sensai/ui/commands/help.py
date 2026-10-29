@@ -1,28 +1,33 @@
 """Help command."""
 
+from collections.abc import Awaitable, Callable
+
 from rich.table import Table
+from rich.text import Text
 
-from sensai.ui.command import CommandContext
+from sensai.ui.command import CommandContext, CommandRegistry
 
 
-async def help_execute(context: CommandContext, _args: list[str]) -> None:
-    """Execute the /help command."""
-    table = Table(title="Available Commands", show_header=True, header_style="bold magenta")
-    table.add_column("Command", style="cyan")
-    table.add_column("Description")
+def make_help_execute(
+    registry: CommandRegistry,
+) -> Callable[[CommandContext, list[str]], Awaitable[None]]:
+    """Build the /help command, listing whatever the registry holds when it runs.
 
-    table.add_row("/mcp add-json <name> '<json>'", "Connect using an HTTP JSON configuration.")
-    table.add_row("/help", "List all available commands.")
-    table.add_row(
-        "/tools",
-        "Toggle tools in a dialog, /tools list, or /tools enable|disable <tool or group>...",
-    )
-    table.add_row("/logout", "Log out and clear saved credentials.")
-    table.add_row("/prefs", "Manage preferences (list, add, remove, edit).")
-    table.add_row("/inst", "Manage system instructions (list, add, remove, edit).")
-    table.add_row("/settings", "Open interactive settings menu.")
-    table.add_row("/model", "Change the AI model used in the current session.")
-    table.add_row("/stat", "Show statistics for the current session.")
-    table.add_row("/exit or /quit", "Exit the application.")
+    Args:
+        registry (CommandRegistry): The registry whose commands /help lists.
+    """
 
-    await context.ui.on_system_message(table)
+    async def help_execute(context: CommandContext, _args: list[str]) -> None:
+        """Execute the /help command."""
+        table = Table(title="Available Commands", show_header=True, header_style="bold magenta")
+        table.add_column("Command", style="cyan")
+        table.add_column("Description")
+        for command in sorted(registry.get_all_commands(), key=lambda command: command.name):
+            name = command.name
+            if command.subcommands:
+                name += f" [{' | '.join(command.subcommands)}]"
+            table.add_row(Text(name), Text(command.description))
+
+        await context.ui.on_system_message(table)
+
+    return help_execute

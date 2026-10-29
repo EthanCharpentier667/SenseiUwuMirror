@@ -114,7 +114,7 @@ async def test_tool_saves_choices_to_the_profile(monkeypatch: pytest.MonkeyPatch
     profile = Mock(id=1, settings=json.dumps({"trust_level": "partial"}))
     monkeypatch.setattr(ProfileManager, "current_profile", profile)
     saved = Mock()
-    monkeypatch.setattr(tool_command, "update_profile_settings", saved)
+    monkeypatch.setattr("sensai.data.profile.profile.update_profile_settings", saved)
 
     await tool_execute(context, ["disable", "bash"])
 
@@ -174,29 +174,28 @@ async def test_tool_shows_usage(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_dialog_toggles_groups_and_master_switches(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_tool_dialog_toggles_groups(monkeypatch: pytest.MonkeyPatch) -> None:
     context, ui = make_context(monkeypatch, mixed_tools())
     features = context.config.features
     features.set_tool("bash_job", enabled=False)
-    ui.prompt_checklist.return_value = ("ok", ["feature:tools", "group:bash", "group:mcp:github"])
+    ui.prompt_checklist.return_value = ("ok", ["group:bash", "group:mcp:github"])
 
     await tool_execute(context, [])
 
     choices = dict(ui.prompt_checklist.call_args.kwargs["choices"])
     assert choices["group:bash"] == "bash (1/2 on)"
+    assert not any(choice.startswith("feature:") for choice in choices)
     assert "group:bash" in ui.prompt_checklist.call_args.kwargs["checked"]
-    # Unticked: the browser group and the mcp feature. Bash stays partially on.
-    assert not features.is_enabled(MCP)
-    assert available(context) == {"bash_tool"}
+    # Unticked: the browser group. Bash stays partially on, and features are untouched.
+    assert features.disabled == set()
+    assert available(context) == {"bash_tool", "create_issue"}
     assert "Tool settings saved" in messages(ui)[-1]
 
 
 @pytest.mark.asyncio
 async def test_tool_dialog_fine_tunes_one_group(monkeypatch: pytest.MonkeyPatch) -> None:
     context, ui = make_context(monkeypatch, mixed_tools())
-    ticked_groups = ["feature:tools", "feature:mcp", "group:browser", "group:bash"]
+    ticked_groups = ["group:browser", "group:bash"]
     ui.prompt_checklist.side_effect = [("extra", ticked_groups), ("ok", ["browser_snapshot"])]
     ui.prompt_choice.return_value = "browser"
 
@@ -247,3 +246,52 @@ def test_tool_name_completer_suggests_groups_and_tools() -> None:
     assert complete("/tools enable bash bash") == ["bash_tool", "bash_job"]
     assert complete("/tools enable mcp") == ["mcp:github"]
     assert complete("/tools list b") == []
+
+
+@pytest.mark.asyncio
+async def test_tool_settings_leave_command_line_overrides_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _ = make_context(monkeypatch, mixed_tools())
+    context.config.parse_args(["--disable", "rag", "--disable-tool", "create_issue"])
+    context.agent.features = context.config.features
+    monkeypatch.setattr(ProfileManager, "current_profile", Mock(id=1, settings=None))
+    saved = Mock()
+    monkeypatch.setattr("sensai.data.profile.profile.update_profile_settings", saved)
+
+    await tool_execute(context, ["disable", "bash_tool"])
+
+    settings = json.loads(saved.call_args.args[2])
+    assert settings == {"disabled_tools": ["bash_tool"], "disabled_features": []}
+    assert available(context) == {"browser_snapshot", "browser_click", "bash_job"}
+
+
+@pytest.mark.asyncio
+async def test_tool_dialog_without_changes_saves_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    context, ui = make_context(monkeypatch, mixed_tools())
+    saved = Mock()
+    monkeypatch.setattr(tool_command, "save_tool_settings", saved)
+    ui.prompt_checklist.return_value = (
+        "ok",
+        ["group:browser", "group:bash", "group:mcp:github"],
+    )
+
+    await tool_execute(context, [])
+
+    saved.assert_not_called()
+    ui.on_system_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_tool_dialog_shows_when_a_feature_keeps_tools_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, ui = make_context(monkeypatch, mixed_tools())
+    context.config.features.set(TOOLS, enabled=False)
+    context.config.features.set(MCP, enabled=False)
+
+    await tool_execute(context, [])
+
+    kwargs = ui.prompt_checklist.call_args.kwargs
+    assert "tools feature is off" in kwargs["text"]
+    assert dict(kwargs["choices"])["group:mcp:github"] == "mcp:github (1/1 on) (mcp feature off)"

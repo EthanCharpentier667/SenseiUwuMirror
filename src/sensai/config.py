@@ -9,11 +9,12 @@ from typing import Any
 from dotenv import load_dotenv
 
 from sensai.features.features import FEATURES, Features
+from sensai.features.react.react import DEFAULT_MAX_STEPS
 
 load_dotenv()
 
 AVAILABLE_MODELS = ["gemma4:e4b", "qwen3.5:9b", "llama3.2:latest"]
-DEFAULT_MODEL = "llama3.2"
+DEFAULT_MODEL = "llama3.2:latest"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
@@ -21,6 +22,8 @@ DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
 DEFAULT_TIMEOUT = 300.0
 DEFAULT_NUM_CTX = 16384
 DEFAULT_PERSONAS_FILE = "personas.json"
+TRUST_LEVELS = ("none", "partial", "total")
+DEFAULT_TRUST_LEVEL = "none"
 
 
 def _parse_output_schema(value: str) -> dict[str, Any]:
@@ -32,6 +35,17 @@ def _parse_output_schema(value: str) -> dict[str, Any]:
     if not isinstance(schema, dict):
         raise ArgumentTypeError("the output schema must be a JSON object")
     return schema
+
+
+def _positive_int(value: str) -> int:
+    """Parse a strictly positive integer supplied on the command line."""
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise ArgumentTypeError(f"invalid integer: {value!r}") from exc
+    if number < 1:
+        raise ArgumentTypeError("must be at least 1")
+    return number
 
 
 class Config:
@@ -57,6 +71,7 @@ class Config:
         self.description = description
         self.parser = ArgumentParser(prog=name, description=description, allow_abbrev=False)
         self.args: Namespace | None = None
+        self.startup_args: Namespace | None = None
         self._features: Features | None = None
         self.explicit_args: set[str] = set()
         self._register_arguments()
@@ -161,7 +176,36 @@ class Config:
             nargs="*",
             default=[],
             metavar="TOOL",
-            help="Tools to disable, by name (see /tool). Default: none.",
+            help="Tools to disable, by name (see /tools). Default: none.",
+        )
+        self.add_argument(
+            "--enable",
+            nargs="*",
+            choices=list(FEATURES),
+            default=[],
+            metavar="FEATURE",
+            help="Features to enable for this run, even if the profile disables them. "
+            "Default: none.",
+        )
+        self.add_argument(
+            "--enable-tool",
+            nargs="*",
+            default=[],
+            metavar="TOOL",
+            help="Tools to enable for this run, even if the profile disables them. Default: none.",
+        )
+        self.add_argument(
+            "--trust",
+            choices=TRUST_LEVELS,
+            default=DEFAULT_TRUST_LEVEL,
+            help="Tool approval: 'none' asks for every tool, 'partial' only for unsafe tools, "
+            f"'total' never asks. Default: {DEFAULT_TRUST_LEVEL}.",
+        )
+        self.add_argument(
+            "--max-steps",
+            type=_positive_int,
+            default=DEFAULT_MAX_STEPS,
+            help=f"Maximum ReAct steps per reply. Default: {DEFAULT_MAX_STEPS}.",
         )
         self.add_argument(
             "--verbose",
@@ -172,6 +216,11 @@ class Config:
             "--persona",
             default=None,
             help="Persona key to use from the personas file (e.g. 'tester').",
+        )
+        self.add_argument(
+            "--personas-file",
+            default=DEFAULT_PERSONAS_FILE,
+            help=f"Path to the personas JSON file. Default: {DEFAULT_PERSONAS_FILE}.",
         )
         self.add_argument(
             "--list-personas",
@@ -194,15 +243,32 @@ class Config:
         raw_args = sys.argv[1:] if args is None else args
         self.explicit_args = {arg.split("=")[0] for arg in raw_args if arg.startswith("-")}
         self.args = self.parser.parse_args(args)
+        self.startup_args = Namespace(**vars(self.args))
         for path in self.args.files:
             if not path.is_file():
                 self.parser.error(f"file not found: {path}")
-        self._features = Features.from_disabled(self.args.disable, self.args.disable_tool)
+        self._features = self._build_features(self.args)
         return self.args
+
+    @staticmethod
+    def _build_features(args: Namespace) -> Features:
+        """The feature flags given on the command line, as overrides for this run."""
+        return Features.from_disabled(
+            args.disable,
+            args.disable_tool,
+            enabled=args.enable,
+            enabled_tools=args.enable_tool,
+        )
 
     def was_explicitly_set(self, *flags: str) -> bool:
         """Check if any of the given flag strings were explicitly passed on the command line."""
         return any(flag in self.explicit_args for flag in flags)
+
+    def startup_value(self, name: str) -> Any:
+        """The value an argument had once parsed, before profile settings or /settings edits."""
+        if self.startup_args is None:
+            self._parsed()
+        return getattr(self.startup_args, name)
 
     def get_args(self) -> Namespace | None:
         """Get the parsed command-line arguments."""
@@ -315,7 +381,17 @@ class Config:
     @property
     def personas_file(self) -> str:
         """Path to the personas JSON file."""
-        return DEFAULT_PERSONAS_FILE
+        return str(self._parsed().personas_file)
+
+    @property
+    def trust_level(self) -> str:
+        """Tool approval level: "none", "partial" or "total"."""
+        return str(self._parsed().trust)
+
+    @property
+    def max_steps(self) -> int:
+        """Maximum ReAct steps per reply."""
+        return int(self._parsed().max_steps)
 
     @property
     def list_personas(self) -> bool:
@@ -326,6 +402,5 @@ class Config:
     def features(self) -> Features:
         """The feature flags, shared by everything that reads them."""
         if self._features is None:
-            args = self._parsed()
-            self._features = Features.from_disabled(args.disable, args.disable_tool)
+            self._features = self._build_features(self._parsed())
         return self._features

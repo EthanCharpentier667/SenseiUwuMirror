@@ -1,6 +1,5 @@
 """List the tools available to the agent, and enable or disable them alone or by group."""
 
-import json
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
@@ -10,8 +9,8 @@ from rich.table import Table
 from rich.text import Text
 
 from sensai.data.profile.manager import ProfileManager
-from sensai.data.profile.profile import update_profile_settings
-from sensai.features.features import FEATURES, MCP, TOOLS
+from sensai.data.profile.profile import load_profile_settings, save_profile_settings
+from sensai.features.features import MCP, TOOLS
 from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.features.tools.tool import Tool
 from sensai.ui.command import CommandContext
@@ -21,25 +20,21 @@ if TYPE_CHECKING:
 
 USAGE = "Usage: /tools [list | enable|disable <tool or group>...]"
 
-# The features that switch whole sets of tools off, shown above the groups in the dialog.
-MASTER_SWITCHES = (TOOLS, MCP)
-
 
 def save_tool_settings(context: CommandContext) -> None:
-    """Keep the disabled tools and features in the active profile, for the next launches."""
+    """Keep the chosen tools and features in the active profile, for the next launches.
+
+    Only the saved choices are written: the overrides of this run (``--disable``,
+    ``--enable-tool``...) stay out of the profile.
+    """
     profile = ProfileManager.current_profile
     if not profile or not profile.id:
         return
-    try:
-        settings = json.loads(profile.settings) if profile.settings else {}
-    except json.JSONDecodeError:
-        settings = {}
+    settings = load_profile_settings(profile)
     features = context.config.features
-    settings["disabled_tools"] = sorted(features.disabled_tools)
-    settings["disabled_features"] = sorted(features.disabled)
-    settings_str = json.dumps(settings)
-    update_profile_settings(context.database, profile.id, settings_str)
-    profile.settings = settings_str
+    settings["disabled_tools"] = sorted(features.saved_disabled_tools)
+    settings["disabled_features"] = sorted(features.saved_disabled)
+    save_profile_settings(context.database, profile, settings)
 
 
 def _groups(tools: Iterable[Tool]) -> dict[str, list[Tool]]:
@@ -71,7 +66,7 @@ async def _list_tools(context: CommandContext) -> None:
     if not context.config.features.is_enabled(TOOLS):
         await context.ui.on_system_message(
             "[yellow]The tools feature is off: no tool is available. "
-            "Turn it on with /tools.[/yellow]"
+            "Turn it on in /settings → Features.[/yellow]"
         )
     table = Table(title="Tools", show_header=True, header_style="bold magenta")
     table.add_column("Tool", style="cyan")
@@ -153,35 +148,55 @@ async def _fine_tune_group(context: CommandContext, groups: dict[str, list[Tool]
         features.set_tool(tool.name, enabled=tool.name in ticked)
 
 
-async def edit_tools(context: CommandContext) -> bool:
-    """Open the tool dialog: master switches and groups, then optionally one group's tools.
+def _dialog_text(context: CommandContext) -> str:
+    """The tool dialog's intro, warning when a feature keeps the ticked tools unused."""
+    text = (
+        "Tick what the agent may use. A group counts as on while any of its tools is; "
+        "use Fine-tune to pick tools within a group."
+    )
+    if not context.config.features.is_enabled(TOOLS):
+        text += "\n\nThe tools feature is off (/settings → Features): no tool is used for now."
+    return text
 
-    Changes are saved to the profile once confirmed; cancelling leaves everything as it was.
+
+def _group_label(context: CommandContext, name: str, tools: list[Tool]) -> str:
+    """A group's checklist label: how many of its tools are on, and if MCP keeps it off."""
+    features = context.config.features
+    on = sum(features.is_tool_enabled(tool.name) for tool in tools)
+    label = f"{name} ({on}/{len(tools)} on)"
+    if any(isinstance(tool, MCPTools) for tool in tools) and not features.is_enabled(MCP):
+        label += " (mcp feature off)"
+    return label
+
+
+async def edit_tools(context: CommandContext, *, save: bool = True) -> bool:
+    """Open the tool dialog: the groups, then optionally one group's tools.
+
+    Cancelling leaves everything as it was.
+
+    Args:
+        context (CommandContext): The command context.
+        save (bool): Whether to save the changes to the profile. Default is True; the
+            settings menu passes False as it saves its own way.
 
     Returns:
-        bool: Whether changes were applied.
+        bool: Whether any tool was enabled or disabled.
     """
     features = context.config.features
+    before = set(features.disabled_tools)
     groups = _groups(context.agent.tools)
     group_on = {
         name: any(features.is_tool_enabled(tool.name) for tool in tools)
         for name, tools in groups.items()
     }
     choices = [
-        (f"feature:{name}", f"[feature] {name}: {FEATURES[name]}") for name in MASTER_SWITCHES
+        (f"group:{name}", _group_label(context, name, tools)) for name, tools in groups.items()
     ]
-    for name, tools in groups.items():
-        on = sum(features.is_tool_enabled(tool.name) for tool in tools)
-        choices.append((f"group:{name}", f"{name} ({on}/{len(tools)} on)"))
-    checked = [f"feature:{name}" for name in MASTER_SWITCHES if features.is_enabled(name)]
-    checked += [f"group:{name}" for name, on in group_on.items() if on]
+    checked = [f"group:{name}" for name, on in group_on.items() if on]
 
     result = await context.ui.prompt_checklist(
         title="Tools",
-        text=(
-            "Tick what the agent may use. A group counts as on while any of its tools is; "
-            "use Fine-tune to pick tools within a group."
-        ),
+        text=_dialog_text(context),
         choices=choices,
         checked=checked,
         extra="Fine-tune…",
@@ -189,16 +204,16 @@ async def edit_tools(context: CommandContext) -> bool:
     if result is None:
         return False
     action, ticked = result
-    for name in MASTER_SWITCHES:
-        features.set(name, enabled=f"feature:{name}" in ticked)
     for name, tools in groups.items():
         on = f"group:{name}" in ticked
         if on != group_on[name]:
             features.set_tools((tool.name for tool in tools), enabled=on)
     if action == "extra" and groups:
         await _fine_tune_group(context, groups)
-    save_tool_settings(context)
-    return True
+    changed = features.disabled_tools != before
+    if changed and save:
+        save_tool_settings(context)
+    return changed
 
 
 class ToolNameCompleter(Completer):  # type: ignore[misc,unused-ignore]

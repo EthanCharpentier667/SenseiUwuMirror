@@ -14,4 +14,4 @@ def test_setup_builtin_commands() -> None:
     assert "/logout" in names
     assert "/prefs" in names
     assert "/inst" in names
-    assert "/stat" in names
+    assert "/stats" in names

@@ -41,12 +41,13 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
     agent = Agent(
         model=config.model,
         tools=get_tools(),
-        trust_level="none",
+        trust_level=config.trust_level,
         ui_handler=ui_handler,
         client=client,
         features=config.features,
     )
     agent.structured_output_schema = config.output_schema
+    agent.max_turns = config.max_steps
     return client, agent
 
 
