@@ -79,3 +79,19 @@ def test_persona_is_immutable():
     p = Persona(name="Test", description="desc", system_prompt="prompt")
     with pytest.raises(AttributeError):
         p.name = "other"  # type: ignore[misc]
+
+
+def test_load_personas_joins_system_prompt_lines(tmp_path):
+    data = {
+        "tester": {
+            "name": "Tester",
+            "description": "desc",
+            "system_prompt": ["You test.", "", "1. Read first."],
+        }
+    }
+    path = tmp_path / "personas.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    personas = load_personas(str(path))
+
+    assert personas["tester"].system_prompt == "You test.\n\n1. Read first."
