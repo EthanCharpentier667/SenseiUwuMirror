@@ -7,7 +7,13 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import Application, get_app
+from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
+from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
+from prompt_toolkit.key_binding.defaults import load_key_bindings
+from prompt_toolkit.layout import HSplit, Layout
 from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
+from prompt_toolkit.widgets import Button, CheckboxList, Dialog, Label
 from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.markdown import Markdown
@@ -42,6 +48,45 @@ class _Tail:
         for line in lines[-height:]:
             yield from line
             yield Segment.line()
+
+
+def _checklist_dialog(
+    title: str,
+    text: str,
+    choices: list[tuple[str, str]],
+    checked: list[str],
+    extra: str | None,
+) -> Application[tuple[str, list[str]] | None]:
+    """Build a checkbox dialog like prompt_toolkit's, with an optional third button.
+
+    Escape cancels the dialog, like its Cancel button.
+    """
+    cb_list: CheckboxList[str] = CheckboxList(values=choices, default_values=checked)
+
+    def exit_with(action: str) -> None:
+        get_app().exit(result=(action, list(cb_list.current_values)))
+
+    buttons = [Button(text="Ok", handler=lambda: exit_with("ok"))]
+    if extra is not None:
+        buttons.append(Button(text=extra, width=len(extra) + 4, handler=lambda: exit_with("extra")))
+    buttons.append(Button(text="Cancel", handler=lambda: get_app().exit(result=None)))
+    dialog = Dialog(
+        title=title,
+        body=HSplit([Label(text=text, dont_extend_height=True), cb_list], padding=1),
+        buttons=buttons,
+        with_background=True,
+    )
+
+    bindings = KeyBindings()
+    bindings.add("tab")(focus_next)
+    bindings.add("s-tab")(focus_previous)
+    bindings.add("escape", eager=True)(lambda event: event.app.exit(result=None))
+    return Application(
+        layout=Layout(dialog),
+        key_bindings=merge_key_bindings([load_key_bindings(), bindings]),
+        mouse_support=True,
+        full_screen=True,
+    )
 
 
 class CLIHandler(AsyncUIHandler):
@@ -216,6 +261,18 @@ class CLIHandler(AsyncUIHandler):
             values=choices,
         ).run_async()
         return str(choice) if choice is not None else None
+
+    async def prompt_checklist(
+        self,
+        title: str,
+        text: str,
+        choices: list[tuple[str, str]],
+        checked: list[str],
+        *,
+        extra: str | None = None,
+    ) -> tuple[str, list[str]] | None:
+        """Prompt the user to tick any number of choices."""
+        return await _checklist_dialog(title, text, choices, checked, extra).run_async()
 
     async def prompt_input(self, title: str, text: str) -> str | None:
         """Prompt the user to input a free-form text string."""

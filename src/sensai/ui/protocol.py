@@ -58,6 +58,22 @@ class AsyncUIHandler(Protocol):
         """Prompt the user to select an option from a list of choices."""
         ...  # pragma: no cover
 
+    async def prompt_checklist(
+        self,
+        title: str,
+        text: str,
+        choices: list[tuple[str, str]],
+        checked: list[str],
+        *,
+        extra: str | None = None,
+    ) -> tuple[str, list[str]] | None:
+        """Prompt the user to tick any number of choices.
+
+        Returns which button confirmed the dialog ("ok", or "extra" for the optional
+        ``extra`` button) with the ticked values, or None if the dialog was cancelled.
+        """
+        ...  # pragma: no cover
+
     async def prompt_input(self, title: str, text: str) -> str | None:
         """Prompt the user to input a free-form text string."""
         ...  # pragma: no cover
