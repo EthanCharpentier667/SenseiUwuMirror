@@ -142,6 +142,33 @@ def test_config_rejects_an_unknown_feature() -> None:
         config.parse_args(["--disable", "teleport"])
 
 
+def test_config_generation_parameters_defaults() -> None:
+    config = Config()
+    config.parse_args([])
+
+    assert config.temperature is None
+    assert config.top_p is None
+    assert config.num_ctx == DEFAULT_NUM_CTX
+    assert config.context_length == DEFAULT_NUM_CTX
+    assert not config.was_explicitly_set("--temperature")
+    assert not config.was_explicitly_set("--top-p")
+    assert not config.was_explicitly_set("--num-ctx", "--context-length")
+
+
+def test_config_parses_generation_parameters() -> None:
+    config = Config()
+    config.parse_args(["--temperature", "0.7", "--top-p", "0.85", "--context-length", "4096"])
+
+    assert config.temperature == 0.7
+    assert config.top_p == 0.85
+    assert config.num_ctx == 4096
+    assert config.context_length == 4096
+    assert config.was_explicitly_set("--temperature")
+    assert config.was_explicitly_set("--top-p")
+    assert config.was_explicitly_set("--num-ctx", "--context-length")
+    assert not config.was_explicitly_set("--model")
+
+
 def test_config_disables_the_tools_given_on_the_command_line() -> None:
     config = Config()
     config.parse_args(["--disable-tool", "web_search", "web_fetch"])

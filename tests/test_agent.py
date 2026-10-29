@@ -791,3 +791,24 @@ async def test_a_command_with_a_non_zero_exit_code_is_a_failed_step() -> None:
 
     assert "Observation (failed): " in _trajectory(client.plans[1])
     assert '- bash_tool {} (failed):\n{"command": "mix setup"' in _system_texts(client.answers[0])
+
+
+def test_agent_generation_parameter_properties() -> None:
+    client = ScriptedClient()
+    agent = Agent(client=client)
+
+    assert agent.temperature is None
+    assert agent.top_p is None
+    assert agent.num_ctx is None
+
+    agent.temperature = 0.65
+    agent.top_p = 0.9
+    agent.num_ctx = 4096
+
+    assert client.temperature == 0.65
+    assert client.top_p == 0.9
+    assert client.num_ctx == 4096
+
+    assert agent.temperature == 0.65
+    assert agent.top_p == 0.9
+    assert agent.num_ctx == 4096

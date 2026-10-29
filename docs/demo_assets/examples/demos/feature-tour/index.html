@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Atelier Nova — Cart check</title>
+<style>
+  body { font: 22px system-ui; background: #eef2ff; color: #172554; padding: 50px; }
+  main { max-width: 600px; background: white; padding: 32px; border-radius: 20px; }
+  input, button { font: inherit; padding: 12px; margin: 12px 0; }
+  button { background: #4338ca; color: white; border: 0; border-radius: 8px; }
+</style>
+<main>
+  <h1>Atelier Nova</h1>
+  <h2>Cart check</h2>
+  <form>
+    <label for="prices">Item prices</label><br>
+    <input id="prices" value="10, 20"><br>
+    <button>Calculate subtotal</button>
+  </form>
+  <p role="status" id="result">Enter prices to check the cart.</p>
+</main>
+<script>
+document.querySelector('form').addEventListener('submit', event => {
+  event.preventDefault();
+  const values = document.querySelector('input').value.trim();
+  const parts = values ? values.split(',').map(value => Number(value.trim())) : [];
+  document.querySelector('#result').textContent = parts.some(value => !Number.isFinite(value))
+    ? 'Invalid prices: enter numbers separated by commas.'
+    : `Subtotal: ${parts.reduce((sum, value) => sum + value, 0)}`;
+});
+</script>
+</html>

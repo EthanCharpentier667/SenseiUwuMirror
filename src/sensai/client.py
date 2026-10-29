@@ -124,13 +124,15 @@ class Response:
 class OllamaClient:
     """Client responsible for low-level HTTP communication with Ollama."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         base_url: str,
         token: str | None,
         timeout: float,
         *,
         num_ctx: int | None = None,
+        temperature: float | None = None,
+        top_p: float | None = None,
         verbose: bool = False,
     ) -> None:
         """Initialize the Ollama client.
@@ -142,6 +144,8 @@ class OllamaClient:
             num_ctx: Context window size (in tokens) for chat requests. When None, Ollama
                 uses its own default, small enough to silently drop the oldest messages
                 (often the user's question) once tool results pile up.
+            temperature: Sampling temperature for generation.
+            top_p: Nucleus sampling probability threshold for generation.
             verbose: Whether to print debug information.
         """
         self.base_url: str = base_url
@@ -149,6 +153,8 @@ class OllamaClient:
         self.timeout = timeout
         self.verbose = verbose
         self.num_ctx = num_ctx
+        self.temperature = temperature
+        self.top_p = top_p
         self._capabilities: dict[str, set[str]] = {}
 
     def _build_headers(self) -> dict[str, str]:
@@ -160,6 +166,17 @@ class OllamaClient:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.token}",
         }
+
+    def _default_options(self) -> dict[str, Any]:
+        """Build the default generation options configured on the client."""
+        options: dict[str, Any] = {}
+        if self.num_ctx is not None:
+            options["num_ctx"] = self.num_ctx
+        if self.temperature is not None:
+            options["temperature"] = self.temperature
+        if self.top_p is not None:
+            options["top_p"] = self.top_p
+        return options
 
     async def _consume_chunk(
         self,
@@ -284,7 +301,7 @@ class OllamaClient:
         if response_format is not None:
             payload["format"] = response_format
         merged_options = {
-            **({"num_ctx": self.num_ctx} if self.num_ctx is not None else {}),
+            **self._default_options(),
             **(options or {}),
         }
         if merged_options:

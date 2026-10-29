@@ -34,6 +34,8 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         timeout=config.timeout,
         verbose=config.verbose,
         num_ctx=config.num_ctx,
+        temperature=config.temperature,
+        top_p=config.top_p,
     )
     ui_handler = CLIHandler()
     agent = Agent(

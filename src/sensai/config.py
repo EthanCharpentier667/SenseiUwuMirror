@@ -1,6 +1,7 @@
 """Configuration for the Sensai CLI."""
 
 import json
+import sys
 from argparse import SUPPRESS, ArgumentParser, ArgumentTypeError, Namespace
 from pathlib import Path
 from typing import Any
@@ -54,9 +55,10 @@ class Config:
         """
         self.name = name
         self.description = description
-        self.parser = ArgumentParser(prog=name, description=description)
+        self.parser = ArgumentParser(prog=name, description=description, allow_abbrev=False)
         self.args: Namespace | None = None
         self._features: Features | None = None
+        self.explicit_args: set[str] = set()
         self._register_arguments()
 
     def _register_arguments(self) -> None:
@@ -103,10 +105,24 @@ class Config:
         )
         self.add_argument(
             "--num-ctx",
+            "--context-length",
+            dest="num_ctx",
             type=int,
             default=DEFAULT_NUM_CTX,
             help="Context window size (in tokens) requested from Ollama. "
             f"Default: {DEFAULT_NUM_CTX}.",
+        )
+        self.add_argument(
+            "--temperature",
+            type=float,
+            default=None,
+            help="Sampling temperature for Ollama generation (e.g. 0.7). Default: None.",
+        )
+        self.add_argument(
+            "--top-p",
+            type=float,
+            default=None,
+            help="Nucleus sampling probability threshold (e.g. 0.9). Default: None.",
         )
         self.add_argument(
             "--db-path",
@@ -175,12 +191,18 @@ class Config:
             args (list[str], optional): The argument strings to parse, e.g. for tests.
                 Default is None, which parses ``sys.argv``.
         """
+        raw_args = sys.argv[1:] if args is None else args
+        self.explicit_args = {arg.split("=")[0] for arg in raw_args if arg.startswith("-")}
         self.args = self.parser.parse_args(args)
         for path in self.args.files:
             if not path.is_file():
                 self.parser.error(f"file not found: {path}")
         self._features = Features.from_disabled(self.args.disable, self.args.disable_tool)
         return self.args
+
+    def was_explicitly_set(self, *flags: str) -> bool:
+        """Check if any of the given flag strings were explicitly passed on the command line."""
+        return any(flag in self.explicit_args for flag in flags)
 
     def get_args(self) -> Namespace | None:
         """Get the parsed command-line arguments."""
@@ -256,6 +278,23 @@ class Config:
     def num_ctx(self) -> int:
         """Context window size (in tokens) requested from Ollama."""
         return int(self._parsed().num_ctx)
+
+    @property
+    def context_length(self) -> int:
+        """Alias for num_ctx: context window size (in tokens)."""
+        return self.num_ctx
+
+    @property
+    def temperature(self) -> float | None:
+        """Sampling temperature for generation, if set."""
+        temp = self._parsed().temperature
+        return float(temp) if temp is not None else None
+
+    @property
+    def top_p(self) -> float | None:
+        """Nucleus sampling probability threshold for generation, if set."""
+        val = self._parsed().top_p
+        return float(val) if val is not None else None
 
     @property
     def files(self) -> list[Path]:

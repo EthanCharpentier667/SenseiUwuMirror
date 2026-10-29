@@ -1,0 +1,63 @@
+{
+  "recorded_on": "2026-10-26",
+  "commit": "9ade1cc90637e9362bcb53f7e8529be248cced88",
+  "model": "llama3.2:latest",
+  "ollama_version": "0.34.2",
+  "transport": "http://127.0.0.1:11434/api/chat",
+  "profile": "DemoQA",
+  "bootstrap": "Real CLIApp and Agent, preconfigured demo profile; account wizard and keyring are outside this recording.",
+  "permission_policy": "Only the exact documented pytest command was allowed, foreground only; its normal CLI confirmation was recorded.",
+  "capture": "PTY output replayed with pyte and Pillow; original timeline at x1.",
+  "attempts": 2,
+  "selected_attempt": 2,
+  "excluded_attempt_reason": "First proposal used background=true and was refused by the recording guard; its following answer invented unrelated tests, so it was not accepted as a successful demonstration.",
+  "output_events": 316,
+  "duration_seconds": 26.591837,
+  "fixture_sha256": {
+    "cart.py": "3f102acfbb9893e5a7304be38f6f5ce0e4907e35a01de02c18f43044f4b426db",
+    "test_cart.py": "3787468328db6938e907f4eef6af00cc423f2b329177df77eb25d8a8b9774184",
+    "pytest.ini": "aaabed120d2fb059160bb38bf8843dc0bbb6abca5f013dffb5228bfffb9a3404"
+  },
+  "tool_step": {
+    "tool": "bash_tool",
+    "args": {
+      "command": ".venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests",
+      "background": false
+    },
+    "thought": "Le user demande d'exécuter une commande de test avec pytest, sans couverture de code.",
+    "status": "done",
+    "observation": "{\"command\": \".venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests\", \"exit_code\": 1, \"output\": \".F                                                                       [100%]\\n=================================== FAILURES ===================================\\n______________________________ test_empty_basket _______________________________\\n\\n    def test_empty_basket() -> None:\\n        \\\"\\\"\\\"Un panier vide doit coûter zéro, ce qui expose le défaut volontaire.\\\"\\\"\\\"\\n>       assert subtotal([]) == 0\\nE       assert 1 == 0\\nE        +  where 1 = subtotal([])\\n\\ndocs/demo-projects/python-tests/test_cart.py:13: AssertionError\\n=========================== short test summary info ============================\\nFAILED docs/demo-projects/python-tests/test_cart.py::test_empty_basket - asse...\\n1 failed, 1 passed in 0.02s\\n\"}"
+  },
+  "actual_test_result": {
+    "command": ".venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests",
+    "exit_code": 1,
+    "output": ".F                                                                       [100%]\n=================================== FAILURES ===================================\n______________________________ test_empty_basket _______________________________\n\n    def test_empty_basket() -> None:\n        \"\"\"Un panier vide doit coûter zéro, ce qui expose le défaut volontaire.\"\"\"\n>       assert subtotal([]) == 0\nE       assert 1 == 0\nE        +  where 1 = subtotal([])\n\ndocs/demo-projects/python-tests/test_cart.py:13: AssertionError\n=========================== short test summary info ============================\nFAILED docs/demo-projects/python-tests/test_cart.py::test_empty_basket - asse...\n1 failed, 1 passed in 0.02s\n"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Execute au premier plan (background=false) avec bash_tool, puis donne le bilan : .venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests"
+    },
+    {
+      "role": "tool",
+      "content": "{\"tool\": \"bash_tool\", \"args\": {\"command\": \".venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests\", \"background\": false}, \"thought\": \"Le user demande d'exécuter une commande de test avec pytest, sans couverture de code.\", \"status\": \"done\", \"observation\": \"{\\\"command\\\": \\\".venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests\\\", \\\"exit_code\\\": 1, \\\"output\\\": \\\".F                                                                       [100%]\\\\n=================================== FAILURES ===================================\\\\n______________________________ test_empty_basket _______________________________\\\\n\\\\n    def test_empty_basket() -> None:\\\\n        \\\\\\\"\\\\\\\"\\\\\\\"Un panier vide doit coûter zéro, ce qui expose le défaut volontaire.\\\\\\\"\\\\\\\"\\\\\\\"\\\\n>       assert subtotal([]) == 0\\\\nE       assert 1 == 0\\\\nE        +  where 1 = subtotal([])\\\\n\\\\ndocs/demo-projects/python-tests/test_cart.py:13: AssertionError\\\\n=========================== short test summary info ============================\\\\nFAILED docs/demo-projects/python-tests/test_cart.py::test_empty_basket - asse...\\\\n1 failed, 1 passed in 0.02s\\\\n\\\"}\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "Lancement du test Python :\n\n.venv/bin/python -m pytest -c docs/demo-projects/python-tests/pytest.ini --no-cov -q docs/demo-projects/python-tests\n\nRésultat :\n\n1 failed, 1 passed in 0.02s\n\nLors du test \"test_empty_basket\", l'assertion \"assert 1 == 0\" a échoué."
+    }
+  ],
+  "features_demonstrated": [
+    "A1: constrained tool use and use of its observation",
+    "A3: actual human-in-the-loop CLI confirmation",
+    "B1: streamed terminal reply"
+  ],
+  "not_demonstrated": [
+    "authentication",
+    "session resumption",
+    "file correction",
+    "sandbox execution",
+    "RAG",
+    "performance benchmark"
+  ]
+}
