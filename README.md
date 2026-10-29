@@ -93,6 +93,14 @@ It listens on `http://127.0.0.1:8000/mcp`. See the
 [MCP connection guide](docs/mcp-server.md) for a connection check and instructions
 for using it with Sensai.
 
+## Session statistics
+
+Type `/stat` in the Sensai chat to see a table for the current session: token
+usage, message counts by role, how full the context window is and how close the
+session is to compression, plus the active model, persona and generation
+parameters. The [session statistics guide](docs/use_cases/Session-stats.md)
+explains each row.
+
 ## Code quality
 
 This project enforces linting, formatting, static typing, and tests, both
