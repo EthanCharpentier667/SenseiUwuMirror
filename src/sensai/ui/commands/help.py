@@ -22,7 +22,7 @@ async def help_execute(context: CommandContext, _args: list[str]) -> None:
     table.add_row("/inst", "Manage system instructions (list, add, remove, edit).")
     table.add_row("/settings", "Open interactive settings menu.")
     table.add_row("/model", "Change the AI model used in the current session.")
-    table.add_row("/stat", "Show statistics for the current session.")
+    table.add_row("/stats", "Show statistics for the current session.")
     table.add_row("/exit or /quit", "Exit the application.")
 
     await context.ui.on_system_message(table)

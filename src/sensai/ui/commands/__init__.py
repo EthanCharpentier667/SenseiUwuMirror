@@ -55,7 +55,7 @@ def setup_builtin_commands(registry: CommandRegistry, agent: "Agent | None" = No
         )
     )
     registry.register(Command("/settings", "Open interactive settings menu.", settings_execute))
-    registry.register(Command("/stat", "Show statistics for the current session.", stat_execute))
+    registry.register(Command("/stats", "Show statistics for the current session.", stat_execute))
     registry.register(
         Command("/model", "Change the AI model used in the current session.", model_execute)
     )
