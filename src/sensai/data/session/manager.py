@@ -374,6 +374,64 @@ async def compress_session(
     return compressed
 
 
+def _clean_title(text: str) -> str | None:
+    """The first line of a model's reply, unquoted and shortened to make a session title."""
+    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+    if not lines:
+        return None
+    title = lines[0].strip("\"'`*# ").rstrip(".")
+    return title[:TITLE_MAX_LENGTH].strip() or None
+
+
+async def generate_session_title(
+    db: Database, session: Session, client: OllamaClient, model: str = "llama3.2"
+) -> Session:
+    """Name an untitled session from its first exchange via the LLM.
+
+    Args:
+        db (Database): The database to write to.
+        session (Session): The session to name.
+        client (OllamaClient): The preconfigured client to generate the title with.
+        model (str): The model to generate the title with, the one the session uses.
+
+    Returns:
+        Session: The session refreshed from the database, or unchanged if it already has
+            a name, has no exchange yet, or the model gave no usable title.
+    """
+    if session.id is None or session.name:
+        return session
+    reply_index = next(
+        (i for i, m in enumerate(session.messages) if m.role == "assistant" and m.content), None
+    )
+    if reply_index is None:
+        return session
+    # The prompt the reply answers, rather than a "File: ..." message from attached files.
+    first_user = next(
+        (m for m in reversed(session.messages[:reply_index]) if m.role == "user"), None
+    )
+    if first_user is None:
+        return session
+    first_reply = session.messages[reply_index]
+
+    prompt = (
+        f"User: {first_user.content[:TITLE_EXCERPT_LENGTH]}\n\n"
+        f"Assistant: {first_reply.content[:TITLE_EXCERPT_LENGTH]}\n\n"
+        "Write a title of 3 to 6 words for this conversation, in its language. "
+        "Reply with the title only: no quotes, no final punctuation."
+    )
+    response = await client.chat(
+        messages=[{"role": "user", "content": prompt}], model=model, stream=False
+    )
+    title = _clean_title(response.response)
+    if title is None:
+        return session
+    current = get_session(db, session.id)
+    if current is None or current.name:
+        return current or session
+    rename_session(db, session.id, title)
+    return get_session(db, session.id) or session
+
+
 async def maybe_compress_session(  # noqa: PLR0913
     db: Database,
     session: Session,
