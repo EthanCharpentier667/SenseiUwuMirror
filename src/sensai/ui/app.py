@@ -64,7 +64,7 @@ class CLIApp:
         self.console = Console()
 
         self.command_registry = CommandRegistry()
-        setup_builtin_commands(self.command_registry)
+        setup_builtin_commands(self.command_registry, agent)
         self.mcp_commands = MCPCommands(agent)
         self.mcp_commands.register(self.command_registry)
         self.prompt_session: PromptSession[str] | None = None
