@@ -1,8 +1,10 @@
 """Settings command."""
 
 import json
+import math
 from typing import Any
 
+from sensai.config import DEFAULT_NUM_CTX
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
 from sensai.features.features import FEATURES
@@ -69,8 +71,10 @@ async def _handle_temperature_setting(settings: dict[str, Any], context: Command
         return
     try:
         val = float(cleaned)
-        if val < 0.0:
-            await context.ui.on_system_message("[red]Temperature must be non-negative.[/red]")
+        if not math.isfinite(val) or val < 0.0:
+            await context.ui.on_system_message(
+                "[red]Temperature must be a finite, non-negative number.[/red]"
+            )
             return
         settings["temperature"] = val
         context.agent.temperature = val
@@ -134,10 +138,10 @@ async def _handle_num_ctx_setting(settings: dict[str, Any], context: CommandCont
     cleaned = new_num_ctx.strip().lower()
     if cleaned in ("default", "none", "clear", ""):
         settings.pop("num_ctx", None)
-        context.agent.num_ctx = None
+        context.agent.num_ctx = DEFAULT_NUM_CTX
         args = context.config.get_args()
         if args and hasattr(args, "num_ctx"):
-            args.num_ctx = None
+            args.num_ctx = DEFAULT_NUM_CTX
         return
     if cleaned.isdigit() and int(cleaned) > 0:
         val = int(cleaned)
