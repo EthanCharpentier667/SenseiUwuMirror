@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from sensai.features.tools.tool import Tool
+from sensai.features.tools.tool import Tool, is_failure
 
 
 class ConcreteTool(Tool):
@@ -55,3 +55,19 @@ def test_tool_execute_runs_subclass_implementation() -> None:
     tool = ConcreteTool()
 
     assert tool.execute() == "executed"
+
+
+@pytest.mark.parametrize(
+    ("result", "failed"),
+    [
+        ({"error": "boom"}, True),
+        ({"exit_code": 1, "output": ""}, True),
+        ({"exit_code": 0, "output": "ok"}, False),
+        ({"status": "running", "output": ""}, False),
+        ({"error": ""}, False),
+        ("plain text", False),
+        (None, False),
+    ],
+)
+def test_is_failure_detects_errors_and_non_zero_exit_codes(result: Any, *, failed: bool) -> None:
+    assert is_failure(result) is failed

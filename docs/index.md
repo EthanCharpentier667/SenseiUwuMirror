@@ -51,6 +51,11 @@ TOKEN="your_api_token_here"
 Keep `.env` private; it is ignored by Git. If you use a different Ollama server,
 set `--url` to its chat endpoint and use the token required by that server.
 The `--token` CLI option can also supply the bearer token instead of `TOKEN`.
+Document embeddings (RAG) go through their own endpoint, `--embed-url`, which stays
+on the default server when you change `--url`: a server that hosts only chat models,
+such as `https://ollama.com/api/chat`, can't embed documents. Set `--embed-url` (same
+format as `--url`) and `--embed-token` to use another embedding server. Without
+`--embed-token`, `--token` is reused only when both URLs are the same.
 For the optional Ollama web search and fetch tools, create an API key in
 [your Ollama account](https://ollama.com/settings/keys) and set it as
 `API_TOKEN` in `.env`. This key is separate from the hosted Sensei backend

@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from sensai.features.react.react import FINAL_ANSWER, Decision, ReActController
+from sensai.features.react.react import FINAL_ANSWER, OBSERVATION_HEADER, Decision, ReActController
 
 
 def _definition(name: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
@@ -150,9 +150,8 @@ def test_trajectory_replays_each_action_then_its_observation() -> None:
             "ephemeral": True,
         },
         {
-            "role": "tool",
-            "tool_name": "web_search",
-            "content": "Observation: A fox.",
+            "role": "user",
+            "content": f"{OBSERVATION_HEADER.format(action='web_search')}\nObservation: A fox.",
             "ephemeral": True,
         },
         {
@@ -161,9 +160,9 @@ def test_trajectory_replays_each_action_then_its_observation() -> None:
             "ephemeral": True,
         },
         {
-            "role": "tool",
-            "tool_name": "count",
-            "content": "Observation (rejected): Rejected: missing argument(s): n.",
+            "role": "user",
+            "content": f"{OBSERVATION_HEADER.format(action='count')}\n"
+            "Observation (rejected): Rejected: missing argument(s): n.",
             "ephemeral": True,
         },
     ]

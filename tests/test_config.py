@@ -12,6 +12,7 @@ from sensai.config import (
     DEFAULT_MODEL,
     DEFAULT_NUM_CTX,
     DEFAULT_PERSONAS_FILE,
+    DEFAULT_URL,
     Config,
 )
 
@@ -146,3 +147,28 @@ def test_config_disables_the_tools_given_on_the_command_line() -> None:
     config.parse_args(["--disable-tool", "web_search", "web_fetch"])
 
     assert config.features.disabled_tools == {"web_search", "web_fetch"}
+
+
+def test_config_embed_url_stays_on_the_default_when_url_changes() -> None:
+    config = Config()
+    config.parse_args(["--url", "https://ollama.com/api/chat", "--token", "secret"])
+
+    assert config.embed_url == DEFAULT_URL
+    assert config.embed_token is None
+
+
+def test_config_embed_token_falls_back_to_token_on_the_same_url() -> None:
+    config = Config()
+    config.parse_args(["--token", "secret"])
+
+    assert config.embed_token == "secret"  # noqa: S105
+
+
+def test_config_parses_embed_url_and_token() -> None:
+    config = Config()
+    config.parse_args(
+        ["--embed-url", "http://localhost:11434/api/chat", "--embed-token", "local", "--token", "x"]
+    )
+
+    assert config.embed_url == "http://localhost:11434/api/chat"
+    assert config.embed_token == "local"  # noqa: S105

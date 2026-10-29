@@ -13,10 +13,10 @@ from sensai.core.setup import (
     ingest_initial_files,
     setup_ai_engine,
     setup_database,
+    setup_embedder,
 )
 from sensai.features.features import FEATURES
 from sensai.features.persona.manager import get_persona, list_personas, load_personas
-from sensai.features.rag.embedder import Embedder
 from sensai.ui.app import CLIApp
 from sensai.ui.auth import authenticate_user
 
@@ -97,7 +97,7 @@ async def async_main() -> None:
 
     database = setup_database(config)
     client, agent = setup_ai_engine(config)
-    embedder = Embedder(client)
+    embedder = setup_embedder(config)
 
     _apply_persona(config, agent, console)
 

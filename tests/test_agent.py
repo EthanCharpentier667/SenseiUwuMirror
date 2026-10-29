@@ -11,7 +11,7 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient, Response
 from sensai.data.session.message import Message
 from sensai.features.features import MCP, REACT, TOOLS, Features
-from sensai.features.react.react import FINAL_ANSWER, ReActController
+from sensai.features.react.react import FINAL_ANSWER, OBSERVATION_HEADER, ReActController
 from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.ui.protocol import AsyncUIHandler
 
@@ -202,6 +202,18 @@ class FailingTool(FakeTool):
         return {"error": "No element has ref '3', so nothing was done."}
 
 
+class FailingCommandTool(FakeTool):
+    """Fake tool whose command exits with a non-zero code, like a failing bash command."""
+
+    name = "bash_tool"
+
+    def define(self) -> dict[str, Any]:
+        return {"type": "function", "function": {"name": "bash_tool"}}
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]  # noqa: ARG002
+        return {"command": "mix setup", "exit_code": 1, "output": "** (MatchError)"}
+
+
 class DocumentTool(FakeTool):
     """Fake tool returning a document to ingest, like the file read tool."""
 
@@ -231,7 +243,11 @@ def _instructions(call: dict[str, Any]) -> str:
 
 
 def _trajectory(call: dict[str, Any]) -> str:
-    return "\n".join(m["content"] for m in call["messages"] if m["role"] in {"assistant", "tool"})
+    return "\n".join(
+        m["content"]
+        for m in call["messages"]
+        if m["role"] == "assistant" or m["content"].startswith("[Result of")
+    )
 
 
 def _system_texts(call: dict[str, Any]) -> str:
@@ -378,9 +394,9 @@ async def test_agent_runs_tool_then_answers_with_its_result() -> None:
             "ephemeral": True,
         },
         {
-            "role": "tool",
-            "tool_name": "calculator",
-            "content": "Observation: result: 2+2",
+            "role": "user",
+            "content": f"{OBSERVATION_HEADER.format(action='calculator')}\n"
+            "Observation: result: 2+2",
             "ephemeral": True,
         },
     ]
@@ -568,7 +584,7 @@ async def test_agent_shows_tool_images_to_a_vision_model_only_for_this_run() -> 
 
     assert ui.tool_results == [("screenshot", {"message": "Screenshot saved."})]
     assert "images" not in client.plans[0]["messages"][-1]
-    assert client.plans[1]["messages"][-1]["role"] == "tool"
+    assert client.plans[1]["messages"][-1]["content"].startswith("[Result of your ")
     for call, user in [(client.plans[1], -3), (client.answers[0], -1)]:
         assert call["messages"][user] == {
             "role": "user",
@@ -648,7 +664,7 @@ async def test_agent_instructions_never_come_last() -> None:
     user = {"role": "user", "content": "What is 2+2?"}
     assert client.plans[0]["messages"][-1] == user
     assert client.plans[1]["messages"][-3] == user
-    assert client.plans[1]["messages"][-1]["role"] == "tool"
+    assert client.plans[1]["messages"][-1]["content"].startswith("[Result of your ")
     assert client.answers[0]["messages"][-1] == user
     assert client.answers[0]["messages"][1]["ephemeral"] is True
 
@@ -764,3 +780,14 @@ async def test_a_tool_result_with_an_error_is_a_failed_step_and_reported_as_such
 
     assert "Observation (failed): " in _trajectory(client.plans[1])
     assert '- browser_click {} (failed):\n{"error": "No element' in _system_texts(client.answers[0])
+
+
+@pytest.mark.asyncio
+async def test_a_command_with_a_non_zero_exit_code_is_a_failed_step() -> None:
+    client = ScriptedClient(steps=[_step("bash_tool")], answer="The setup failed.")
+    agent = Agent(tools=[FailingCommandTool()], trust_level="total", client=client)
+
+    await agent.run("Run mix setup.")
+
+    assert "Observation (failed): " in _trajectory(client.plans[1])
+    assert '- bash_tool {} (failed):\n{"command": "mix setup"' in _system_texts(client.answers[0])

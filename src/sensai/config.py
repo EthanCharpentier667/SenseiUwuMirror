@@ -84,6 +84,18 @@ class Config:
             help="The bearer token for the Ollama API. Default: None.",
         )
         self.add_argument(
+            "--embed-url",
+            default=DEFAULT_URL,
+            help="The URL of the Ollama API used for embeddings, in the same format as --url. "
+            f"Default: {DEFAULT_URL}.",
+        )
+        self.add_argument(
+            "--embed-token",
+            default=None,
+            help="The bearer token for the embedding API. Default: the --token value when "
+            "--embed-url equals --url, None otherwise.",
+        )
+        self.add_argument(
             "--timeout",
             type=float,
             default=DEFAULT_TIMEOUT,
@@ -143,7 +155,7 @@ class Config:
         self.add_argument(
             "--persona",
             default=None,
-            help="Persona key to use from the personas file (e.g. 'sensei_wu').",
+            help="Persona key to use from the personas file (e.g. 'tester').",
         )
         self.add_argument(
             "--list-personas",
@@ -215,6 +227,24 @@ class Config:
     def token(self) -> str | None:
         """The bearer token for the Ollama API."""
         token = self._parsed().token
+        return str(token) if token is not None else None
+
+    @property
+    def embed_url(self) -> str:
+        """The URL of the Ollama API used for embeddings."""
+        return str(self._parsed().embed_url)
+
+    @property
+    def embed_token(self) -> str | None:
+        """The bearer token for the embedding API.
+
+        Falls back to ``--token`` only when both URLs match, so the chat server's token is
+        never sent to another server.
+        """
+        args = self._parsed()
+        token = args.embed_token
+        if token is None and args.embed_url == args.url:
+            token = args.token
         return str(token) if token is not None else None
 
     @property
