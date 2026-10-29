@@ -9,12 +9,21 @@ from sensai.data.session.chunk import Chunk, search_chunks_hybrid
 from sensai.ui.protocol import AsyncUIHandler
 
 from .message import Message, create_message, get_document_ids_by_session
-from .session import Session, add_session_usage, create_session, get_session, set_session_summary
+from .session import (
+    Session,
+    add_session_usage,
+    create_session,
+    get_session,
+    rename_session,
+    set_session_summary,
+)
 
 if TYPE_CHECKING:
     from sensai.features.rag.embedder import Embedder
 
 DEFAULT_RETRIEVED_CHUNKS = 3
+TITLE_MAX_LENGTH = 60
+TITLE_EXCERPT_LENGTH = 1000
 
 HISTORY_CONTEXT_NOTE = (
     "Everything above, the conversation summary (if present) and the message history, "
@@ -74,6 +83,33 @@ def create_new_session(db: Database, profile_id: int, name: str | None = None) -
     session = create_session(db, profile_id, name)
     set_current_session(session)
     return session
+
+
+def new_session(profile_id: int) -> Session:
+    """An untitled session for the profile, not saved until ``ensure_persisted``.
+
+    Args:
+        profile_id (int): The ID of the profile the session belongs to.
+
+    Returns:
+        Session: The unsaved session, with no ID and no messages.
+    """
+    return Session(profile=profile_id, name=None)
+
+
+def ensure_persisted(db: Database, session: Session) -> Session:
+    """Save a session created by ``new_session``, leaving saved ones untouched.
+
+    Args:
+        db (Database): The database to write to.
+        session (Session): The session to save if it isn't already.
+
+    Returns:
+        Session: The saved session, with its assigned ID.
+    """
+    if session.id is not None:
+        return session
+    return create_session(db, session.profile_id, session.name)
 
 
 def _sendable_messages(session: Session) -> list[Message]:

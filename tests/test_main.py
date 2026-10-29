@@ -107,7 +107,7 @@ def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.setup_database", lambda *args, **kwargs: _FakeDatabase())
     monkeypatch.setattr("sensai.authenticate_user", _mock_auth)
-    monkeypatch.setattr("sensai.get_or_create_session", lambda *args, **kwargs: _make_session())
+    monkeypatch.setattr("sensai.start_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.maybe_compress_session", _fake_maybe_compress_session)
     monkeypatch.setattr("sensai.ui.app.retrieve_chunks", _fake_retrieve_chunks)

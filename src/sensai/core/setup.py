@@ -9,7 +9,7 @@ from sensai.client import OllamaClient
 from sensai.config import Config
 from sensai.data.database.database import Database
 from sensai.data.profile.profile import Profile
-from sensai.data.session.manager import create_new_session
+from sensai.data.session.manager import new_session, set_current_session
 from sensai.data.session.message import create_message, delete_message
 from sensai.data.session.session import Session
 from sensai.features.features import RAG, Features
@@ -62,16 +62,14 @@ def setup_embedder(config: Config) -> Embedder:
     return Embedder(client)
 
 
-def get_or_create_session(database: Database, profile: Profile) -> Session:
-    """Create or load a test session for the profile."""
+def start_session(profile: Profile) -> Session:
+    """Start an untitled session for the profile, saved once its first message is sent."""
     if profile.id is None:
         msg = "Profile ID cannot be None when creating a session."
         raise ValueError(msg)
 
-    session: Session | None = create_new_session(database, profile.id, "test_session")
-    if session is None:
-        msg = "Failed to create the default session."
-        raise ValueError(msg)
+    session = new_session(profile.id)
+    set_current_session(session)
     return session
 
 

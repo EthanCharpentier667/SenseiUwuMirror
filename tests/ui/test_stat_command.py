@@ -101,6 +101,13 @@ def _row(text: str, metric: str) -> str:
 
 
 @pytest.mark.asyncio
+async def test_stat_shows_an_unsaved_session() -> None:
+    text = await _render(_context(CapturingUI(), session=_session(id=None, name=None)))
+
+    assert "untitled (not saved yet)" in _row(text, "Session  ")
+
+
+@pytest.mark.asyncio
 async def test_stat_shows_tokens_and_message_counts() -> None:
     text = await _render(_context(CapturingUI()))
 

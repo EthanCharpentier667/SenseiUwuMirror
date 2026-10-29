@@ -15,13 +15,16 @@ from sensai.data.database.database import Database
 from sensai.data.session.document import get_document
 from sensai.data.session.manager import (
     build_messages,
+    ensure_persisted,
+    generate_session_title,
     maybe_compress_session,
     retrieve_chunks,
+    set_current_session,
     update_session,
 )
 from sensai.data.session.message import get_document_ids_by_session
 from sensai.data.session.session import Session
-from sensai.features.features import COMPRESSION, RAG
+from sensai.features.features import COMPRESSION, RAG, TITLE
 from sensai.features.rag.embedder import Embedder
 from sensai.features.rag.rag import ingest_document
 from sensai.features.tools.browser.page import close_browser
@@ -64,7 +67,7 @@ class CLIApp:
         self.console = Console()
 
         self.command_registry = CommandRegistry()
-        setup_builtin_commands(self.command_registry, agent)
+        setup_builtin_commands(self.command_registry, agent, database)
         self.mcp_commands = MCPCommands(agent)
         self.mcp_commands.register(self.command_registry)
         self.prompt_session: PromptSession[str] | None = None
@@ -107,8 +110,15 @@ class CLIApp:
             agent=self.agent,
             config=self.config,
             session=self.session,
+            switch_session=self.switch_session,
         )
         await self.command_registry.execute(user_input, ctx)
+
+    def switch_session(self, session: Session) -> None:
+        """Make ``session`` the one the chat continues, here and process-wide."""
+        self.session = session
+        set_current_session(session)
+        self.agent.last_prompt_tokens = 0
 
     async def _handle_chat(self, user_input: str) -> None:
         """Process a standard chat message with the AI."""
@@ -127,6 +137,7 @@ class CLIApp:
             response = await self.agent.run(messages=messages)
             self.agent.last_prompt_tokens = response.prompt_eval_count
 
+            self._set_session(ensure_persisted(self.database, self.session))
             updated_session = update_session(
                 self.database, self.session, response, sent_prefix_length
             )
@@ -134,12 +145,15 @@ class CLIApp:
                 msg = "Failed to update the session after the response."
                 raise ValueError(msg)
 
-            self.session = updated_session
+            self._set_session(updated_session)
             if features.is_enabled(RAG):
                 await self._ingest_read_documents()
 
+            if features.is_enabled(TITLE) and not self.session.name:
+                await self._generate_title(response.model or self.agent.model)
+
             if features.is_enabled(COMPRESSION):
-                self.session = await maybe_compress_session(
+                compressed = await maybe_compress_session(
                     self.database,
                     self.session,
                     response,
@@ -147,9 +161,25 @@ class CLIApp:
                     client=self.client,
                     ui_handler=self.agent.ui_handler,
                 )
+                self._set_session(compressed)
         finally:
             if self.agent.ui_handler:
                 await self.agent.ui_handler.stop_spinner()
+
+    def _set_session(self, session: Session) -> None:
+        """Replace the current session with a newer copy of itself, here and process-wide."""
+        self.session = session
+        set_current_session(session)
+
+    async def _generate_title(self, model: str) -> None:
+        """Name the session from its first exchange; a failure never fails the turn."""
+        try:
+            self._set_session(
+                await generate_session_title(self.database, self.session, self.client, model)
+            )
+        except Exception as e:  # noqa: BLE001
+            if self.config.verbose:
+                self.console.print(f"[dim]Could not generate a session title: {e}[/dim]")
 
     async def _ingest_read_documents(self) -> None:
         """Ingest the files the agent read this turn, attached to the turn's user message.

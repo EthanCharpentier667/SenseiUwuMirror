@@ -19,17 +19,26 @@ from sensai.data.session.manager import (
     clear_current_session,
     compress_session,
     create_new_session,
+    ensure_persisted,
+    generate_session_title,
     get_current_session,
     get_current_session_id,
     is_current_session,
     maybe_compress_session,
+    new_session,
     retrieve_chunks,
     set_current_session,
     update_session,
 )
 from sensai.data.session.message import Message, create_message
 from sensai.data.session.message import Message as SessionMessage
-from sensai.data.session.session import Session, create_session, get_session, set_session_summary
+from sensai.data.session.session import (
+    Session,
+    create_session,
+    get_session,
+    rename_session,
+    set_session_summary,
+)
 from sensai.features.rag.embedder import Embedder
 
 TEST_BASE_URL = "http://localhost:11434/api/chat"
@@ -805,3 +814,123 @@ async def test_compress_session_leaves_tool_messages_out_of_the_summary(
 
     assert "raw output" not in captured_prompts[0]
     assert "assistant: All pass." in captured_prompts[0]
+
+
+def test_new_session_is_untitled_and_unsaved(db: Database, profile_id: int) -> None:
+    session = new_session(profile_id)
+
+    assert session.id is None
+    assert session.name is None
+    assert session.profile_id == profile_id
+    assert session.messages == []
+    assert get_session(db, 1) is None
+
+
+def test_ensure_persisted_saves_a_new_session_once(db: Database, profile_id: int) -> None:
+    saved = ensure_persisted(db, new_session(profile_id))
+
+    assert saved.id is not None
+    assert get_session(db, saved.id) is not None
+    assert ensure_persisted(db, saved) is saved
+
+
+def _titled_session(db: Database, profile_id: int, *contents: tuple[str, str]) -> Session:
+    session = create_session(db, profile_id)
+    assert session.id is not None
+    for role, content in contents:
+        create_message(db, session.id, content, role, 1.0)
+    reloaded = get_session(db, session.id)
+    assert reloaded is not None
+    return reloaded
+
+
+def _title_client(monkeypatch: pytest.MonkeyPatch, title: str, prompts: list[str]) -> OllamaClient:
+    async def fake_chat(
+        _self: OllamaClient, messages: list[dict[str, str]], **kwargs: object
+    ) -> Response:
+        prompts.append(messages[0]["content"])
+        assert kwargs["stream"] is False
+        response = _make_response()
+        response.response = title
+        return response
+
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    return OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+
+
+@pytest.mark.asyncio
+async def test_generate_session_title_names_the_session_from_its_first_exchange(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _titled_session(
+        db,
+        profile_id,
+        ("user", "File: notes.md"),
+        ("user", "How do I sort a dict?"),
+        ("assistant", "Use sorted()."),
+    )
+    prompts: list[str] = []
+    client = _title_client(monkeypatch, '"Sorting Python dicts."\nextra line', prompts)
+
+    result = await generate_session_title(db, session, client)
+
+    assert result.name == "Sorting Python dicts"
+    assert "User: How do I sort a dict?" in prompts[0]
+    assert "Assistant: Use sorted()." in prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_generate_session_title_caps_the_length(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _titled_session(db, profile_id, ("user", "hi"), ("assistant", "hello"))
+    client = _title_client(monkeypatch, "word " * 40, [])
+
+    result = await generate_session_title(db, session, client)
+
+    assert result.name is not None
+    assert len(result.name) <= 60
+
+
+@pytest.mark.asyncio
+async def test_generate_session_title_keeps_no_name_on_an_empty_reply(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _titled_session(db, profile_id, ("user", "hi"), ("assistant", "hello"))
+    client = _title_client(monkeypatch, "  \n ", [])
+
+    result = await generate_session_title(db, session, client)
+
+    assert result.name is None
+
+
+@pytest.mark.asyncio
+async def test_generate_session_title_skips_a_named_or_unanswered_session(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unanswered = _titled_session(db, profile_id, ("user", "hi"))
+    named = _titled_session(db, profile_id, ("user", "hi"), ("assistant", "hello"))
+    assert named.id is not None
+    rename_session(db, named.id, "Mine")
+    named = get_session(db, named.id) or named
+    prompts: list[str] = []
+    client = _title_client(monkeypatch, "Generated", prompts)
+
+    assert (await generate_session_title(db, unanswered, client)).name is None
+    assert (await generate_session_title(db, named, client)).name == "Mine"
+    assert (await generate_session_title(db, new_session(profile_id), client)).id is None
+    assert prompts == []
+
+
+@pytest.mark.asyncio
+async def test_generate_session_title_keeps_a_name_given_meanwhile(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _titled_session(db, profile_id, ("user", "hi"), ("assistant", "hello"))
+    assert session.id is not None
+    rename_session(db, session.id, "Renamed by hand")
+    client = _title_client(monkeypatch, "Generated", [])
+
+    result = await generate_session_title(db, session, client)
+
+    assert result.name == "Renamed by hand"
