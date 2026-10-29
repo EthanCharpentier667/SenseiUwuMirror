@@ -174,29 +174,28 @@ async def test_tool_shows_usage(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_dialog_toggles_groups_and_master_switches(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_tool_dialog_toggles_groups(monkeypatch: pytest.MonkeyPatch) -> None:
     context, ui = make_context(monkeypatch, mixed_tools())
     features = context.config.features
     features.set_tool("bash_job", enabled=False)
-    ui.prompt_checklist.return_value = ("ok", ["feature:tools", "group:bash", "group:mcp:github"])
+    ui.prompt_checklist.return_value = ("ok", ["group:bash", "group:mcp:github"])
 
     await tool_execute(context, [])
 
     choices = dict(ui.prompt_checklist.call_args.kwargs["choices"])
     assert choices["group:bash"] == "bash (1/2 on)"
+    assert not any(choice.startswith("feature:") for choice in choices)
     assert "group:bash" in ui.prompt_checklist.call_args.kwargs["checked"]
-    # Unticked: the browser group and the mcp feature. Bash stays partially on.
-    assert not features.is_enabled(MCP)
-    assert available(context) == {"bash_tool"}
+    # Unticked: the browser group. Bash stays partially on, and features are untouched.
+    assert features.disabled == set()
+    assert available(context) == {"bash_tool", "create_issue"}
     assert "Tool settings saved" in messages(ui)[-1]
 
 
 @pytest.mark.asyncio
 async def test_tool_dialog_fine_tunes_one_group(monkeypatch: pytest.MonkeyPatch) -> None:
     context, ui = make_context(monkeypatch, mixed_tools())
-    ticked_groups = ["feature:tools", "feature:mcp", "group:browser", "group:bash"]
+    ticked_groups = ["group:browser", "group:bash"]
     ui.prompt_checklist.side_effect = [("extra", ticked_groups), ("ok", ["browser_snapshot"])]
     ui.prompt_choice.return_value = "browser"
 

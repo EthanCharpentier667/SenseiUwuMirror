@@ -11,7 +11,7 @@ from rich.text import Text
 
 from sensai.data.profile.manager import ProfileManager
 from sensai.data.profile.profile import update_profile_settings
-from sensai.features.features import FEATURES, MCP, TOOLS
+from sensai.features.features import MCP, TOOLS
 from sensai.features.tools.mcp.mcp_tools import MCPTools
 from sensai.features.tools.tool import Tool
 from sensai.ui.command import CommandContext
@@ -20,9 +20,6 @@ if TYPE_CHECKING:
     from sensai.agent import Agent
 
 USAGE = "Usage: /tools [list | enable|disable <tool or group>...]"
-
-# The features that switch whole sets of tools off, shown above the groups in the dialog.
-MASTER_SWITCHES = (TOOLS, MCP)
 
 
 def save_tool_settings(context: CommandContext) -> None:
@@ -71,7 +68,7 @@ async def _list_tools(context: CommandContext) -> None:
     if not context.config.features.is_enabled(TOOLS):
         await context.ui.on_system_message(
             "[yellow]The tools feature is off: no tool is available. "
-            "Turn it on with /tools.[/yellow]"
+            "Turn it on in /settings → Features.[/yellow]"
         )
     table = Table(title="Tools", show_header=True, header_style="bold magenta")
     table.add_column("Tool", style="cyan")
@@ -154,7 +151,7 @@ async def _fine_tune_group(context: CommandContext, groups: dict[str, list[Tool]
 
 
 async def edit_tools(context: CommandContext) -> bool:
-    """Open the tool dialog: master switches and groups, then optionally one group's tools.
+    """Open the tool dialog: the groups, then optionally one group's tools.
 
     Changes are saved to the profile once confirmed; cancelling leaves everything as it was.
 
@@ -167,14 +164,11 @@ async def edit_tools(context: CommandContext) -> bool:
         name: any(features.is_tool_enabled(tool.name) for tool in tools)
         for name, tools in groups.items()
     }
-    choices = [
-        (f"feature:{name}", f"[feature] {name}: {FEATURES[name]}") for name in MASTER_SWITCHES
-    ]
+    choices = []
     for name, tools in groups.items():
         on = sum(features.is_tool_enabled(tool.name) for tool in tools)
         choices.append((f"group:{name}", f"{name} ({on}/{len(tools)} on)"))
-    checked = [f"feature:{name}" for name in MASTER_SWITCHES if features.is_enabled(name)]
-    checked += [f"group:{name}" for name, on in group_on.items() if on]
+    checked = [f"group:{name}" for name, on in group_on.items() if on]
 
     result = await context.ui.prompt_checklist(
         title="Tools",
@@ -189,8 +183,6 @@ async def edit_tools(context: CommandContext) -> bool:
     if result is None:
         return False
     action, ticked = result
-    for name in MASTER_SWITCHES:
-        features.set(name, enabled=f"feature:{name}" in ticked)
     for name, tools in groups.items():
         on = f"group:{name}" in ticked
         if on != group_on[name]:

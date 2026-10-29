@@ -159,28 +159,23 @@ async def _handle_num_ctx_setting(settings: dict[str, Any], context: CommandCont
 
 async def _handle_features_setting(settings: dict[str, Any], context: CommandContext) -> None:
     features = context.config.features
-    while True:
-        choice = await context.ui.prompt_choice(
-            title="Features",
-            text="Select a feature to enable or disable:",
-            choices=[
-                *(
-                    (name, f"{name} [{'on' if features.is_enabled(name) else 'off'}]: {help_}")
-                    for name, help_ in FEATURES.items()
-                ),
-                ("back", "Back"),
-            ],
-        )
-        if choice == "back" or choice is None:
-            break
-        features.toggle(choice)
+    result = await context.ui.prompt_checklist(
+        title="Features",
+        text="Tick the features to enable:",
+        choices=[(name, f"{name}: {help_}") for name, help_ in FEATURES.items()],
+        checked=[name for name in FEATURES if features.is_enabled(name)],
+    )
+    if result is None:
+        return
+    _, ticked = result
+    for name in FEATURES:
+        features.set(name, enabled=name in ticked)
     settings["disabled_features"] = sorted(features.disabled)
 
 
 async def _handle_tools_setting(settings: dict[str, Any], context: CommandContext) -> None:
     if await edit_tools(context):
         settings["disabled_tools"] = sorted(context.config.features.disabled_tools)
-        settings["disabled_features"] = sorted(context.config.features.disabled)
 
 
 async def _prompt_settings_menu(context: CommandContext, settings: dict[str, Any]) -> str | None:

@@ -330,3 +330,35 @@ async def test_settings_menu_and_profile_persistence(monkeypatch: pytest.MonkeyP
     assert client3.temperature == 0.2
     assert client3.top_p == 0.4
     assert client3.num_ctx == 2048
+
+
+@pytest.mark.asyncio
+async def test_settings_features_checklist() -> None:
+    from unittest.mock import AsyncMock, Mock  # noqa: PLC0415
+
+    from sensai.config import Config  # noqa: PLC0415
+    from sensai.features.features import FEATURES, MCP, TOOLS  # noqa: PLC0415
+    from sensai.ui.commands.settings import _handle_features_setting  # noqa: PLC0415
+
+    config = Config()
+    config.parse_args([])
+    features = config.features
+    features.set(MCP, enabled=False)
+    ui = Mock()
+    ui.prompt_checklist = AsyncMock(return_value=None)
+    ctx = CommandContext(database=None, ui=ui, agent=None, config=config, session=None)  # type: ignore[arg-type]
+    settings: dict[str, Any] = {}
+
+    # Cancel changes nothing.
+    await _handle_features_setting(settings, ctx)
+    kwargs = ui.prompt_checklist.call_args.kwargs
+    assert [name for name, _ in kwargs["choices"]] == list(FEATURES)
+    assert kwargs["checked"] == [name for name in FEATURES if name != MCP]
+    assert features.disabled == {MCP}
+    assert settings == {}
+
+    # Unticked features are disabled, ticked ones enabled.
+    ui.prompt_checklist.return_value = ("ok", [name for name in FEATURES if name != TOOLS])
+    await _handle_features_setting(settings, ctx)
+    assert features.disabled == {TOOLS}
+    assert settings == {"disabled_features": [TOOLS]}
