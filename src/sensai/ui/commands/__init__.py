@@ -7,6 +7,7 @@ from sensai.ui.commands.model import model_execute
 from sensai.ui.commands.persona import persona_execute
 from sensai.ui.commands.prefs import inst_execute, prefs_execute
 from sensai.ui.commands.settings import settings_execute
+from sensai.ui.commands.stat import stat_execute
 from sensai.ui.commands.system import exit_execute
 from sensai.ui.commands.tool import tool_execute
 
@@ -42,6 +43,7 @@ def setup_builtin_commands(registry: CommandRegistry) -> None:
         )
     )
     registry.register(Command("/settings", "Open interactive settings menu.", settings_execute))
+    registry.register(Command("/stat", "Show statistics for the current session.", stat_execute))
     registry.register(
         Command("/model", "Change the AI model used in the current session.", model_execute)
     )
