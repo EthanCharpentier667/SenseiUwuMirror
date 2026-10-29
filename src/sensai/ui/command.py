@@ -26,6 +26,8 @@ class CommandContext:
     agent: "Agent"
     config: "Config"
     session: "Session"
+    switch_session: Callable[["Session"], None] | None = None
+    """Make another session the app's current one; None outside the interactive app."""
 
 
 @dataclass
