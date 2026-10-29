@@ -5,6 +5,14 @@ from collections.abc import Collection
 from typing import Any
 
 
+def is_failure(result: Any) -> bool:
+    """Whether a tool's result reports a failure: an error, or a non-zero exit code."""
+    if not isinstance(result, dict):
+        return False
+    exit_code = result.get("exit_code")
+    return bool(result.get("error")) or (exit_code is not None and exit_code != 0)
+
+
 class Tool(ABC):
     """Base class for tools that can be used with the ``sensai`` package."""
 

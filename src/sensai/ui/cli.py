@@ -16,6 +16,8 @@ from rich.segment import Segment
 from rich.syntax import Syntax
 from rich.text import Text
 
+from sensai.features.tools.tool import is_failure
+
 from .protocol import AsyncUIHandler
 
 if TYPE_CHECKING:
@@ -164,9 +166,7 @@ class CLIHandler(AsyncUIHandler):
         await self.stop_spinner()
         await self.on_stream_end()
 
-        if isinstance(result, dict) and (
-            "error" in result or ("exit_code" in result and result.get("exit_code") != 0)
-        ):
+        if is_failure(result):
             err_msg = str(result.get("error") or result.get("stderr") or result)
             await self.on_error(err_msg, title=f"Tool Error: {name}")
             return

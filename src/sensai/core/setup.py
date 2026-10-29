@@ -50,6 +50,17 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
     return client, agent
 
 
+def setup_embedder(config: Config) -> Embedder:
+    """Initialize and return the embedder, with its own client on the embedding URL."""
+    client = OllamaClient(
+        base_url=config.embed_url,
+        token=config.embed_token,
+        timeout=config.timeout,
+        verbose=config.verbose,
+    )
+    return Embedder(client)
+
+
 def get_or_create_session(database: Database, profile: Profile) -> Session:
     """Create or load a test session for the profile."""
     if profile.id is None:

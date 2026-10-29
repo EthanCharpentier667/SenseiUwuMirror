@@ -39,8 +39,9 @@ PLAN_PROMPT = (
     "- An observation holding an error means that action failed and changed nothing: "
     "never assume it worked.\n\n"
     "Your previous steps for the user's latest message, if any, follow it: each of your "
-    "actions, then its observation."
+    "actions, then its observation, which comes from the tool, not from the user."
 )
+OBSERVATION_HEADER = "[Result of your {action} action, from the tool, not written by the user]"
 JSON_PROMPT = (
     "Reply with only a JSON object, nothing before or after it: "
     '{{"thought": "...", "action": "<one of: {actions}>", "args": {{...}}}}'
@@ -81,9 +82,10 @@ class Decision:
 class Step:
     """A proposed step and what came of it.
 
-    ``status`` is "done" (the tool ran), "failed" (it raised), "refused" (the user denied
-    it) or "rejected" (the controller refused it before running anything). ``images`` are
-    the base64 images the tool returned, kept apart from the text observation.
+    ``status`` is "done" (the tool ran), "failed" (it raised, or reported an error or a
+    non-zero exit code), "refused" (the user denied it) or "rejected" (the controller
+    refused it before running anything). ``images`` are the base64 images the tool
+    returned, kept apart from the text observation.
     """
 
     decision: Decision
@@ -282,6 +284,9 @@ class ReActController:
         """The steps so far as messages to replay after the user's: action, then observation.
 
         They are ephemeral: only meant for this run's planning, never for the session.
+        Observations are user messages, not tool ones: some chat templates (e.g. gemma4's
+        on Ollama Cloud) drop tool messages, and the model would never see what its
+        actions did, nor that they failed. They are labelled so it isn't taken for the user.
         """
         messages: list[dict[str, Any]] = []
         for step in self.steps:
@@ -295,9 +300,9 @@ class ReActController:
                     "ephemeral": True,
                 },
                 {
-                    "role": "tool",
-                    "tool_name": decision.action,
-                    "content": f"{label}: {step.observation}",
+                    "role": "user",
+                    "content": f"{OBSERVATION_HEADER.format(action=decision.action)}\n"
+                    f"{label}: {step.observation}",
                     "ephemeral": True,
                 },
             ]
