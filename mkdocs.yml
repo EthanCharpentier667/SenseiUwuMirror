@@ -91,6 +91,7 @@ nav:
       - "RAG on documents": use_cases/RAG.md
       - "Session compression": use_cases/Session-compression.md
       - "Session statistics": use_cases/Session-stats.md
+      - "Sessions": use_cases/Sessions.md
       - "Profiles, preferences and instructions": use_cases/Profiles.md
       - "Personas": use_cases/Personas.md
       - "Models and capabilities": use_cases/Models-and-capabilities.md

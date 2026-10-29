@@ -10,13 +10,14 @@ from sensai.agent import Agent
 from sensai.client import OllamaClient
 from sensai.config import TRUST_LEVELS, Config
 from sensai.core.setup import (
-    get_or_create_session,
     ingest_initial_files,
     setup_ai_engine,
     setup_database,
     setup_embedder,
+    start_session,
 )
 from sensai.data.profile.profile import load_profile_settings
+from sensai.data.session.manager import ensure_persisted, set_current_session
 from sensai.features.persona.manager import get_persona, list_personas, load_personas
 from sensai.ui.app import CLIApp
 from sensai.ui.auth import authenticate_user
@@ -135,13 +136,17 @@ async def async_main() -> None:
     embedder = setup_embedder(config)
 
     profile = await authenticate_user(database, console)
-    session = get_or_create_session(database, profile)
+    session = start_session(profile)
 
     if profile.settings:
         _apply_profile_settings(config, agent, client, profile.settings)
     persona = config.persona or load_profile_settings(profile).get("persona")
     _apply_persona(config, agent, console, persona)
 
+    if config.files:
+        # Attached files hang off a message, so the session has to exist first.
+        session = ensure_persisted(database, session)
+        set_current_session(session)
     await ingest_initial_files(
         database, embedder, session, config.files, console, features=config.features
     )

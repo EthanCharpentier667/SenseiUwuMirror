@@ -43,8 +43,8 @@ Preconditions: the chat model is reachable and the `tools` feature is disabled.
 
 ## How it works
 
-Startup options include `--disable` for `tools`, `react`, `rag`, `compression`
-and `mcp`, and `--disable-tool` for named tools. A shared feature-state object is
+Startup options include `--disable` for `tools`, `react`, `rag`, `compression`,
+`mcp` and `title`, and `--disable-tool` for named tools. A shared feature-state object is
 used by configuration, the agent and the UI.
 
 Each tool belongs to a group: `web`, `browser`, `bash`, `files`, `sandbox`,
@@ -59,14 +59,15 @@ Each tool belongs to a group: `web`, `browser`, `bash`, `files`, `sandbox`,
 `/settings` → **Tools** opens the same dialog. Every confirmed change is saved to
 the active profile right away.
 
-Features (`tools`, `react`, `rag`, `compression`, `mcp`) are switched from
+Features (`tools`, `react`, `rag`, `compression`, `mcp`, `title`) are switched from
 `/settings` → **Features**, a checkbox dialog with one entry per feature.
 **Cancel** or Esc changes nothing.
 
 Disabling `tools` removes all execution tools from availability. Disabling `mcp`
 filters remote tools. Disabling `react` bypasses the orchestration loop and also
 prevents tool execution through that loop. Disabling RAG or compression skips
-the corresponding application stage. Trust, model selection and context-related
+the corresponding application stage. Disabling `title` keeps new sessions
+untitled instead of naming them after their [first exchange](Sessions.md). Trust, model selection and context-related
 settings are distinct controls with their own scope.
 
 ## Demonstration

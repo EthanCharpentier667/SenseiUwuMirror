@@ -119,6 +119,6 @@ for one profile, but would need separate consistency and relationship management
 
 Instructions are prompt guidance, not filesystem access controls. SQLite content
 is not automatically encrypted. Credential-state and keyring errors can affect
-login convenience separately from database persistence. The current startup helper
-creates a new session; saved messages alone do not provide a CLI session-resume
-workflow or prove cross-session recall.
+login convenience separately from database persistence. Each launch starts a new
+session; earlier ones are reopened with [`/session`](Sessions.md), but nothing is
+recalled across sessions.

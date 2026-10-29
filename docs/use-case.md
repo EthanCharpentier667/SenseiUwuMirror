@@ -218,4 +218,4 @@ the testing use case.
 | Web lookup | External API and separate `API_TOKEN` required | The recorded case shows unavailable lookup without a token |
 | Compression | Model-generated, potentially lossy summary | Short summaries can grow and introduce unsupported test claims |
 | RAG | Compatible embedding model and extractable documents | Retrieved excerpts do not prove answer quality or full requirement coverage |
-| Saved sessions | SQLite history, with a new session created at startup | Storage does not provide a CLI resume workflow by itself |
+| Saved sessions | SQLite history; a new session at startup, earlier ones reopened with [`/session`](use_cases/Sessions.md) | Automatic titles are model-generated and can be vague |

@@ -33,7 +33,8 @@ def _default(value: object) -> str:
 
 def _add_session_rows(table: Table, context: CommandContext) -> None:
     session = context.session
-    table.add_row("Session", f"{session.name or 'untitled'} (#{session.id})")
+    saved = f"#{session.id}" if session.id is not None else "not saved yet"
+    table.add_row("Session", f"{session.name or 'untitled'} ({saved})")
     table.add_row("Created", _fmt_date(session.created_at))
     table.add_row("Last activity", _fmt_date(session.last_updated))
 

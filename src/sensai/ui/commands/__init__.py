@@ -8,6 +8,7 @@ from sensai.ui.commands.help import make_help_execute
 from sensai.ui.commands.model import model_execute
 from sensai.ui.commands.persona import persona_execute
 from sensai.ui.commands.prefs import inst_execute, prefs_execute
+from sensai.ui.commands.session import SessionNameCompleter, session_execute
 from sensai.ui.commands.settings import settings_execute
 from sensai.ui.commands.stat import stat_execute
 from sensai.ui.commands.system import exit_execute
@@ -15,15 +16,20 @@ from sensai.ui.commands.tool import ToolNameCompleter, tool_execute
 
 if TYPE_CHECKING:
     from sensai.agent import Agent
+    from sensai.data.database.database import Database
 
 
-def setup_builtin_commands(registry: CommandRegistry, agent: "Agent | None" = None) -> None:
+def setup_builtin_commands(
+    registry: CommandRegistry, agent: "Agent | None" = None, database: "Database | None" = None
+) -> None:
     """Register all built-in commands.
 
     Args:
         registry (CommandRegistry): The registry to add the commands to.
         agent (Agent | None): The agent whose tool names /tools completes. Default is
             None, which registers /tools without name completion.
+        database (Database | None): The database whose session names /session completes.
+            Default is None, which registers /session without name completion.
     """
     registry.register(Command("/help", "List all available commands.", make_help_execute(registry)))
     registry.register(
@@ -55,6 +61,15 @@ def setup_builtin_commands(registry: CommandRegistry, agent: "Agent | None" = No
         )
     )
     registry.register(Command("/settings", "Open interactive settings menu.", settings_execute))
+    registry.register(
+        Command(
+            "/session",
+            "Pick a session, or /session list|new|switch <name>|rename [name]|delete [name].",
+            session_execute,
+            subcommands=["list", "new", "switch", "rename", "delete"],
+            argument_completer=SessionNameCompleter(database) if database is not None else None,
+        )
+    )
     registry.register(Command("/stats", "Show statistics for the current session.", stat_execute))
     registry.register(
         Command("/model", "Change the AI model used in the current session.", model_execute)
