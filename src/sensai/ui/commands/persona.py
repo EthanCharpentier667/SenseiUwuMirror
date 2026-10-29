@@ -1,7 +1,18 @@
 """Persona command for switching and listing agent personas."""
 
+from sensai.data.profile.manager import ProfileManager
+from sensai.data.profile.profile import load_profile_settings, save_profile_settings
 from sensai.features.persona.manager import get_persona, list_personas, load_personas
 from sensai.ui.command import CommandContext
+
+
+def _save_persona_to_profile(context: CommandContext, key: str) -> None:
+    """Keep the persona in the active profile, so the next launches start with it."""
+    profile = ProfileManager.current_profile
+    if profile and profile.id:
+        settings = load_profile_settings(profile)
+        settings["persona"] = key
+        save_profile_settings(context.database, profile, settings)
 
 
 async def persona_execute(context: CommandContext, args: list[str]) -> None:
@@ -35,6 +46,7 @@ async def persona_execute(context: CommandContext, args: list[str]) -> None:
             if persona is not None:
                 context.agent.system_prompt = persona.system_prompt
                 context.agent.persona_key = key
+                _save_persona_to_profile(context, key)
                 await context.ui.on_system_message(
                     f"[bold green]Persona switched to '{key}': {persona.name}[/bold green]"
                 )

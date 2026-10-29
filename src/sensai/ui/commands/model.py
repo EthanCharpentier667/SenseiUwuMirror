@@ -1,54 +1,50 @@
 """Model command."""
 
-import json
-
 from sensai.config import AVAILABLE_MODELS
 from sensai.data.profile.manager import ProfileManager
-from sensai.data.profile.profile import update_profile_settings
+from sensai.data.profile.profile import load_profile_settings, save_profile_settings
 from sensai.ui.command import CommandContext
 
+OTHER = "__other__"
 
-async def _prompt_for_model(context: CommandContext) -> str | None:
-    return await context.ui.prompt_choice(
+
+async def prompt_for_model(context: CommandContext) -> str | None:
+    """Let the user pick a known model, or type the name of any other Ollama model."""
+    choice = await context.ui.prompt_choice(
         title="Model Selection",
-        text="Choose an AI model:",
-        choices=[(m, m) for m in AVAILABLE_MODELS],
+        text=f"Choose an AI model (current: {context.agent.model}):",
+        choices=[*((m, m) for m in AVAILABLE_MODELS), (OTHER, "Other…")],
     )
+    if choice != OTHER:
+        return choice
+    name = await context.ui.prompt_input(title="Model", text="Enter the Ollama model name:")
+    return name.strip() if name and name.strip() else None
 
 
-async def _apply_model_to_context(context: CommandContext, model_name: str) -> None:
-    context.agent.model = model_name
-    await context.ui.on_system_message(f"[bold green]Model updated to {model_name}![/bold green]")
+async def warn_if_unknown_model(context: CommandContext, model_name: str) -> None:
+    """Warn that a model isn't one of the known ones; Ollama may still serve it."""
+    if model_name not in AVAILABLE_MODELS:
+        await context.ui.on_system_message(
+            f"[yellow]{model_name} is not in the known models ({', '.join(AVAILABLE_MODELS)}); "
+            "make sure the Ollama server has it.[/yellow]"
+        )
 
 
 def _save_model_to_profile(context: CommandContext, model_name: str) -> None:
     profile = ProfileManager.current_profile
     if profile and profile.id:
-        try:
-            settings = json.loads(profile.settings) if profile.settings else {}
-        except json.JSONDecodeError:
-            settings = {}
+        settings = load_profile_settings(profile)
         settings["model"] = model_name
-        settings_str = json.dumps(settings)
-        update_profile_settings(context.database, profile.id, settings_str)
-        profile.settings = settings_str
+        save_profile_settings(context.database, profile, settings)
 
 
 async def model_execute(context: CommandContext, args: list[str]) -> None:
     """Execute the /model command."""
-    if not args:
-        choice = await _prompt_for_model(context)
-        if not choice:
-            return
-        args = [choice]
-
-    model_name = args[0]
-    if model_name not in AVAILABLE_MODELS:
-        available_str = ", ".join(AVAILABLE_MODELS)
-        await context.ui.on_system_message(
-            f"[bold red]Unknown model: {model_name}. Available: {available_str}[/bold red]"
-        )
+    model_name = args[0] if args else await prompt_for_model(context)
+    if not model_name:
         return
 
-    await _apply_model_to_context(context, model_name)
+    await warn_if_unknown_model(context, model_name)
+    context.agent.model = model_name
     _save_model_to_profile(context, model_name)
+    await context.ui.on_system_message(f"[bold green]Model updated to {model_name}![/bold green]")
