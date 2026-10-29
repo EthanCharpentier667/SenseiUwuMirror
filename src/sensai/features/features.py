@@ -7,6 +7,7 @@ REACT = "react"
 RAG = "rag"
 COMPRESSION = "compression"
 MCP = "mcp"
+TITLE = "title"
 
 FEATURES: dict[str, str] = {
     TOOLS: "Let the agent call tools (built-in and MCP).",
@@ -14,6 +15,7 @@ FEATURES: dict[str, str] = {
     RAG: "Retrieve chunks of attached documents for each prompt.",
     COMPRESSION: "Summarize the session history once it grows too long.",
     MCP: "Connect MCP servers with /mcp and use their tools.",
+    TITLE: "Name each new session from its first exchange.",
 }
 
 
