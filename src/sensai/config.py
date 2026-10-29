@@ -55,7 +55,7 @@ class Config:
         """
         self.name = name
         self.description = description
-        self.parser = ArgumentParser(prog=name, description=description)
+        self.parser = ArgumentParser(prog=name, description=description, allow_abbrev=False)
         self.args: Namespace | None = None
         self._features: Features | None = None
         self.explicit_args: set[str] = set()
