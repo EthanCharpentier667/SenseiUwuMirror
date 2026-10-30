@@ -82,12 +82,19 @@ not a controlled quality comparison between feature-on and feature-off runs.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py flags
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable rag compression mcp
 ```
 
 1. Type `/tools disable bash_tool`, then `/tools list`. Expect host Bash to be shown
@@ -105,16 +112,9 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py flags
    execution. This is the effect demonstrated by the GIF, beyond the settings change.
 6. Re-enable **tools** with `/settings` → **Features** if continuing to another tool scenario.
 
-The component replay changes the same shared feature state directly after using
+The archived component capture changes the same shared feature state directly after using
 the actual individual-tool commands. The interactive steps use the `/settings` → **Features** dialog;
 neither path changes OS-level permissions.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py flags
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py flags
-```
 
 ## Architecture choices and tradeoffs
 

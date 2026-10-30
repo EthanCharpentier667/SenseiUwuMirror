@@ -77,16 +77,42 @@ output and generated answers are preserved.
 ## Replay this demonstration
 
 Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites),
-then launch from the repository root:
+prepare its temporary workspace, then start this standalone Python example in a
+second terminal from the repository root. Leave it running while using Sensai:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py mcp --model llama3.2:latest
+.venv/bin/python - <<'PYTHON'
+from mcp.server import MCPServer
+
+server = MCPServer("Atelier Nova demo", log_level="ERROR")
+
+@server.tool()
+def cart_rule(rule_id: str) -> str:
+    """Read one fictional cart acceptance rule."""
+    if rule_id == "CART-EMPTY-001":
+        return "CART-EMPTY-001: An empty cart has subtotal 0."
+    return "Unknown cart rule. No result is available for this identifier."
+
+server.run(transport="streamable-http", host="127.0.0.1", port=18876)
+PYTHON
+```
+
+Back in the prepared workspace, launch the application:
+
+```bash
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable rag compression
 ```
 
 At the `Vous >` prompt, submit the following messages in order. Inspect each
 proposed tool call before answering `y` to its approval prompt.
 
-1. The launcher starts the local fixture. Submit this slash command and check that one tool is discovered.
+1. With the server running, submit this slash command and check that one tool is discovered.
 
 ```text
 /mcp add-json atelier '{"url":"http://127.0.0.1:18876/mcp"}'
@@ -104,16 +130,10 @@ Use the MCP tool cart_rule with rule_id=CART-EMPTY-001. Quote the returned rule 
 Use cart_rule with rule_id=CART-PAYMENT-999. If the rule is unknown, say that payment is not covered by this source. Do not invent a rule.
 ```
 
-Finish with `/exit` to close connections and remove the temporary workspace.
-A fresh launch resets the scenario. Model wording and latency may vary; compare
+Finish with `/exit` to close the application. The workspace remains available
+for inspection; repeat the setup example for a fresh copy. Stop the standalone
+server with Ctrl+C in its terminal when finished. Model wording and latency may vary; compare
 the actual tool calls, returned values and errors.
-
-To create a new capture and GIF of this same interactive scenario:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py mcp
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py mcp
-```
 
 ## Architecture choices and tradeoffs
 

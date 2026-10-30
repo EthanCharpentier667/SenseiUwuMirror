@@ -67,16 +67,46 @@ tests ran or that the preview's underlying calculation is correct.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
+
+Before launching Sensai, create an isolated fictional window in the prepared
+workspace. This Linux example requires Xephyr and `xmessage`:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py screenshot --model qwen3.5:9b
+Xephyr :88 -screen 1024x640 -ac -noreset -nolisten tcp -no-host-grab &
+SENSAI_DEMO_DISPLAY_PID=$!
+sleep 2
+DISPLAY=:88 xmessage -geometry 820x380+70+60 -title "Atelier Nova - review" \
+  "ATELIER NOVA
+
+Cart check
+Items: 10 + 20
+Subtotal: 30
+Empty cart: 0
+
+Fictional demo data only." &
+SENSAI_DEMO_WINDOW_PID=$!
+export SENSAI_DEMO_PARENT_DISPLAY="$DISPLAY"
+export DISPLAY=:88
 ```
 
-1. The launcher opens a dedicated nested display with the fictional Atelier Nova
-   window. The visible amounts are 30 for the filled cart and 0 for the empty cart.
+Then launch Sensai in this same terminal:
+
+```bash
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model qwen3.5:9b --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable rag compression mcp
+```
+
+1. The dedicated display contains the fictional Atelier Nova window. The visible
+   amounts are 30 for the filled cart and 0 for the empty cart.
 2. Send:
 
 ```text
@@ -85,19 +115,18 @@ Use screenshot to capture the dedicated demo display, then read the image. Give 
 
 3. Approve `screenshot`. Expect a captured image, then a real model reply identifying
    `ATELIER NOVA`, subtotal `30` and empty cart `0`.
-4. `/exit` closes the session and the dedicated display.
+4. `/exit` closes the application. Stop the example window and nested display,
+   then restore the original display:
+
+```bash
+kill "$SENSAI_DEMO_WINDOW_PID" "$SENSAI_DEMO_DISPLAY_PID"
+export DISPLAY="$SENSAI_DEMO_PARENT_DISPLAY"
+```
 
 The regenerated GIF shows both acquisition and interpretation of the returned
 image by `qwen3.5:9b`. Screenshot interpretation is distinct from actually running
 the cart tests. A usable parent X display and Xephyr are prerequisites; running
 a text-only model will not offer the screenshot tool.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py screenshot
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py screenshot
-```
 
 ## Architecture choices and tradeoffs
 

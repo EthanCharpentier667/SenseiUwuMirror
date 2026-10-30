@@ -250,11 +250,11 @@
   "model_usage": "Personas, RAG, profiles, compression and models include real application chat replies; screenshot includes an actual vision-model reply.",
   "rag_scope": "Real embeddings, retrieved document, answer with CART-EMPTY-001 and NOVA-QA-4827; document-free session retrieves zero chunks but model invents a section reference.",
   "manual_replay_guide": "docs/demo_assets/demos/replay.md",
-  "interactive_replay_script": "docs/demo_assets/scripts/demos/replay.py",
   "prior_compression_capture": "docs/demo_assets/artifacts/demos/compression-before-followup.cast",
   "path_base": "repository root",
   "intermediate_images": [
     "docs/demo_assets/artifacts/demos/browser-captured.png",
     "docs/demo_assets/artifacts/demos/screenshot-captured.jpg"
-  ]
+  ],
+  "replay_method": "Inline setup and application-launch examples in the manual replay guide and feature sheets"
 }

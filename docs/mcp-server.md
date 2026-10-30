@@ -1,7 +1,7 @@
 # Connect an MCP server to Sensai
 
 This guide explains how to add an MCP server's tools to a Sensai conversation.
-For Gmail or GitHub, the server is already hosted by the provider:
+For the GitHub examples, the server is already hosted by GitHub:
 you only run Sensai on your computer.
 
 The current command is **`/mcp add-json <name> '<json>'`**. Enter it in
@@ -27,7 +27,7 @@ The following examples contain two types of blocks:
 - `text`: commands or messages to enter in the Sensai chat.
 
 Do not copy the `Vous >` prefix. Replace placeholders such as
-`YOUR_GITHUB_PAT`, `YOUR_CLIENT_ID`, and `YOUR_CLIENT_SECRET` before submitting.
+`YOUR_GITHUB_PAT`, `YOUR_GITHUB_CLIENT_ID`, and `YOUR_GITHUB_CLIENT_SECRET` before submitting.
 Sensai does not automatically substitute environment variables in the JSON.
 
 ## 2. Understand the command and JSON format
@@ -54,7 +54,7 @@ also works if you have started typing the beginning of a template, for example
 
 | Element | Purpose | Example |
 | --- | --- | --- |
-| `my-server` | Name chosen for this connection, unique within the session | `gmail` |
+| `my-server` | Name chosen for this connection, unique within the session | `github` |
 | `url` | Full MCP endpoint, not the service's home page | `"https://api.githubcopilot.com/mcp/"` |
 | `headers` | Optional HTTP headers; names and values must be strings | `{"Authorization":"Bearer TOKEN"}` |
 | `oauth` | Optional settings to enable OAuth authentication | See the OAuth examples |
@@ -217,60 +217,77 @@ the redirect page; copy its address anyway. This address is the OAuth redirect,
 not the remote MCP server. Authorization may be requested when connecting or
 during a protected request: a successful tool call confirms access.
 
-## 6. Gmail example hosted by Google
+## 6. GitHub example with OAuth
 
-### Set up Google access
+### Register an OAuth App
 
-The [official Gmail MCP guide](https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server?hl=en)
-currently lists these prerequisites: access to the Workspace Developer Preview
-program and a Google Cloud project. Enable the **Gmail API** and **Gmail MCP API**
-in that project.
+The [GitHub MCP integration guide](https://github.com/github/github-mcp-server/blob/main/docs/host-integration.md)
+requires a preregistered application: the remote server does not support Dynamic
+Client Registration. This example uses a GitHub **OAuth App** with an
+interactive authorization-code flow.
 
-In **Google Auth Platform**, configure the consent screen, add your
-account as a test user if the application is external, then add the
-`https://www.googleapis.com/auth/gmail.readonly` scope under **Data Access**
-to start with a read-only test.
+Follow [Creating an OAuth App](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app):
 
-Next, create a **Web application** client under **Clients → Create client**.
-Register this exact redirect URI and retrieve the ID and secret:
+1. Open **Settings → Developer settings → OAuth Apps → New OAuth App** on GitHub.
+2. Set **Application name** to `Sensai CLI` and **Homepage URL** to your application's public URL, such as your GitHub project page.
+3. Set **Authorization callback URL** to the exact value below, then register the application.
+4. Copy the **Client ID** and generate a **Client secret** for your application.
 
 ```text
 http://localhost:8080/callback
 ```
 
-This adaptation for Sensai uses the localhost redirect accepted for testing
-by the [Google OAuth documentation](https://developers.google.com/identity/protocols/oauth2/web-server).
-The redirect URIs for Claude or Antigravity do not match Sensai.
+The callback uses Sensai's manual flow described above. Use the same address in
+the application registration and in the JSON configuration.
 
-### Connect Gmail from the chat
+### Connect GitHub from the chat
 
-Only launch `uv run sensai`. Replace the two placeholders below
-with the credentials of the Google client you just created:
-
-```text
-/mcp add-json gmail '{"url":"https://gmailmcp.googleapis.com/mcp/v1","oauth":{"clientId":"YOUR_CLIENT_ID","clientSecret":"YOUR_CLIENT_SECRET","issuer":"https://accounts.google.com","redirectUri":"http://localhost:8080/callback","scope":"https://www.googleapis.com/auth/gmail.readonly","tokenEndpointAuthMethod":"client_secret_post"}}'
-```
-
-Google declares this issuer and method in its
-[OAuth metadata](https://accounts.google.com/.well-known/openid-configuration).
-Then complete the browser flow and paste the redirect URL as described above.
-No Gmail MCP server runs on your machine.
-
-After connecting, send this read-only test:
+Launch `uv run sensai`. Replace the two placeholders with your OAuth App's
+credentials, then submit this command in the chat:
 
 ```text
-Use the Gmail tools to list the labels in my mailbox.
+/mcp add-json github '{"url":"https://api.githubcopilot.com/mcp/","oauth":{"clientId":"YOUR_GITHUB_CLIENT_ID","clientSecret":"YOUR_GITHUB_CLIENT_SECRET","issuer":"https://github.com/login/oauth","redirectUri":"http://localhost:8080/callback","scope":"read:user","tokenEndpointAuthMethod":"client_secret_post"}}'
 ```
 
-The server provides the `list_labels` tool. A successful execution verifies
-authentication and access to Gmail. To create drafts, Google also documents
-the `https://www.googleapis.com/auth/gmail.compose` scope; add it to the
-permissions and the `scope` string only if you want these features.
-See the [Gmail tools and scopes](https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server?hl=en).
+GitHub documents `https://github.com/login/oauth` as its authorization
+[issuer](https://docs.github.com/en/apps/github-authentication-discovery-endpoints).
+Sensai's SDK discovers the authorization and token endpoints from the provider's
+metadata. The `client_secret_post` method sends the app credentials in the token
+request body, as described in [Authorizing OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
+The [`read:user` scope](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps)
+requests access to profile data for this first test.
 
-The OAuth flow is covered by mocked tests in this repository. The connection
-to your Google account still needs to be validated with your own credentials,
-permissions, and access to the Preview program.
+Authorize the app in the browser. Copy the complete redirect URL, including
+`code`, `state` and `iss` when present, and paste it at Sensai's prompt:
+
+```text
+Paste the URL you were redirected to:
+```
+
+The browser can show a connection error at localhost because Sensai does not
+host the callback page. Copy that address anyway. No GitHub MCP server needs
+to run locally.
+
+### Verify access with a tool call
+
+After connecting, send:
+
+```text
+Use the GitHub get_me tool to read my authenticated profile and report my GitHub login. Do not modify any repository.
+```
+
+Approve the tool call when prompted. The remote server's
+[tool configuration](https://github.com/github/github-mcp-server/blob/main/docs/server-configuration.md)
+includes `get_me`. A successful call confirms authenticated access; tool discovery
+alone does not establish that repository operations are authorized.
+
+The `read:user` scope does not grant repository write access. Additional operations
+require suitable permissions and any organization approval. If the PAT example
+is already connected to this URL, restart Sensai before trying OAuth: duplicate
+URLs are rejected, even under a different connection name.
+
+The example JSON is validated against Sensai's configuration parser. Completing
+GitHub authorization requires your own registered application and credentials.
 
 ## 7. Connection lifetime
 
@@ -296,8 +313,9 @@ placeholders only; real values grant access to your services.
 | `This MCP server name is already connected.` | Choose a different name for another URL, or restart Sensai to replace a connection. |
 | `This MCP server is already connected.` | This URL is already active; reuse its tools. |
 | `MCP tool names conflict ...` | Tool names conflict. Choose a different set of tools on the server or open a new session. |
-| HTTP `401` / `403` | Check the authentication method, account permissions, and token validity. For Gmail, also check the enabled APIs and access to the Preview program. |
-| Google displays `redirect_uri_mismatch` | Register the JSON's exact `redirectUri` in the Google OAuth client: same scheme, host, port, and path. |
+| HTTP `401` / `403` | Check the authentication method, granted scopes, account access and organization approval for the GitHub OAuth App. |
+| GitHub rejects the callback URL | Register the JSON's exact `redirectUri` in the OAuth App, including scheme, host, port and path. |
+| OAuth client registration fails or returns `404` | GitHub does not support Dynamic Client Registration. Supply a preregistered app's `clientId`, `clientSecret` and correct `issuer`. |
 | OAuth requires `redirectUri` | Add a callback URL suitable for your environment and registered with the provider. |
 | Localhost page unavailable after authorization | Expected with the manual callback: copy the full URL from the address bar and paste it into Sensai. |
 | `OAuth authorization was refused or failed ...` | Retry authorization and check that the account can access the application. |

@@ -72,16 +72,30 @@ interaction or production login is claimed.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
 
 ```bash
-PLAYWRIGHT_BROWSERS_PATH=/tmp/sensai-demo-browsers PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py browser
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable rag compression mcp
 ```
 
-1. The launcher serves the fictional form at `http://127.0.0.1:18877/` and supplies
-   the same portable Chromium session used by the component recording.
+In a second terminal from the repository root, serve the fictional form:
+
+```bash
+.venv/bin/python -m http.server 18877 --bind 127.0.0.1 \
+  --directory docs/demo_assets/examples/demos/feature-tour
+```
+
+1. Keep the server running at `http://127.0.0.1:18877/`. The normal application
+   opens Google Chrome on first navigation; Chrome and a display must be available.
 2. Send `Use browser_navigate to open http://127.0.0.1:18877/ and report the page title and controls.`
    Approve it if prompted. Expect the Atelier Nova cart page and **Item prices**.
 3. Send `Use browser_click on Calculate subtotal and report the resulting page status.`
@@ -93,17 +107,12 @@ PLAYWRIGHT_BROWSERS_PATH=/tmp/sensai-demo-browsers PYTHONPATH=src .venv/bin/pyth
 6. Send `Use browser_navigate with url file:///etc/passwd.` The URL is rejected;
    no file is read by that navigation request.
 
+Stop the HTTP server with Ctrl+C after finishing the scenario.
+
 Use one interaction per message if the small model tries to combine or repeat
 steps. This preserves the recorded form states and avoids exhausting a per-tool
 budget. With the default text model, page state is textual; switching to a vision
 model also permits a `browser_screenshot` request.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PLAYWRIGHT_BROWSERS_PATH=/tmp/sensai-demo-browsers PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py browser
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py browser
-```
 
 ## Architecture choices and tradeoffs
 

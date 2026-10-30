@@ -67,12 +67,19 @@ or record the interactive account wizard.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py profiles
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable tools rag compression mcp
 ```
 
 1. In the fresh fictional Camille profile, type:
@@ -97,16 +104,8 @@ Which test command should I use and which module must I leave untouched? Answer 
    and list the values again. Only this disposable profile is affected.
 
 The regenerated GIF shows the stored context being used in a reply, followed by
-component-level logout/login and rejection of a wrong password. For that exact
-password-check sequence, use the component replay below. The interactive launcher
-starts a preauthenticated demo profile and does not change your real keyring.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py profiles
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py profiles
-```
+component-level logout/login and rejection of a wrong password. To check persistence, exit and sign in again with the same demo profile;
+a wrong password must be rejected before the correct password succeeds. The example uses the normal sign-in flow with a dedicated demo profile.
 
 ## Architecture choices and tradeoffs
 

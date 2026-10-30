@@ -1,28 +1,24 @@
 # Replay the demonstrations yourself
 
-Each feature sheet contains an interactive replay section: launch the real Sensai
-CLI, type the listed messages and inspect its responses. The launcher supplies a
-fictional account and disposable copies of the fixtures, so the steps do not depend
-on your personal profile or on changing the repository's original demo projects.
-It uses the actual agent, HTTP client, command handlers and application chat path.
-It bypasses the account wizard and keyring; it is not an authentication demonstration.
+The feature sheets contain shell examples and the messages to enter in the real
+Sensai CLI. All setup commands are included below. The examples use fictional
+Atelier Nova data and temporary working copies of the cart projects.
 
 ## Shared prerequisites
 
-From the repository root, install the project and the optional recording dependencies:
+From the repository root, install the project:
 
 ```bash
 uv sync
-uv pip install --python .venv/bin/python pyte pillow playwright pyscreenshot pexpect
 ```
 
-Start a local Ollama instance if one is not already running:
+Start Ollama in a separate terminal if it is not already running:
 
 ```bash
 ollama serve
 ```
 
-In another terminal, make the models required by your chosen demonstration available:
+Download the models needed for your chosen demonstration:
 
 ```bash
 ollama pull llama3.2:latest
@@ -30,108 +26,91 @@ ollama pull nomic-embed-text
 ollama pull qwen3.5:9b
 ```
 
-Text demonstrations use `llama3.2:latest`. Only RAG needs `nomic-embed-text`;
-Screenshot and the model-switch demonstration need `qwen3.5:9b`. Downloading every
-model is unnecessary if you are replaying only a text demonstration.
-The launcher targets `http://127.0.0.1:11434/api/chat`; its dummy bearer token
-is only for a local Ollama service without authentication.
+Text examples use `llama3.2:latest`. RAG also needs `nomic-embed-text`;
+screenshot interpretation and model switching need `qwen3.5:9b`.
+Docker must be running for sandbox execution. Browser tools require Google Chrome
+and a graphical display. Screenshot capture also requires a working capture
+backend and a display; its feature sheet includes an isolated-window example.
+Web lookup requires a valid `API_TOKEN` in the environment or the local `.env`.
 
-Browser replay uses the same preopened portable Chromium session as its recording:
+## Example workspace setup
 
-```bash
-PLAYWRIGHT_BROWSERS_PATH=/tmp/sensai-demo-browsers .venv/bin/python -m playwright install chromium --only-shell
-```
-
-Keep that environment variable on the browser launch command shown in its sheet.
-Sandbox replay requires a working Docker daemon. Screenshot replay additionally
-requires Xephyr, `xmessage`, a usable parent `DISPLAY`, and a free `:88` display;
-it captures a dedicated fictional window rather than your desktop. The renderer
-uses DejaVu fonts from `/usr/share/fonts/truetype/dejavu`.
-
-## Interactive sessions
-
-For example:
+Run this Bash example from the repository root. Keep the same terminal open for
+the launch examples in the feature sheets, which use the exported paths.
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py personas
+export SENSAI_DEMO_ROOT="$PWD"
+export SENSAI_DEMO_WORK="$(mktemp -d /tmp/sensai-demo.XXXXXX)"
+
+cp -R "$SENSAI_DEMO_ROOT/docs/demo_assets/examples/demos/python-tests" \
+  "$SENSAI_DEMO_WORK/cart-failing"
+cp -R "$SENSAI_DEMO_ROOT/docs/demo_assets/examples/demos/python-tests-passing" \
+  "$SENSAI_DEMO_WORK/cart-passing"
+cp -R "$SENSAI_DEMO_WORK/cart-failing" "$SENSAI_DEMO_WORK/cart-working"
+cp "$SENSAI_DEMO_WORK/cart-working/cart.py" "$SENSAI_DEMO_WORK/cart-readonly.py"
+chmod 444 "$SENSAI_DEMO_WORK/cart-readonly.py"
+cp "$SENSAI_DEMO_ROOT/docs/demo_assets/demos/cart-spec.md" "$SENSAI_DEMO_WORK/cart-spec.md"
+cp "$SENSAI_DEMO_ROOT/docs/demo_assets/examples/demos/feature-tour/personas.json" \
+  "$SENSAI_DEMO_WORK/personas.json"
+ln -s "$SENSAI_DEMO_ROOT/.venv" "$SENSAI_DEMO_WORK/.venv"
+
+export HASH_ALGORITHM=sha256 HASH_ITERATIONS=600000 SALT_BYTES=32
+cd "$SENSAI_DEMO_WORK"
+printf 'Demo workspace: %s\n' "$SENSAI_DEMO_WORK"
 ```
 
-The terminal prints a temporary workspace. It contains:
+The resulting workspace contains:
 
-| Path inside the workspace | Contents |
+| Path | Purpose |
 | --- | --- |
-| `cart-failing/` | The original intentional defect: one passing test and one failing test. |
-| `cart-passing/` | The correct implementation: two passing tests. |
-| `cart-working/` | Another faulty copy which can be edited during the file-access demo. |
-| `cart-readonly.py` | A mode-`444` source file for a real permission-denied write. |
-| `cart-spec.md` | The fictional specification, including its unique review marker. |
-| `personas.json` | The QA and reviewer personas used by the recordings. |
-| `.venv` | A link to the repository's Python environment for the commands below. |
+| `cart-failing/` | Intentional defect: one failing test and one passing test. |
+| `cart-passing/` | Correct implementation: two passing tests. |
+| `cart-working/` | Editable copy used for the correction demonstration. |
+| `cart-readonly.py` | Mode-`444` source file for a permission-denied write. |
+| `cart-spec.md` | Fictional specification with its unique review marker. |
+| `personas.json` | The QA and reviewer roles used by the examples. |
+| `.venv` | Link to the installed project environment. |
 
-Type slash commands and questions at the actual `Vous >` prompt. Enter submits;
-Alt+Enter inserts a newline. Approve a proposed tool call only after checking its
-arguments. `/exit` ends the session and removes its temporary database and copies.
-Start a new process for a fresh profile and conversation. Run replay sessions one
-at a time when they use the dedicated display or loopback fixture ports.
+## Example application launch
 
-RAG replay attaches and embeds the specification before showing the prompt.
-Compression replay loads the documented fictional review history and summarizes it
-before the follow-up question. The MCP and browser sessions start their local
-fixtures and stop them when the session ends. The web session uses `API_TOKEN`
-from the environment or local `.env` for actual searches and page fetches. Its value
-never needs to be typed into a recorded terminal. Add `--without-web-token` only
-when replaying the unavailable-service case.
+From the prepared workspace:
 
-The five interactive recordings (file access, MCP, sandbox, streaming and web) use
-`--model llama3.2:latest`. The launcher configures an 8192-token context and limits the
-available tools to those needed by the selected feature. File and sandbox tool
-output is enabled using the real CLI output option. Tool decisions, permissions,
-HTTP responses, Docker execution and text streaming use the application unchanged.
+```bash
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable rag compression mcp
+```
+
+The placeholder token is for a local Ollama instance without authentication.
+Complete the normal registration or login flow with a dedicated demo profile,
+for example Camille. Account creation is interactive and is not bypassed.
+The database is stored in the temporary workspace. The application uses its normal
+credential-storage behavior when signing in.
+
+At `Vous >`, submit the feature sheet's messages one at a time. Enter submits;
+Alt+Enter inserts a newline. Inspect each tool request before answering `y` or `n`.
+`/exit` closes the application. The workspace remains available for inspection;
+repeat the setup example to start with fresh fixtures and a separate database.
+
+The launch examples specify the features needed for each scenario. RAG uses
+`--files cart-spec.md`; compression uses a low threshold; MCP and the browser
+require a second terminal for their local fixture. Their feature sheets include
+the corresponding commands. Text-only examples disable tools explicitly.
 
 ## Expected results and variability
 
-Compare observable facts rather than identical wording: test counts, exit codes,
-rule identifiers, the document marker, role prefixes, visible form totals or whether
-a call was executed. Model responses and tool choices are not deterministic.
-The exact configured model, Ollama version and hardware also affect timing.
-A heading, citation or failure may differ on a rerun; do not replace the actual
-response with the expected text if the model fails the scenario.
+Compare facts such as exit codes, test counts, permission errors, rule identifiers,
+document markers and source URLs. Model wording, tool choices and latency vary.
+Recorded captures may include a preconfigured account or additional tool-output
+panels; the examples above use the normal application entry point and sign-in flow.
+A tool's result can be available to the bot even when the CLI displays only its
+completion indicator. Ask the bot to report the observed output when needed.
 
-The recordings show some known failures, including lossy compression and invented
-references in a document-free RAG session. Their feature sheets distinguish the
-required behavior from what was actually observed.
-
-## Record the real interactive scenarios
-
-The five updated GIFs are captured from a real pseudo-terminal. The automation
-submits the documented messages and answers `y` at actual approval prompts; the
-Sensai agent chooses and executes the tools and generates every answer.
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py file-access mcp sandbox streaming web
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py file-access mcp sandbox streaming web
-```
-
-The capture is an asciicast-compatible terminal stream. The renderer honors ANSI
-cursor movements and samples intermediate screen states, preserving incremental
-streaming. It shortens idle waits and keeps each GIF below 1000 KiB. These playback
-timings are not latency benchmarks. Per-recording metadata retains the model,
-messages, approval count, real elapsed time and artifact checksums.
-
-## Replay the original component sequence
-
-For a step-for-step replay of a component GIF, including the recorded tool arguments:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py rag
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py rag
-```
-
-Use this component path for the remaining component GIFs. The five updated
-interactive GIFs use `record_cli.py` and `render_cli.py` above. This optional path
-calls the recorded components directly, writes a new capture to `docs/demo_assets/artifacts/demos/`
-and overwrites that feature's GIF in `docs/demo_assets/assets/demos/` when rendered. Executable
-fixtures live in `docs/demo_assets/examples/demos/`; guides and the cart specification remain in
-`docs/demo_assets/demos/`. The interactive launcher does not rewrite GIF assets.
-The earlier pytest GIF used a separate interactive capture; its ReAct, trust and
-Bash sheets give the equivalent manual foreground run on the same test data.
+The archived recordings include known failures, such as lossy compression and
+invented references in a document-free RAG session. The feature sheets distinguish
+those observations from the intended behavior. A repeat must retain the actual
+response even when the model fails the scenario.

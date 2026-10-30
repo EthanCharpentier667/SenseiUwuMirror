@@ -78,7 +78,7 @@ uv add --dev package-name
 
 Connect servers from the Sensai chat using `/mcp add-json <name> '<json>'`.
 The [MCP connection guide](docs/mcp-server.md) explains the JSON format and
-provides detailed examples for local tools, GitHub tokens and Gmail OAuth.
+provides detailed examples for local tools, GitHub personal access tokens and GitHub OAuth.
 
 ### Local example server
 

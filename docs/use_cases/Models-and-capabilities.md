@@ -68,12 +68,19 @@ recording. This is not a model-quality or resource benchmark.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py models
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable tools rag compression mcp
 ```
 
 1. The session starts on `llama3.2:latest`. Send:
@@ -83,8 +90,7 @@ Explain why a cart containing no items has subtotal zero. Answer in English in a
 ```
 
 2. Inspect the real answer. Open `/tools`: with this text model, a screenshot is
-   not usable by the model even if the tool is enabled in settings. The component
-   replay below prints the capability-filtered list directly.
+   not usable by the model even if the tool is enabled in settings. The archived component capture shows the capability-filtered list directly.
 3. Type `/model qwen3.5:9b`, then send the same question again. Inspect the second
    real answer; this uses the newly selected model rather than only changing a label.
 4. Type `/model missing-demo-model`. Expect an explicit unknown-model message,
@@ -95,13 +101,6 @@ Explain why a cart containing no items has subtotal zero. Answer in English in a
 The model must already be installed. Wording and speed differ across runs; this
 scenario does not establish that one model is faster or more accurate. `/tools`
 reports configured availability, not the full capability-filtered planning list.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py models
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py models
-```
 
 ## Architecture choices and tradeoffs
 

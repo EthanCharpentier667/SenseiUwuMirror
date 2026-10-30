@@ -74,15 +74,23 @@ fits in one chunk, so the capture is not a retrieval-quality benchmark.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py rag
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable tools compression mcp \
+  --files cart-spec.md
 ```
 
-1. The launcher attaches `cart-spec.md` and embeds it locally with
+1. `--files cart-spec.md` attaches the specification and embeds it locally with
    `nomic-embed-text` before the chat prompt appears. Tools are disabled so the
    answer must use conversation/document context rather than a file or web lookup.
 2. Send this exact question; it deliberately does not supply the rule or marker:
@@ -97,7 +105,13 @@ According to the attached specification, what is the empty-cart subtotal, which 
 4. Exit, then start a fresh document-free session:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py rag --without-document
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable tools compression mcp
 ```
 
 5. Ask the same question. Retrieval returns no chunks. The required answer is an
@@ -108,13 +122,6 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py rag --w
 The regenerated GIF includes both actual model replies. It demonstrates document-
 based answering in the first session and the remaining refusal/grounding weakness
 in the second. Another run can produce different wording or failure behavior.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py rag
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py rag
-```
 
 ## Architecture choices and tradeoffs
 
