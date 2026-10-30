@@ -15,4 +15,4 @@ non-empty cart and an empty cart. Run the two versions separately so their modul
 and configurations remain independent.
 
 The original pytest GIF shows the faulty version. This fixture supplies the passing
-case; its existence alone does not constitute a new Sensai recording.
+case; its existence alone does not constitute a new SensaiUwu recording.

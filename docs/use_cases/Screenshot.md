@@ -17,7 +17,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-SCREEN-01 — Inspect the visible cart preview
 
-**As Camille Moreau, the developer checking the cart preview, I want Sensai to capture the visible window, so that I can compare the displayed subtotal with the test expectation.**
+**As Camille Moreau, the developer checking the cart preview, I want SensaiUwu to capture the visible window, so that I can compare the displayed subtotal with the test expectation.**
 
 Preconditions: a display is available, a vision-capable model is selected and the screenshot call is approved when required.
 
@@ -58,7 +58,7 @@ This differs from [browser screenshots](Browser.md), which capture the browser p
 
 The recording captures an actual window on a dedicated nested X display containing
 only fictional Atelier Nova data. The screenshot tool returns a 1024 × 640 image,
-which is then sent through Sensai's HTTP client to local `qwen3.5:9b`. Its actual
+which is then sent through SensaiUwu's HTTP client to local `qwen3.5:9b`. Its actual
 reply reads `ATELIER NOVA`, subtotal `30` and empty cart `0` from those pixels.
 The saved-image destination is redirected to a temporary demo directory. This
 shows image acquisition and interpretation; it does not establish that the cart
@@ -67,7 +67,7 @@ tests ran or that the preview's underlying calculation is correct.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -79,9 +79,9 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py screens
    window. The visible amounts are 30 for the filled cart and 0 for the empty cart.
 2. Send:
 
-```text
-Use screenshot to capture the dedicated demo display, then read the image. Give the title, subtotal and empty-cart amount in at most three short lines. Do not claim tests ran.
-```
+   ```text
+   Use screenshot to capture the dedicated demo display, then read the image. Give the title, subtotal and empty-cart amount in at most three short lines. Do not claim tests ran.
+   ```
 
 3. Approve `screenshot`. Expect a captured image, then a real model reply identifying
    `ATELIER NOVA`, subtotal `30` and empty cart `0`.

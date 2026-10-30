@@ -1,12 +1,12 @@
 # Tools and trust levels — A3
 
-Tools let Sensai act on the developer's environment. Trust levels determine
+Tools let SensaiUwu act on the developer's environment. Trust levels determine
 which calls can run automatically and which require human approval. This control
 corresponds to **A3 — Human-in-the-Loop**.
 
 ## Scenario: Camille stays in control of her checks
 
-Camille Moreau, a Python developer at Atelier Nova, uses Sensai to check the
+Camille Moreau, a Python developer at Atelier Nova, uses SensaiUwu to check the
 cart module before Malik Benali's review. She works on a local copy of the
 project: a poorly chosen command could modify her files or start a task she
 did not request.
@@ -136,10 +136,10 @@ call; it does not permanently block the tool.
 
 ## Demonstration: approve test execution
 
-Camille requests a check of the cart module. Sensai presents the pytest command,
+Camille requests a check of the cart module. SensaiUwu presents the pytest command,
 waits for approval, then runs the tests after approval.
 
-![Sensai displays the pytest command and waits for approval before running the tests](../demo_assets/assets/demos/python-tests.gif)
+![SensaiUwu displays the pytest command and waits for approval before running the tests](../demo_assets/assets/demos/python-tests.gif)
 
 [Watch the video demonstration](../demo_assets/assets/demos/python-tests.mp4)
 
@@ -165,7 +165,7 @@ it does not determine the test outcome. The GIF shows the first case.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -177,9 +177,9 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py trust
    then leave the settings menu so the selection is saved.
 2. Send this request:
 
-```text
-Execute this exact command in the foreground with bash_tool (background=false), then summarize the actual output: .venv/bin/python -m pytest -c cart-failing/pytest.ini --no-cov -q cart-failing
-```
+   ```text
+   Execute this exact command in the foreground with bash_tool (background=false), then summarize the actual output: .venv/bin/python -m pytest -c cart-failing/pytest.ini --no-cov -q cart-failing
+   ```
 
 3. The tool name and arguments must appear before execution. Answer `y` to approve.
    Expect one failing test, one passing test and an exit code of `1`.

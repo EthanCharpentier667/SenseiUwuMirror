@@ -1,6 +1,6 @@
 # ReAct loop — A1
 
-The **ReAct** loop lets Sensai alternate between decisions, actions and observations
+The **ReAct** loop lets SensaiUwu alternate between decisions, actions and observations
 before replying to the developer. It turns a testing request into a sequence of
 actions, with each step taking the previous result into account.
 
@@ -9,12 +9,12 @@ actions, with each step taking the previous result into account.
 Camille Moreau, a Python developer at Atelier Nova, is preparing a merge request
 for the cart calculation module. Her colleague Malik Benali needs to distinguish
 actual test results from an explanation of the code. Camille works in the terminal
-with Sensai and a local Ollama model, using fictional data.
+with SensaiUwu and a local Ollama model, using fictional data.
 
 In the [reference scenario](../use-case.md#scenario-de-reference-camille-verifie-le-panier-datelier-nova),
 she encounters two situations: a version that returns 1 for an empty cart, then a
 correct version that returns 0. These are independent demo projects; switching to
-the correct version does not imply that Sensai modified the code. In both cases,
+the correct version does not imply that SensaiUwu modified the code. In both cases,
 she expects an accurate test summary before proceeding with the review.
 
 This check takes place between development tasks. She can wait for local inference;
@@ -27,7 +27,7 @@ A diagnosis depends on what actually happens in the project: a build result, an
 error message, file contents or application behavior. The loop lets the model
 retrieve this information through the available tools, then adapt its next action.
 
-For example, when asked “Why are the tests failing?”, Sensai can run the tests,
+For example, when asked “Why are the tests failing?”, SensaiUwu can run the tests,
 observe the error and produce a summary based on that output. In a longer workflow,
 the same mechanism can combine execution, file inspection and another check.
 
@@ -35,7 +35,7 @@ the same mechanism can combine execution, file inspection and another check.
 
 ### US-A1-01 — Understand a regression before review
 
-**As Camille Moreau, the developer of the cart module, I want Sensai to run the
+**As Camille Moreau, the developer of the cart module, I want SensaiUwu to run the
 tests and identify the failing check, so that I can focus my investigation on
 the behavior blocking the code review.**
 
@@ -47,12 +47,12 @@ and `bash_tool` are enabled, and Camille approves the test command.
 | Execution | The command targets `docs/demo_assets/examples/demos/python-tests` and runs in the foreground. |
 | Use of the result | The summary reports one passing test and one failing test, consistent with exit code `1`. |
 | Diagnosis | `test_empty_basket` is identified; the observed amount is 1 and the expected amount is 0. |
-| Scope | Sensai does not claim to have fixed the code or report that the suite passed. |
+| Scope | SensaiUwu does not claim to have fixed the code or report that the suite passed. |
 | Completion | A final response is produced without indefinitely rerunning the same command. |
 
 ### US-A1-02 — Confirm the covered behavior before submitting the code
 
-**As Camille Moreau, a developer preparing her merge request, I want Sensai to
+**As Camille Moreau, a developer preparing her merge request, I want SensaiUwu to
 check the correct version of the cart module, so that I can give Malik a summary
 of the checks that actually passed before his review.**
 
@@ -64,7 +64,7 @@ and Camille approves the test command.
 | Execution | The command targets `docs/demo_assets/examples/demos/python-tests-passing` and runs in the foreground. |
 | Use of the result | The summary reports two passing tests and no failing tests, consistent with exit code `0`. |
 | Covered behavior | The checks cover a non-empty cart totaling 30 and an empty cart totaling 0. |
-| Scope | Sensai does not claim that these two tests validate payments, security or the entire store. |
+| Scope | SensaiUwu does not claim that these two tests validate payments, security or the entire store. |
 | Integrity | The check modifies neither the module nor the tests. |
 
 Both stories belong to the same scenario: deciding whether the local module checks
@@ -99,7 +99,7 @@ flowchart TD
     O --> P
 ```
 
-The loop is integrated into Sensai's main pipeline. Model calls go directly to
+The loop is integrated into SensaiUwu's main pipeline. Model calls go directly to
 the Ollama HTTP API, without an intermediate LLM framework. The model proposes
 actions; Python code controls their validation and execution.
 
@@ -140,11 +140,11 @@ replies directly, bypassing the tool execution loop.
 Camille checks the calculation of a cart total. The demo project contains two
 tests and an intentional defect: an empty cart returns **1 instead of 0**.
 
-![Sensai requests approval, runs the tests and summarizes the empty-cart failure](../demo_assets/assets/demos/python-tests.gif)
+![SensaiUwu requests approval, runs the tests and summarizes the empty-cart failure](../demo_assets/assets/demos/python-tests.gif)
 
 [Watch the video demonstration](../demo_assets/assets/demos/python-tests.mp4)
 
-Camille asks Sensai to run the tests in the foreground and summarize the result.
+Camille asks SensaiUwu to run the tests in the foreground and summarize the result.
 The model proposes a call to `bash_tool`. After approval, pytest runs and its
 result feeds into the final response.
 
@@ -174,7 +174,7 @@ the second has its own executable demo project.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -185,9 +185,9 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py react
 1. Launch the session above. Leave **Tool Trust Level** at `none`.
 2. Send this request:
 
-```text
-Execute this exact command in the foreground with bash_tool (background=false), then report the actual result without changing files: .venv/bin/python -m pytest -c cart-failing/pytest.ini --no-cov -q cart-failing
-```
+   ```text
+   Execute this exact command in the foreground with bash_tool (background=false), then report the actual result without changing files: .venv/bin/python -m pytest -c cart-failing/pytest.ini --no-cov -q cart-failing
+   ```
 
 3. Check the proposed command and answer `y` at `Approve this action? [Y/n]`.
 4. The observation must contain exit code `1`, `1 failed, 1 passed`, and

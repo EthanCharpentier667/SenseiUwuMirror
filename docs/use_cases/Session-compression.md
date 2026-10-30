@@ -6,7 +6,7 @@ the summary and later turns become the context used for subsequent requests.
 
 ## Scenario
 
-Camille investigates the empty-cart regression over several exchanges with Sensai.
+Camille investigates the empty-cart regression over several exchanges with SensaiUwu.
 She wants to retain the expected value, the observed failure and the fact that payment
 is outside the check, without resending an ever-growing conversation to the local
 model. Malik must still be able to distinguish original results from a generated
@@ -74,7 +74,7 @@ crossing or a measured quality/size improvement.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -89,9 +89,9 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py compres
    its generated summary before opening the chat.
 2. Send:
 
-```text
-Using the previous review context, which test originally failed and what remains untested? Answer in at most three lines.
-```
+   ```text
+   Using the previous review context, which test originally failed and what remains untested? Answer in at most three lines.
+   ```
 
 3. Inspect the actual reply. The source facts are the empty-cart failure and
    untested payment. Check that the model does not infer a payment test passed

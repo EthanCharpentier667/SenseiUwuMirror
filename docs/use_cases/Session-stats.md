@@ -1,13 +1,13 @@
 # Session statistics
 
-`/stat` prints a table describing the current chat session: what it has cost,
+`/stats` prints a table describing the current chat session: what it has cost,
 how full its context is, and which settings are active right now. It is
 read-only and does not send anything to the model.
 
 ## Usage
 
 ```text
-> /stat
+> /stats
 ```
 
 ## What each row means
@@ -33,9 +33,9 @@ read-only and does not send anything to the model.
 ## Limitations
 
 - Token totals and message counts are read from the database, so they survive a
-  restart. **Last prompt** is kept in memory only: right after launching Sensai
+  restart. **Last prompt** is kept in memory only: right after launching SensaiUwu
   (or switching sessions with [`/session`](Sessions.md)), it shows `n/a` until the first turn completes, and so
   do the context window and compression percentages.
 - The context window percentage shows `n/a` when no `num_ctx` is configured,
-  because the model's own default size is not known to Sensai.
+  because the model's own default size is not known to SensaiUwu.
 - Statistics cover the current session only, not all sessions of the profile.

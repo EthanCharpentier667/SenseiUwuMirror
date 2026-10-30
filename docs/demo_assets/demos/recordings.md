@@ -18,13 +18,13 @@ outcomes without rewriting either original fixture.
 ## Recorded scope
 
 Eight GIFs remain automated component walkthroughs. Their recording script
-calls actual Sensai tools, command handlers, database functions and HTTP clients;
+calls actual SensaiUwu tools, command handlers, database functions and HTTP clients;
 it does not replace their outputs with scripted model replies. Component sequences
 are chosen by the recording script, rather than autonomously planned by the model.
 The earlier pytest GIF and the updated file-access, MCP, sandbox, streaming and
 web GIFs record the real interactive application. For those five updates, only the
 human messages and approvals are scripted: model decisions and tool execution
-come from Sensai itself.
+come from SensaiUwu itself.
 
 | Recording | Actual scope |
 | --- | --- |

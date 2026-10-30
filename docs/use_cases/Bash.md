@@ -1,6 +1,6 @@
 # Bash: `bash_tool` and `bash_job`
 
-Sensai uses Bash tools to build projects, run test suites and launch programs
+SensaiUwu uses Bash tools to build projects, run test suites and launch programs
 or local servers. `bash_tool` starts a command; `bash_job` monitors or stops a
 command started as a background job. This gives the testing assistant access
 to existing development tools without a separate integration for each framework.
@@ -8,7 +8,7 @@ to existing development tools without a separate integration for each framework.
 ## Scenario: Camille runs the cart checks before review
 
 Camille Moreau, a Python developer at Atelier Nova, is preparing the cart module
-for Malik Benali's review. She already has pytest tests and wants Sensai to run
+for Malik Benali's review. She already has pytest tests and wants SensaiUwu to run
 them in her local checkout, then report whether the covered behaviors pass.
 She does not want to replace her test framework or copy terminal output into
 a separate chatbot.
@@ -20,7 +20,7 @@ accurate summary in both cases. A failing suite must remain a failure; a passing
 suite must not be described as evidence that the entire store is correct.
 
 These small checks run in the foreground. For a longer build or test suite,
-Camille can instead let Sensai start a background job and retrieve its status
+Camille can instead let SensaiUwu start a background job and retrieve its status
 later. This fits a development session in which she can wait for local model
 inference while continuing her review. A persistent application or local server
 also requires background execution, since it does not normally exit on its own.
@@ -30,10 +30,10 @@ also requires background execution, since it does not normally exit on its own.
 ### US-BASH-01 — Run existing tests and distinguish success from failure
 
 **As Camille Moreau, the developer preparing the cart module for review,
-I want Sensai to run my existing pytest suite and report its actual outcome,
+I want SensaiUwu to run my existing pytest suite and report its actual outcome,
 so that I can decide whether to investigate a regression or continue the review.**
 
-Preconditions: Sensai runs from the repository root, the demo dependencies are
+Preconditions: SensaiUwu runs from the repository root, the demo dependencies are
 installed, ReAct and `bash_tool` are enabled, and Camille approves the command
 when required by her trust level.
 
@@ -44,12 +44,12 @@ when required by her trust level.
 | Failure detail | The summary identifies `test_empty_basket`, which receives 1 instead of the expected 0. |
 | Correct version | Running `docs/demo_assets/examples/demos/python-tests-passing` returns exit code `0`, with `2 passed`. |
 | Integrity | Running the tests does not modify their source or the cart implementation. |
-| Accurate reporting | Sensai uses the returned result and does not claim an unperformed fix or broader application validation. |
+| Accurate reporting | SensaiUwu uses the returned result and does not claim an unperformed fix or broader application validation. |
 
 ### US-BASH-02 — Follow a longer check without a foreground timeout
 
 **As Camille Moreau, a developer waiting for a longer build or test suite,
-I want Sensai to start it as a background job and check its progress,
+I want SensaiUwu to start it as a background job and check its progress,
 so that the check can continue beyond the foreground limit while I keep working.**
 
 Preconditions: ReAct, `bash_tool` and `bash_job` are enabled; the requested
@@ -68,7 +68,7 @@ check, or to stay running until explicitly stopped.
 ### US-BASH-03 — Stop a task that is no longer needed
 
 **As Camille Moreau, the developer responsible for processes started during
-her review, I want Sensai to stop a background task on request,
+her review, I want SensaiUwu to stop a background task on request,
 so that an obsolete check or preview process does not keep consuming resources.**
 
 Preconditions: a job started by `bash_tool` is still running and its identifier
@@ -106,7 +106,7 @@ flowchart TD
 ### `bash_tool`: start a command
 
 The tool executes `bash -c` on the host, using the working directory inherited
-from Sensai. Standard error is merged into standard output so that build errors
+from SensaiUwu. Standard error is merged into standard output so that build errors
 and test results appear in the same observation.
 
 | Argument | Meaning |
@@ -142,7 +142,7 @@ when constructing the model's observation.
 
 On a normal application exit, the registered cleanup handler attempts to stop
 remaining jobs and removes their temporary output files. Job tracking belongs
-to the current Sensai process; it is not a persistent task service.
+to the current SensaiUwu process; it is not a persistent task service.
 
 ## Permissions and integration
 
@@ -164,10 +164,10 @@ shown in the cart recording.
 
 ## Demonstration: run the cart tests
 
-Camille asks Sensai to run pytest in the foreground. Sensai presents the command,
+Camille asks SensaiUwu to run pytest in the foreground. SensaiUwu presents the command,
 receives approval, executes it and reports the empty-cart failure.
 
-![Sensai runs pytest through bash_tool and reports one passing test and one failing test](../demo_assets/assets/demos/python-tests.gif)
+![SensaiUwu runs pytest through bash_tool and reports one passing test and one failing test](../demo_assets/assets/demos/python-tests.gif)
 
 [Watch the video demonstration](../demo_assets/assets/demos/python-tests.mp4)
 
@@ -178,7 +178,7 @@ receives approval, executes it and reports the empty-cart failure.
 
 Both projects contain the same two business checks. Their reference outcomes
 were verified by direct test execution. The GIF shows the faulty version
-through Sensai; it does not show the correct version, background monitoring
+through SensaiUwu; it does not show the correct version, background monitoring
 or job termination.
 
 The recording uses `llama3.2:latest` on local Ollama 0.34.2. It replays an actual
@@ -189,7 +189,7 @@ pytest command. The command output and model response come from that execution.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -199,17 +199,17 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py bash
 
 1. Send the foreground request used in the GIF:
 
-```text
-Use bash_tool with background=false to run exactly .venv/bin/python -m pytest -c cart-failing/pytest.ini --no-cov -q cart-failing, then summarize the exit code and test counts. Do not edit files.
-```
+    ```text
+    Use bash_tool with background=false to run exactly .venv/bin/python -m pytest -c cart-failing/pytest.ini --no-cov -q cart-failing, then summarize the exit code and test counts. Do not edit files.
+    ```
 
 2. Approve the exact command. Expect code `1`, `1 failed, 1 passed`, and the empty-cart failure.
 3. Repeat with `cart-passing` in both path positions. Expect code `0` and `2 passed`.
 4. For a separate background check, send:
 
-```text
-Start exactly sleep 2; .venv/bin/python -m pytest -c cart-passing/pytest.ini --no-cov -q cart-passing using bash_tool with background=true. Report the returned job_id; do not claim the tests have already finished.
-```
+    ```text
+    Start exactly sleep 2; .venv/bin/python -m pytest -c cart-passing/pytest.ini --no-cov -q cart-passing using bash_tool with background=true. Report the returned job_id; do not claim the tests have already finished.
+    ```
 
 5. Copy the actual job identifier from the observation. In another message, ask
    `Use bash_job for <returned job_id> with wait_seconds=10 and stop=false. Report its status, exit code and test counts.`
@@ -239,7 +239,7 @@ separate integration for each supported framework.
 
 ## Limitations
 
-Commands execute on the host with the permissions and environment of the Sensai
+Commands execute on the host with the permissions and environment of the SensaiUwu
 process. These tools are not a sandbox. Approval authorizes a command; it does
 not make its file changes, network access or subprocesses harmless.
 
