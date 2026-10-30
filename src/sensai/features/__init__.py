@@ -1,1 +1,1 @@
-"""Feature flags for Sensai."""
+"""Feature flags for SensaiUwu."""

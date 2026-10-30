@@ -1,4 +1,4 @@
-"""Sensai: LLM chatbot with unlimited functionalities."""
+"""SensaiUwu: a testing assistant that runs your project, observes it and reports on it."""
 
 import asyncio
 import json

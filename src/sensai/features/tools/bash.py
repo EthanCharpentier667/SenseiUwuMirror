@@ -53,7 +53,7 @@ async def _stop(process: asyncio.subprocess.Process) -> None:
 
 
 def _stop_all_jobs() -> None:
-    """Stop every job still running and delete their logs, as Sensai exits.
+    """Stop every job still running and delete their logs, as SensaiUwu exits.
 
     Runs from ``atexit``, once the event loop may be gone, so it signals the process
     groups directly instead of awaiting them: SIGTERM, a short grace, then SIGKILL.

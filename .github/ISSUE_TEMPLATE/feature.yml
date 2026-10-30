@@ -1,6 +1,6 @@
 ---
 name: Feature Implementation
-description: Plan and implement a feature from the Sensai catalog or a custom one.
+description: Plan and implement a feature from the SensaiUwu catalog or a custom one.
 labels: enhancement
 title: "[FEATURE] <Feature Name>"
 body:
@@ -12,7 +12,7 @@ body:
     id: category
     attributes:
       label: Feature Category
-      description: Which category from the Sensai catalog does this feature belong to?
+      description: Which category from the SensaiUwu catalog does this feature belong to?
       options:
         - Base
         - Memory & Context

@@ -1,4 +1,4 @@
-"""Persona module for the Sensai chatbot."""
+"""Persona module for the SensaiUwu chatbot."""
 
 from .manager import get_persona, list_personas, load_personas
 from .persona import Persona

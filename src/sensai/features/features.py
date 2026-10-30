@@ -1,4 +1,4 @@
-"""Feature flags: every optional capability of Sensai can be switched on or off."""
+"""Feature flags: every optional capability of SensaiUwu can be switched on or off."""
 
 from collections.abc import Iterable
 

@@ -1,7 +1,7 @@
 [project]
 name = "sensai"
 version = "0.1.0"
-description = "LLM chatbot with unlimited functionalities !"
+description = "SensaiUwu: a local testing assistant that runs your project, observes it and reports on it"
 readme = "README.md"
 authors = [
     { name = "EthanCharpentier667", email = "ethan.charpentier@epitech.eu" },

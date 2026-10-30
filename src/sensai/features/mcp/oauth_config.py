@@ -57,7 +57,7 @@ def _build_oauth_metadata(options: dict[str, Any]) -> OAuthClientMetadata:
     default_method = "client_secret_post" if "clientSecret" in options else "none"
     return OAuthClientMetadata.model_validate(
         {
-            "client_name": "Sensai CLI",
+            "client_name": "SensaiUwu CLI",
             "redirect_uris": [redirect_uri],
             "scope": options.get("scope"),
             "token_endpoint_auth_method": options.get("tokenEndpointAuthMethod", default_method),
