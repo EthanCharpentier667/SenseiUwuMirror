@@ -127,8 +127,6 @@ while being less robust to paraphrased questions.
 
 The embedding model must be available and compatible with the fixed vector size.
 Scanned documents without extractable text may fail; unsupported formats and empty
-content need explicit handling. The startup ingestion path currently can print a
-success message after catching an extraction failure, so that message alone does
-not prove ingestion. Top-ranked chunks are not proof of correctness or complete
-coverage, and unrelated queries can still retrieve weakly relevant excerpts.
+content need explicit handling. Top-ranked chunks are not proof of correctness or
+complete coverage, and unrelated queries can still retrieve weakly relevant excerpts.
 Attached documents may contain untrusted instructions or private data.
