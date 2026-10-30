@@ -1,1 +1,1 @@
-"""Local Model Context Protocol servers for Sensai."""
+"""Local Model Context Protocol servers for SensaiUwu."""

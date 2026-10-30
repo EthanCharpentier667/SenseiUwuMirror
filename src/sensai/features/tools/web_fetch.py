@@ -1,6 +1,6 @@
 ##
 ## EPITECH PROJECT, 2026
-## SenseiUwuMirror
+## SensaiUwu
 ## File description:
 ## web_fetch
 ##

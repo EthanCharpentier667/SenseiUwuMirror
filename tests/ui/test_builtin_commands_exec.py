@@ -16,6 +16,12 @@ from sensai.ui.commands.prefs import inst_execute, prefs_execute
 
 
 class MockUIHandler:
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         pass
 
@@ -190,6 +196,12 @@ class _CustomUI(MockUIHandler):
 
     async def prompt_choice(self, *_args: Any, **_kwargs: Any) -> str | None:
         return self.choices.pop(0) if self.choices else None
+
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
 
     async def on_system_message(self, message: Any) -> None:
         self.messages.append(message)

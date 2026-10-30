@@ -17,7 +17,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-WEB-01 — Find documentation for an unfamiliar test failure
 
-**As Camille Moreau, the developer diagnosing an unfamiliar framework message, I want Sensai to search for a relevant reference, so that I can understand the requirement before changing the tests.**
+**As Camille Moreau, the developer diagnosing an unfamiliar framework message, I want SensaiUwu to search for a relevant reference, so that I can understand the requirement before changing the tests.**
 
 Preconditions: external lookup is permitted, `API_TOKEN` is configured and the provider is reachable.
 
@@ -57,7 +57,7 @@ hard-coded guarantee that the model will always choose the right source.
 
 ![Searching for pytest documentation, then reading the page](../demo_assets/assets/demos/web.gif)
 
-Camille asks Sensai to find the official pytest documentation on assertion
+Camille asks SensaiUwu to find the official pytest documentation on assertion
 introspection. The model calls `web_search` with the public query; Camille approves
 the request and receives an answer identifying the documentation URL.
 
@@ -86,15 +86,15 @@ proposed tool call before answering `y` to its approval prompt.
 
 1. Configure `API_TOKEN` in your local `.env` before launching; its value is never typed into the recorded terminal. Approve the `web_search` request and check that the reply identifies official pytest documentation.
 
-```text
-Use web_search to find official pytest documentation for our failing cart assertion. Search for: site:docs.pytest.org how to assert. Give one documentation title and its URL from the actual results. No JSON. Do not fetch yet.
-```
+    ```text
+    Use web_search to find official pytest documentation for our failing cart assertion. Search for: site:docs.pytest.org how to assert. Give one documentation title and its URL from the actual results. No JSON. Do not fetch yet.
+    ```
 
 2. Approve `web_fetch` for the specified page. Check that the tool completes and that the answer refers to the returned documentation and includes its URL.
 
-```text
-Use web_fetch on https://docs.pytest.org/en/stable/how-to/assert.html . Based on the returned page, state whether pytest supports ordinary Python assert statements for our cart tests. Answer in one short sentence and include the source URL. No JSON. Do not search again.
-```
+    ```text
+    Use web_fetch on https://docs.pytest.org/en/stable/how-to/assert.html . Based on the returned page, state whether pytest supports ordinary Python assert statements for our cart tests. Answer in one short sentence and include the source URL. No JSON. Do not search again.
+    ```
 
 Finish with `/exit` to close connections and remove the temporary workspace.
 A fresh launch resets the scenario. Model wording and latency may vary; compare

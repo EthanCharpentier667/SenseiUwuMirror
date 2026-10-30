@@ -149,6 +149,12 @@ class CapturingUIHandler(AsyncUIHandler):
         self.thinking: list[str] = []
         self.spinners: list[str] = []
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
+
     async def on_stream_chunk(self, _chunk: str) -> None:
         pass
 

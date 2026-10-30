@@ -1,4 +1,4 @@
-"""Orchestration and setup functions for Sensai components."""
+"""Orchestration and setup functions for SensaiUwu components."""
 
 from pathlib import Path
 
@@ -33,11 +33,13 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         token=config.token,
         timeout=config.timeout,
         verbose=config.verbose,
+        show_prompt=config.show_prompt,
         num_ctx=config.num_ctx,
         temperature=config.temperature,
         top_p=config.top_p,
     )
     ui_handler = CLIHandler()
+    client.events = ui_handler
     agent = Agent(
         model=config.model,
         tools=get_tools(),
@@ -118,6 +120,7 @@ async def ingest_initial_files(  # noqa: PLR0913
             except ValueError:
                 delete_message(database, file_message.id)
                 console.print(f"[red]Failed to ingest file: {file_path}[/red]")
+                continue
             console.print(f"[green]Successfully ingested file: {file_path}[/green]")
         except Exception as e:  # noqa: BLE001
             console.print(f"[red]Error reading file {file_path}: {e}[/red]")

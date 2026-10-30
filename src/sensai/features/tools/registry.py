@@ -1,4 +1,4 @@
-"""Registry of the tools available to Sensai."""
+"""Registry of the tools available to SensaiUwu."""
 
 from mcp import Client
 

@@ -1,6 +1,6 @@
 # File access: `file_read` and `file_write`
 
-File tools let Sensai inspect source code and test reports, then create or replace
+File tools let SensaiUwu inspect source code and test reports, then create or replace
 text files when an approved change is needed. They connect a diagnosis to the
 actual project files rather than a description pasted into the conversation.
 
@@ -17,7 +17,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-FILE-01 — Inspect the code responsible for a failing test
 
-**As Camille Moreau, the developer investigating the cart regression, I want Sensai to read the relevant source file, so that its explanation refers to the implementation that actually failed.**
+**As Camille Moreau, the developer investigating the cart regression, I want SensaiUwu to read the relevant source file, so that its explanation refers to the implementation that actually failed.**
 
 Preconditions: the faulty project is accessible and the requested read is approved when required.
 
@@ -30,7 +30,7 @@ Preconditions: the faulty project is accessible and the requested read is approv
 
 ### US-FILE-02 — Verify a proposed correction on a disposable copy
 
-**As Camille Moreau, the developer responsible for her branch, I want Sensai to write an approved correction and rerun the existing tests, so that I can check the change before including it in my merge request.**
+**As Camille Moreau, the developer responsible for her branch, I want SensaiUwu to write an approved correction and rerun the existing tests, so that I can check the change before including it in my merge request.**
 
 Preconditions: a disposable copy exists, its parent directory is writable, and the proposed write and test command are approved when required.
 
@@ -62,13 +62,13 @@ writing a file by itself does not establish that a fix works.
 
 ![File permissions, approved writes and verification](../demo_assets/assets/demos/file-access.gif)
 
-Camille asks Sensai to inspect the filesystem permissions and the faulty cart source.
+Camille asks SensaiUwu to inspect the filesystem permissions and the faulty cart source.
 The CLI displays the real `stat` output: `cart-readonly.py` is mode `444`, while
 `cart-working/cart.py` is writable. A proposed write to the read-only file is
 approved by Camille but refused by the operating system. Human approval does not
 override filesystem permissions.
 
-Camille then approves a correction to the writable copy. Sensai writes it with
+Camille then approves a correction to the writable copy. SensaiUwu writes it with
 `file_write`, reads it back with `file_read` and runs the existing pytest suite.
 The visible tool output contains the saved source and the actual test result.
 
@@ -91,33 +91,33 @@ proposed tool call before answering `y` to its approval prompt.
 
 1. Approve the `bash_tool` and `file_read` requests. Inspect the permission modes and the branch returning `1` for an empty cart.
 
-```text
-Use bash_tool with only the command argument to run stat -c '%a %n' cart-readonly.py cart-working/cart.py, then use file_read on cart-working/cart.py. Explain the empty-cart bug briefly. Do not write yet.
-```
+    ```text
+    Use bash_tool with only the command argument to run stat -c '%a %n' cart-readonly.py cart-working/cart.py, then use file_read on cart-working/cart.py. Explain the empty-cart bug briefly. Do not write yet.
+    ```
 
 2. Approve the proposed write. The tool must display `File is not writable (Access Denied).` The bot must stop rather than changing the permissions.
 
-```text
-Use file_write to replace cart-readonly.py with "def subtotal(prices): return sum(prices)\n". If access is denied, report it and stop. Do not change permissions or use Bash.
-```
+    ```text
+    Use file_write to replace cart-readonly.py with "def subtotal(prices): return sum(prices)\n". If access is denied, report it and stop. Do not change permissions or use Bash.
+    ```
 
 3. Inspect the proposed path and source, then approve the write. The saved function must use `sum(prices)`.
 
-```text
-Use file_write to replace cart-working/cart.py with "def subtotal(prices): return sum(prices)\n". Report success in one short sentence, no JSON.
-```
+    ```text
+    Use file_write to replace cart-working/cart.py with "def subtotal(prices): return sum(prices)\n". Report success in one short sentence, no JSON.
+    ```
 
 4. Approve the fresh `file_read` call. Check the actual saved function rather than a copy from the conversation.
 
-```text
-Read cart-working/cart.py from disk now using file_read. I need a fresh read, not the content from our chat. Show only the saved function, no JSON or metadata.
-```
+    ```text
+    Read cart-working/cart.py from disk now using file_read. I need a fresh read, not the content from our chat. Show only the saved function, no JSON or metadata.
+    ```
 
 5. Approve the foreground pytest command. The corrected copy must report `2 passed` with exit code `0`.
 
-```text
-Use bash_tool with only the command argument to run .venv/bin/python -m pytest -c cart-working/pytest.ini --no-cov -q cart-working. Copy the actual test count exactly into one short sentence. No JSON.
-```
+    ```text
+    Use bash_tool with only the command argument to run .venv/bin/python -m pytest -c cart-working/pytest.ini --no-cov -q cart-working. Copy the actual test count exactly into one short sentence. No JSON.
+    ```
 
 Finish with `/exit` to close connections and remove the temporary workspace.
 A fresh launch resets the scenario. Model wording and latency may vary; compare

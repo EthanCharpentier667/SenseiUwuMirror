@@ -1,12 +1,12 @@
 ##
 ## EPITECH PROJECT, 2026
-## SenseiUwuMirror
+## SensaiUwu
 ## File description:
 ## MCPTools
 ##
 
 
-"""Adapt MCP server tools to the Sensai tool interface."""
+"""Adapt MCP server tools to the SensaiUwu tool interface."""
 
 import json
 from collections.abc import Callable

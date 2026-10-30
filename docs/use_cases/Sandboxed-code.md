@@ -97,15 +97,15 @@ proposed tool call before answering `y` to its approval prompt.
 
 1. Check that Docker is running. Approve the sandbox request after inspecting `language` and `code`. Expect the two successful checks and UID `10001` in the tool output.
 
-```text
-Use sandboxed_code with language=python to execute: import os; assert sum([10, 20]) == 30; assert sum([]) == 0; print('2 cart checks passed'); print('container uid:', os.getuid()). Report the actual output in one short sentence, no JSON. Do not run on the host.
-```
+    ```text
+    Use sandboxed_code with language=python to execute: import os; assert sum([10, 20]) == 30; assert sum([]) == 0; print('2 cart checks passed'); print('container uid:', os.getuid()). Report the actual output in one short sentence, no JSON. Do not run on the host.
+    ```
 
 2. Approve this second execution. Expect an actual sandbox error containing `AssertionError`, followed by a failure report.
 
-```text
-Actually execute sandboxed_code now with language=python and code="assert sum([]) == 1". I need the real Docker error, even if you can predict the result. Report the observed error in one short sentence, no JSON. Do not repair or retry.
-```
+    ```text
+    Actually execute sandboxed_code now with language=python and code="assert sum([]) == 1". I need the real Docker error, even if you can predict the result. Report the observed error in one short sentence, no JSON. Do not repair or retry.
+    ```
 
 Finish with `/exit` to close connections and remove the temporary workspace.
 A fresh launch resets the scenario. Model wording and latency may vary; compare

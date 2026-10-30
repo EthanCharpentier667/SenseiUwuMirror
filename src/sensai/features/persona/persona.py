@@ -1,4 +1,4 @@
-"""Persona dataclass for the Sensai chatbot."""
+"""Persona dataclass for the SensaiUwu chatbot."""
 
 from dataclasses import dataclass
 

@@ -1,6 +1,6 @@
 # Models and capabilities
 
-Sensai selects an Ollama model and checks its advertised capabilities before
+SensaiUwu selects an Ollama model and checks its advertised capabilities before
 offering tools that require them. This prevents a text-only model from receiving
 a tool intended to produce an image it cannot interpret.
 
@@ -68,7 +68,7 @@ recording. This is not a model-quality or resource benchmark.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -78,9 +78,9 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py models
 
 1. The session starts on `llama3.2:latest`. Send:
 
-```text
-Explain why a cart containing no items has subtotal zero. Answer in English in at most two short sentences, without running tools.
-```
+   ```text
+   Explain why a cart containing no items has subtotal zero. Answer in English in at most two short sentences, without running tools.
+   ```
 
 2. Inspect the real answer. Open `/tools`: with this text model, a screenshot is
    not usable by the model even if the tool is enabled in settings. The component

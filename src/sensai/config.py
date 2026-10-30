@@ -1,6 +1,7 @@
-"""Configuration for the Sensai CLI."""
+"""Configuration for the SensaiUwu CLI."""
 
 import json
+import os
 import sys
 from argparse import SUPPRESS, ArgumentParser, ArgumentTypeError, Namespace
 from pathlib import Path
@@ -18,7 +19,7 @@ DEFAULT_MODEL = "llama3.2:latest"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
-DEFAULT_URL = "https://ollama.tanouminou.com/api/chat"
+DEFAULT_URL = "http://localhost:11434/api/chat"
 DEFAULT_TIMEOUT = 300.0
 DEFAULT_NUM_CTX = 16384
 DEFAULT_PERSONAS_FILE = "personas.json"
@@ -49,7 +50,7 @@ def _positive_int(value: str) -> int:
 
 
 class Config:
-    """Centralizes every CLI-configurable setting for the Sensai chatbot.
+    """Centralizes every CLI-configurable setting for the SensaiUwu chatbot.
 
     Wraps an ``ArgumentParser`` so every knob a user could want to tweak when running
     ``sensai`` (which model to talk to, where the database lives, ...) is declared and
@@ -59,7 +60,7 @@ class Config:
     def __init__(
         self,
         name: str = "sensai",
-        description: str = "Sensai: LLM chatbot with unlimited functionalities.",
+        description: str = "SensaiUwu: a testing assistant that runs and observes your project.",
     ) -> None:
         """Initialize the config and register its command-line arguments.
 
@@ -158,6 +159,7 @@ class Config:
         )
         self.add_argument(
             "--files",
+            action="extend",
             nargs="*",
             type=Path,
             default=[],
@@ -165,6 +167,7 @@ class Config:
         )
         self.add_argument(
             "--disable",
+            action="extend",
             nargs="*",
             choices=list(FEATURES),
             default=[],
@@ -173,6 +176,7 @@ class Config:
         )
         self.add_argument(
             "--disable-tool",
+            action="extend",
             nargs="*",
             default=[],
             metavar="TOOL",
@@ -180,6 +184,7 @@ class Config:
         )
         self.add_argument(
             "--enable",
+            action="extend",
             nargs="*",
             choices=list(FEATURES),
             default=[],
@@ -189,6 +194,7 @@ class Config:
         )
         self.add_argument(
             "--enable-tool",
+            action="extend",
             nargs="*",
             default=[],
             metavar="TOOL",
@@ -211,6 +217,11 @@ class Config:
             "--verbose",
             action="store_true",
             help=SUPPRESS,
+        )
+        self.add_argument(
+            "--show-prompt",
+            action="store_true",
+            help="Show every request exactly as it is sent to the model.",
         )
         self.add_argument(
             "--persona",
@@ -313,9 +324,9 @@ class Config:
 
     @property
     def token(self) -> str | None:
-        """The bearer token for the Ollama API."""
-        token = self._parsed().token
-        return str(token) if token is not None else None
+        """The bearer token for the Ollama API, from ``--token`` or else ``TOKEN``."""
+        token = self._parsed().token or os.getenv("TOKEN")
+        return str(token) if token else None
 
     @property
     def embed_url(self) -> str:
@@ -332,7 +343,7 @@ class Config:
         args = self._parsed()
         token = args.embed_token
         if token is None and args.embed_url == args.url:
-            token = args.token
+            return self.token
         return str(token) if token is not None else None
 
     @property
@@ -371,6 +382,11 @@ class Config:
     def verbose(self) -> bool:
         """Whether verbose mode is enabled."""
         return bool(self._parsed().verbose)
+
+    @property
+    def show_prompt(self) -> bool:
+        """Whether to show every request exactly as it is sent to the model."""
+        return bool(self._parsed().show_prompt)
 
     @property
     def persona(self) -> str | None:

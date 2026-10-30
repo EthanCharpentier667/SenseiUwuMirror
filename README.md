@@ -1,10 +1,21 @@
-# Itadakimasu 🍜🍜🍜 !
+# SensaiUwu 🍜
 
----
+SensaiUwu helps a small development team check code before review, with the model
+running on the company's own server. It runs the project's tests, observes the result,
+explains a failure and, with the developer's approval, applies a fix and checks again.
 
-# SenseiUwuMirror
+**Reference scenario:** Camille Moreau, a developer at the fictional online store
+Atelier Nova, checks her cart module before Malik Benali reviews it. Atelier Nova runs
+Ollama on a GPU server of its own, shared by the team. See the
+[full use case](docs/use-case.md).
 
-Python project for the SenseiUwuMirror team, managed with [uv](https://docs.astral.sh/uv/).
+All model calls go directly to the Ollama HTTP API, with no LLM framework.
+
+**Where your data goes:** prompts go to the Ollama server you configure. A cloud model
+such as `gemma4:cloud` sends them to Ollama, a third party. The web tools send their
+queries and URLs to `ollama.com`, without asking for approval under `--trust partial`,
+and MCP tools send their arguments to the server you connected. To keep the web tools and
+MCP off, use `--disable-tool web_search web_fetch --disable mcp`.
 
 ## Team
 
@@ -13,99 +24,173 @@ Python project for the SenseiUwuMirror team, managed with [uv](https://docs.astr
 - Eliott Raguin
 - Alexis Clemot
 
-## Installation
+## Setup
 
-### Install uv
+### 1. Install the prerequisites
 
-On macOS and Linux:
+- Python 3.11 to 3.13
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [Ollama](https://ollama.com/download), on your machine or on your company's server
+
+On Linux:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -fsSL https://ollama.com/install.sh | sh
 ```
 
-On Windows PowerShell:
+Some features need more: Docker for sandboxed code, Google Chrome and a display for the
+browser tools, a display and a vision model for screenshots.
 
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+### 2. Download the models
 
-Check the installation:
+Where Ollama runs:
 
 ```bash
-uv --version
+ollama pull llama3.2:latest
+ollama pull nomic-embed-text
 ```
 
-### Install the project and its dependencies
+`llama3.2:latest` is the default chat model and `nomic-embed-text` embeds documents for
+RAG. For vision and harder tasks, also pull `qwen3.5:9b`.
+
+### 3. Install SensaiUwu
 
 From the repository root:
 
 ```bash
 uv sync
+cp .env.exemple .env
 ```
 
-This command creates the `.venv` virtual environment, installs the project, and synchronizes the dependencies defined in `pyproject.toml` and `uv.lock`.
+`.env` holds the password hashing settings for profiles, which the example file sets to
+working values. Its other two values are optional:
 
-## Run the project
+| Variable | Needed for |
+| --- | --- |
+| `TOKEN` | An Ollama server that requires a bearer token. A default local Ollama doesn't |
+| `API_TOKEN` | The web search and fetch tools, with a key from [your Ollama account](https://ollama.com/settings/keys) |
+
+### 4. Launch
+
+Make sure Ollama is running (`ollama serve` if it isn't), then:
 
 ```bash
-uv run sensai
+uv run sensai --persona tester
 ```
 
-To request final responses matching a JSON Schema, pass an inline JSON object:
+The first launch asks you to create a profile. Type `/help` to list the commands.
+
+By default, SensaiUwu uses Ollama at `http://localhost:11434/api/chat`. To use your
+company's server, set the chat and embedding endpoints:
+
+```bash
+uv run sensai --persona tester \
+  --url http://ollama.example.internal:11434/api/chat \
+  --embed-url http://ollama.example.internal:11434/api/chat
+```
+
+## Features
+
+| Feature | Catalog | What it does | Details |
+| --- | --- | --- | --- |
+| CLI chatbot | B1 | Streaming replies, session history, clean errors, selectable model | [Streaming and UI](docs/use_cases/Streaming-and-UI.md) |
+| Reasoning loop | A1 | Thought, action and observation steps, validated and budgeted by the code | [ReAct](docs/use_cases/ReAct.md) |
+| Human in the loop | A3 | Three trust levels; tools that change something ask for approval | [Trust levels](docs/use_cases/Tools-and-trust-levels.md) |
+| MCP | T1 | Connects external MCP servers; includes a local example server | [MCP](docs/use_cases/MCP.md) |
+| Sandboxed code | T2 | Runs code in a disposable Docker container | [Sandbox](docs/use_cases/Sandboxed-code.md) |
+| Web search and fetch | T3 | Looks up documentation through Ollama's web API | [Web](docs/use_cases/Web-search-and-fetch.md) |
+| RAG | R1 | Hybrid vector and keyword search over attached documents | [RAG](docs/use_cases/RAG.md) |
+| Sessions and profiles | M1 | Saved sessions, preferences and instructions | [Sessions](docs/use_cases/Sessions.md), [Profiles](docs/use_cases/Profiles.md) |
+| Personas | A5 | Role and tone from `personas.json`, switchable mid-session | [Personas](docs/use_cases/Personas.md) |
+| Host tools | | Bash, files, screenshot and browser tools | [Bash](docs/use_cases/Bash.md), [Files](docs/use_cases/File-access.md), [Screenshot](docs/use_cases/Screenshot.md), [Browser](docs/use_cases/Browser.md) |
+| Session compression | | Folds the history into a running summary past a token threshold | [Compression](docs/use_cases/Session-compression.md) |
+| Session statistics | | Token use and context fill with `/stats` | [Statistics](docs/use_cases/Session-stats.md) |
+
+Each sheet holds the feature's user stories, acceptance criteria and limits.
+
+## Usage examples
+
+**Check the cart before review.** Run this from the repository root, then ask the
+question at the prompt:
+
+```bash
+uv run sensai --persona tester --files docs/demo_assets/demos/cart-spec.md
+```
+
+```text
+Run the tests in docs/demo_assets/examples/demos/python-tests, tell me which behavior
+fails and why, according to the attached specification.
+```
+
+SensaiUwu shows its reasoning and asks for approval before each action that isn't
+read-only. Refusing a call prevents it from running. Read each proposed write before
+approving it: the model can propose changing a test instead of fixing the code.
+
+**See the exact prompt sent to the model** (system prompt, history, injected chunks and
+tool results, in order):
+
+```bash
+uv run sensai --show-prompt
+```
+
+SensaiUwu warns you when a prompt reaches 90% of the context window, since Ollama drops
+what doesn't fit without an error. The check is an estimate that can miss images, so a
+prompt with images can be cut without a warning. `/stats` shows the current fill.
+
+**Choose the model and generation parameters:**
+
+```bash
+uv run sensai --model qwen3.5:9b --num-ctx 8192 --temperature 0.2 --top-p 0.9
+```
+
+**Switch features off:**
+
+```bash
+uv run sensai --disable rag compression --disable-tool web_search web_fetch
+```
+
+**Limit what runs without approval:**
+
+```bash
+uv run sensai --trust partial
+```
+
+**Request structured final answers:**
 
 ```bash
 uv run sensai --output-schema '{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"],"additionalProperties":false}'
 ```
 
-For example, ask: `Eliott is 23 years old. Extract his name and age.`
-The schema applies to final responses throughout this run. The CLI checks that the
-argument is a JSON object and passes it to Ollama's `format` parameter; local
-response validation and bounded retries are not implemented yet.
+The schema goes to Ollama's `format` parameter. SensaiUwu doesn't validate the reply
+again or retry.
 
-To add a Python dependency to the project:
-
-```bash
-uv add package-name
-```
-
-To add a development dependency:
-
-```bash
-uv add --dev package-name
-```
-
-## MCP connections
-
-Connect servers from the Sensai chat using `/mcp add-json <name> '<json>'`.
-The [MCP connection guide](docs/mcp-server.md) explains the JSON format and
-provides detailed examples for local tools, GitHub tokens and Gmail OAuth.
-
-### Local example server
-
-The example MCP server exposes an `add` tool, a greeting resource, and a prompt.
-Start it from the repository root:
+**Connect an MCP server** from the chat, as explained in the
+[MCP guide](docs/mcp-server.md). To start the local example server:
 
 ```bash
 uv run python src/sensai_mcp/sensai_server.py
 ```
 
-It listens on `http://127.0.0.1:8000/mcp`. See the
-[MCP connection guide](docs/mcp-server.md) for a connection check and instructions
-for using it with Sensai.
+`uv run sensai --help` lists every option.
 
-## Session statistics
+## Documentation
 
-Type `/stats` in the Sensai chat to see a table for the current session: token
-usage, message counts by role, how full the context window is and how close the
-session is to compression, plus the active model, persona and generation
-parameters. The [session statistics guide](docs/use_cases/Session-stats.md)
-explains each row.
+| Page | Contents |
+| --- | --- |
+| [Use case](docs/use-case.md) | The scenario and the feature map |
+| [Scope and decisions](docs/scope-and-decisions.md) | Why these features, and the main technical choices |
+| [Limits, impact and risks](docs/responsibility.md) | Data, business impact and failure risks |
+| [Benchmark](docs/benchmark.md) | Model comparison |
+| [If we started over](docs/retrospective.md) | What we would change |
 
-## Code quality
+To browse them locally:
 
-This project enforces linting, formatting, static typing, and tests, both
-locally (via [pre-commit](https://pre-commit.com/)) and in CI
-([.github/workflows/ci.yml](.github/workflows/ci.yml)).
+```bash
+uv run --group docs mkdocs serve
+```
+
+## Development
 
 | Tool | Purpose | Command |
 | --- | --- | --- |
@@ -114,44 +199,8 @@ locally (via [pre-commit](https://pre-commit.com/)) and in CI
 | [mypy](https://mypy-lang.org/) | Static type checking (strict mode) | `uv run mypy` |
 | [pytest](https://docs.pytest.org/) + coverage | Tests | `uv run pytest` |
 
-### One-time setup: enable pre-commit hooks
+To run the checks on every commit:
 
 ```bash
 uv run pre-commit install
-```
-
-From then on, `ruff check --fix`, `ruff format`, and `mypy` run automatically
-on every commit. To run all hooks on demand against the whole repo:
-
-```bash
-uv run pre-commit run --all-files
-```
-
-### Conventions
-
-- All new code must be type-annotated; `mypy` runs in `strict` mode.
-- Public modules/functions/classes use Google-style docstrings.
-- Ruff is configured with `select = ["ALL"]` in `pyproject.toml`, with a
-  short, documented ignore list for rules that conflict with the formatter
-  or don't fit this project. When in doubt, prefer fixing the code over
-  adding a new ignore.
-
-## Documentation
-
-The project documentation is built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) and automatically deployed to GitHub Pages via [.github/workflows/docs.yml](.github/workflows/docs.yml).
-
-### Local preview
-
-To serve the documentation locally with live-reload:
-
-```bash
-uv run --group docs mkdocs serve
-```
-
-Then visit [http://127.0.0.1:8000](http://127.0.0.1:8000).
-
-To build the static site locally:
-
-```bash
-uv run --group docs mkdocs build
 ```

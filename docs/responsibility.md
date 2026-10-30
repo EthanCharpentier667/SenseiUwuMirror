@@ -12,22 +12,20 @@ missing, we say so.
 
 ## 1. Legal and ethical limits on the data
 
-### Who is responsible for what: Sensai is a self-hosted tool
+### Who is responsible for what: SensaiUwu is a self-hosted tool
 
-Sensai is not a hosted service like ChatGPT or Claude. It is a program its **operator**
-installs and runs on their own infrastructure, and the operator can be:
+SensaiUwu is not a hosted service like ChatGPT or Claude. It is a program its **operator**
+installs and runs on their own infrastructure. In our scenario, the operator is Atelier
+Nova: SensaiUwu runs on its developers' workstations, and the models run on an Ollama
+server the company owns, shared by its team.
 
-- **a single developer:** Sensai, the database and Ollama all run on their laptop;
-- **a company:** Sensai runs on its developers' machines, and the models run on an
-  Ollama server the company owns, shared by its teams.
-
-In both cases, "local" means **on hardware the owner of the data controls**. That
+Here, "local" means **on hardware the owner of the data controls**. That
 changes who is responsible for securing that data:
 
-| | Hosted assistant (ChatGPT, Claude) | Sensai (self-hosted) |
-|---|---|---|
+| | Hosted assistant (ChatGPT, Claude) | SensaiUwu (self-hosted) |
+| --- | --- | --- |
 | Where conversations are stored | On the provider's servers | In `sensai.db`, on the operator's machine |
-| Who runs the model | The provider | The operator: their laptop or their company's Ollama server |
+| Who runs the model | The provider | The operator: Atelier Nova, on its own Ollama server |
 | What our team receives | Not applicable | **Nothing.** We host no server, collect no data and have no telemetry |
 | Who is the data controller (GDPR) | The provider, at least as a processor | The operator |
 | Who secures storage, access, backups and retention | The provider, for every customer at once | The operator, with the tools they already have: disk encryption, OS accounts, the company's network rules and retention policy |
@@ -36,10 +34,10 @@ A hosted provider holds all its customers' data in one place. It has to encrypt 
 separate customers, keep audit logs, sign processing contracts and erase data on
 request, because no customer can do it for them.
 
-Sensai never holds anyone's data. Building those layers into the program would
+SensaiUwu never holds anyone's data. Building those layers into the program would
 duplicate what the operator's system already provides (an encrypted disk protects
-`sensai.db` better than an encryption scheme of our own), and add friction for a single
-developer who doesn't need them. That is why we **did not build** the following:
+`sensai.db` better than an encryption scheme of our own), and add friction for a small
+team that doesn't need them. That is why we **did not build** the following:
 
 - encryption of the database;
 - multi-tenant access control;
@@ -64,7 +62,7 @@ looks at the screen and types into web pages. All of that can contain personal o
 confidential data.
 
 | Data | Where it is stored | Who can read it |
-|---|---|---|
+| --- | --- | --- |
 | Profile: name, password | `sensai.db` (SQLite, in the working folder). The password is hashed with PBKDF2-HMAC and a random salt (`data/profile/manager.py`), with parameters read from the environment | Anyone who can read the file. The password itself can't be read back |
 | Saved login | The user name goes in `~/.sensai/state.json`, the password in the OS keychain (`keyring`, `core/state.py`) | The OS user |
 | Preferences, instructions | `sensai.db`, in plain text | Anyone who can read the file |
@@ -79,14 +77,14 @@ by accident.
 
 ### Sending data to a remote server
 
-**This is the main limit.** Sensai talks to Ollama over HTTP, and the whole prompt goes
+**This is the main limit.** SensaiUwu talks to Ollama over HTTP, and the whole prompt goes
 to the server at `--url`. **The rule:** that server must belong to whoever owns the
 data, the user or their company. The limit is crossed when the prompt goes to a server
 that doesn't.
 
 | Service | What is sent | Default? |
-|---|---|---|
-| Ollama server at `--url` | The whole prompt: history, files read, command output, page snapshots, screenshots (vision models) | **Yes.** `DEFAULT_URL` is our team's own Ollama server (`ollama.tanouminou.com`), run by a team member for the project. Anyone else deploying Sensai points `--url` at their own server |
+| --- | --- | --- |
+| Ollama server at `--url` | The whole prompt: history, files read, command output, page snapshots, screenshots (vision models) | **Yes.** `DEFAULT_URL` is `http://localhost:11434/api/chat`. Atelier Nova points `--url` at its own server |
 | Ollama Cloud (`gemma4:cloud`) | The same, processed by Ollama, a third party | **No.** Only when the user picks Gemma 4 because a task needs a much more capable model than what runs locally. This is an explicit choice to send the prompt outside |
 | `web_search`, `web_fetch` (`ollama.com/api/...`) | The search query or the URL, which the model may build from the code | Only when the model calls them (feature enabled by default) |
 | MCP servers | Whatever their tools receive as arguments | Only the servers the user adds |
@@ -99,24 +97,18 @@ What crossing this limit means:
   the GDPR forbids (Art. 28).
 - **Secrets**: a `file_read` on `.env`, or a `bash_tool` that prints environment
   variables, sends API keys to the model's server, where they may be logged.
-- **School work**: an exam subject or a classmate's code sent to a cloud service may
-  break the rules of the exam.
 
 What we do about it:
 
-- **The user chooses the server.** `--url` points Sensai at a local Ollama
-  (`http://localhost:11434/api/chat`), and then nothing leaves the machine except
-  through web tools and MCP.
-- **Leaky tools can be turned off.** `--disable-tool web_search --disable-tool
-  web_fetch`, or `--disable mcp`, removes the other ways out (see
+- **The server is local by default.** SensaiUwu uses `http://localhost:11434/api/chat`.
+  When `--url` points it at another server, such as the company's, the full prompt goes
+  to that server. Web tools and MCP are other destinations.
+- **Leaky tools can be turned off.** `--disable-tool web_search web_fetch`, or
+  `--disable mcp`, removes the other ways out (see
   [Feature flags](use_cases/Feature-flags-and-settings.md)).
-- **Nothing is sent without being visible.** With the `none` and `partial` trust
-  levels, every tool that isn't read-only asks for approval and shows its arguments
-  first.
-
-**What we'd improve:** the default URL fits our team, but a new operator should choose
-their server, not inherit ours. Asking for it on first launch is noted in the
-[retrospective](retrospective.md).
+- **Approval shows what a tool sends.** With the `none` trust level, every tool asks
+  for approval and shows its arguments first. With `partial`, only unsafe tools do:
+  web search and fetch are marked safe, so they run without asking.
 
 ### Personal data in the database and the trace
 
@@ -128,11 +120,10 @@ their server, not inherit ours. Asking for it on first launch is noted in the
     password, and secret-looking values (`*_TOKEN`, `*_KEY`, `password=`) in
     observations, before saving them.
 - **Erasing data is the operator's job.** `sensai.db` is the operator's file, on their
-  machine. A developer erases their data by deleting it; a company applies its own
-  retention policy to it, as it does for any other file on its machines. The GDPR right
-  to erasure (Art. 17) applies to the operator as the data controller, not to us. A
-  `/session delete` command would still be a convenience, and the `ON DELETE CASCADE`
-  constraints would already remove the messages, documents and chunks with the session.
+  machines, and Atelier Nova applies its own retention policy to it, as it does for any
+  other file. The GDPR right to erasure (Art. 17) applies to the operator as the data
+  controller, not to us. `/session delete` removes a session, and the `ON DELETE CASCADE`
+  constraints remove its messages, documents and chunks with it.
 - **Isolation between users holds.** Retrieval only searches the documents of the
   current session. Profile preferences are only added when the active profile owns the
   session (`_profile_context_message`), so one user's instructions can't leak into
@@ -150,7 +141,7 @@ ignored).
 ### The models' licences
 
 | Model | Licence | What it means for us |
-|---|---|---|
+| --- | --- | --- |
 | `llama3.2` (default) | Llama 3.2 Community License | Allowed for our use. It comes with Meta's Acceptable Use Policy, and a product built on it must say "Built with Llama" |
 | `qwen3.5:9b` | Apache 2.0 | No restriction, beyond keeping the licence notice |
 | `gemma4:cloud` | Google's Gemma terms, served by Ollama Cloud | Only used in the cloud, when a task needs a much more capable model. It runs on Ollama's servers, so the user accepts Ollama Cloud's terms too |
@@ -168,21 +159,20 @@ models, and re-index the whole corpus if the embedding model is the one affected
 
 ### Model size against the hardware users own
 
-Our target user is a student or a developer testing a project on their own laptop. The
-model must run there, next to the project under test: an IDE, a build, a Vulkan app,
-Chrome.
+Our target user is a developer in a small company, such as Camille at Atelier Nova. The
+model runs on one Ollama server shared by the team, so each developer's calls take
+capacity from the others.
 
-| Model | Weights on disk | Capabilities | Who can run it |
-|---|---|---|---|
-| `llama3.2` 3B, Q4_K_M | 2.0 GB | Text, tools | Almost any recent laptop, while the project under test is running |
-| `qwen3.5:9b`, Q4_K_M | 6.6 GB | Text, vision, tools, thinking | A machine with a GPU or 16 GB of unified memory |
+| Model | Weights on disk | Capabilities | Effect on the shared server |
+| --- | --- | --- | --- |
+| `llama3.2` 3B, Q4_K_M | 2.0 GB | Text, tools | Leaves the most memory and compute for the rest of the team |
+| `qwen3.5:9b`, Q4_K_M | 6.6 GB | Text, vision, tools, thinking | About 3.3 times the weights, for vision and harder cases |
 
 Sizes come from `ollama show`, in [the benchmark](benchmark.md).
 
-**Impact:** a 9B model by default would leave out part of our target users, or slow
-down their machine while it builds and runs their project. The test result could then
-be wrong: for example, a timeout reached only because the LLM was taking the CPU. So we
-ship the 3B model by default and let users pick a bigger one (`/model`).
+**Impact:** a 9B model by default would take more of the server for every message,
+including simple ones. So we ship the 3B model by default and let users pick a bigger
+one (`/model`) when a task needs it.
 
 The cost of that choice is reliability. A 3B model makes more mistakes when planning,
 so we put the safeguards in the code instead: the JSON schema, the controller's checks,
@@ -210,7 +200,7 @@ themselves stops using the tool. Our answers to this:
 An order of magnitude, estimated from the code (about 4 characters per token):
 
 | Message | LLM calls | Input tokens (estimate) |
-|---|---|---|
+| --- | --- | --- |
 | A simple question, no tool | 1 | ~2,000 to 3,000 |
 | A typical test (4 steps, short outputs) | 5 | ~20,000 |
 | Worst case (10 steps, observations at 6,000 characters) | 11 | ~100,000 |
@@ -226,13 +216,12 @@ An order of magnitude, estimated from the code (about 4 characters per token):
     `prompt_eval_count`, `eval_count` and `total_duration`, so the measurement only
     needs the scenarios of the use case to be run.
 
-**Our choice:** local inference by design (privacy, no account, no cost per call).
-"Local" can be the developer's laptop, or a GPU server the company owns and shares
-between its developers. The second option changes the business picture:
+**Our choice:** local inference by design (privacy, no account, no cost per call), on a
+GPU server the company owns and shares between its developers:
 
 - one machine is bought once;
-- every developer gets the 9B model without needing the hardware;
-- the code never leaves the company.
+- every developer gets the model without needing the hardware;
+- inference on the code stays inside the company.
 
 Ollama Cloud remains an opt-in, for the rare task that needs a much more capable model
 (`gemma4:cloud`). The worst case also
@@ -243,13 +232,13 @@ brings its own risk, described below: the context can overflow.
 ## 3. How our choices could disrupt a system
 
 | Risk | Whose system | What could happen | How we handle it |
-|---|---|---|---|
-| **`bash_tool` on the host** | The user's | A wrong or misunderstood command (`rm -rf`, `git push --force`, `DROP TABLE`) has irreversible effects, with the user's rights | `bash_tool` isn't `safe`: it asks for approval in `none` and `partial`, with the full command shown. Foreground commands stop after 30 s. Each command runs in its own process group (`start_new_session`) so it can be stopped completely, and every background job is stopped when Sensai exits. The sandbox exists for throwaway code |
+| --- | --- | --- | --- |
+| **`bash_tool` on the host** | The user's | A wrong or misunderstood command (`rm -rf`, `git push --force`, `DROP TABLE`) has irreversible effects, with the user's rights | `bash_tool` isn't `safe`: it asks for approval in `none` and `partial`, with the full command shown. Foreground commands stop after 30 s. Each command runs in its own process group (`start_new_session`) so it can be stopped completely, and every background job is stopped when SensaiUwu exits. The sandbox exists for throwaway code |
 | **Browser on a real site** | Someone else's | `browser_click` and `browser_type` act like a user: on a production site, a test could send a form, delete an account or place an order | Both tools aren't `safe`, so they ask for approval. Chrome is visible, so the user sees what happens. `file://` URLs are refused, so the browser can't read local files without the approval `file_read` asks for. The use case targets the user's own app (`localhost`) |
 | **Calls to external services** | ollama.com, the sites fetched | A small model in a loop could call `web_search` or `web_fetch` again and again | The budgets are enforced by the code, not the model: 10 tool calls per message, 2 per tool, and an identical call is refused. One message makes at most 2 searches |
 | **Load on a shared Ollama server** | Other users of the server | Up to 11 LLM calls per message with a 16k context use the GPU of a server that others share | The same budgets cap the number of calls. A user with a shared server can lower `--num-ctx` |
 | **Context overflow** | Ours | 10 observations at 6,000 characters exceed the 16,384-token `num_ctx`. Ollama then truncates the prompt, and the instructions or the user's question can be lost | Observations are cut, and failed or rejected steps are short. **Not solved:** the controller doesn't yet budget the trajectory in tokens. Tracked in the [retrospective](retrospective.md) |
-| **Sandbox reaching the host** | The user's | Code run in `sandboxed_code` tries to reach the host | Disposable container with no network, a read-only filesystem, half a CPU, 512 MB, 64 processes, a 20 s limit, and output cut at 64 KB. **Limit:** Sensai needs access to the Docker daemon, which is equivalent to root on Linux; the risk is Docker's, not the container's |
+| **Sandbox reaching the host** | The user's | Code run in `sandboxed_code` tries to reach the host | Disposable container with no network, a read-only filesystem, half a CPU, 512 MB, 64 processes, a 20 s limit, and output cut at 64 KB. **Limit:** SensaiUwu needs access to the Docker daemon, which is equivalent to root on Linux; the risk is Docker's, not the container's |
 | **Compression losing facts** | Ours | Folding the history into a summary can drop the detail a later message needs (the exact error, the file already fixed) | The summary is written by the same model, with the instruction to keep facts, decisions and context. Tool results are never in it, so the summary can't turn a stale result into a fact. Since the trace is saved, what actually ran can still be checked in the database |
 | **A report that lies** | The user's trust | The model announces "✅ login works" when the click failed | A tool error comes back as `{"error": ...}`. The step is marked `failed`, and the reply's instructions list failed steps as failed. We saw this happen on a real run before the fix |
 
@@ -266,7 +255,7 @@ passes" after a commit that broke the build. We left this feature out on purpose
 ## 4. The user's experience in our technical choices
 
 | Choice | What the user sees | Why |
-|---|---|---|
+| --- | --- | --- |
 | **Streaming** of the thoughts and the reply (`StreamingThoughtExtractor`) | The thought behind each step, then `→ tool {args}`, then the reply as it is written | Perceived speed: a 30 s test with visible progress feels shorter than 30 s of silence. The user can also stop a wrong path early |
 | **Live display limited to the screen's height** (`_Tail`, `transient=True`), then the final reply printed once | A long reply no longer prints itself again and again | A real bug we fixed: the terminal filled up with copies of the reply |
 | **Three trust levels** | `none`: every tool asks. `partial`: read-only tools run on their own. `total`: nothing asks | Human-in-the-loop has a cost: approving every `bash_job` or `browser_snapshot` is tiring and makes the user approve without reading. `partial` only asks when something can change |

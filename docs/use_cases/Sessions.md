@@ -1,12 +1,12 @@
 # Sessions
 
-Every conversation with Sensai is a session saved in SQLite. `/session` lists the
+Every conversation with SensaiUwu is a session saved in SQLite. `/session` lists the
 profile's sessions, switches back to an earlier one, starts a new one, renames or
 deletes one. A new session is named by the model after its first exchange.
 
 ## Scenario
 
-Camille spent the morning investigating the empty-cart regression with Sensai.
+Camille spent the morning investigating the empty-cart regression with SensaiUwu.
 After lunch she starts a fresh session to draft the merge-request description,
 then wants to go back to the morning's investigation to check which test failed,
 without retyping its context. Malik later asks her to clean up the throwaway
@@ -48,7 +48,7 @@ Preconditions: the profile has at least one saved session.
 
 | Acceptance criterion | Expected result |
 | --- | --- |
-| No empty sessions | Launching Sensai and quitting without chatting leaves no session in the database. |
+| No empty sessions | Launching SensaiUwu and quitting without chatting leaves no session in the database. |
 | Confirmation | `/session delete [name or id]` asks for confirmation before deleting. |
 | Cascade | Deleting a session deletes its messages, attached documents and their chunks. |
 | Current session | Deleting the current session moves to a new, empty one. |

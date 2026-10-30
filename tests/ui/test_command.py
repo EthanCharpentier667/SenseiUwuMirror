@@ -22,6 +22,12 @@ async def test_command_registry() -> None:
 
     # Execute
     class MockUIHandler:
+        async def on_prompt(self, payload: dict[str, Any]) -> None:
+            pass
+
+        async def on_context_warning(self, used: int, limit: int) -> None:
+            pass
+
         async def on_system_message(self, message: Any) -> None:
             pass
 

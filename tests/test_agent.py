@@ -128,6 +128,12 @@ class MockUIHandler(AsyncUIHandler):
     async def on_thinking_chunk(self, chunk: str) -> None:
         self.thinking.append(chunk)
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         pass
 

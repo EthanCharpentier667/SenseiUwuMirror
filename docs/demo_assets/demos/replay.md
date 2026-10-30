@@ -1,6 +1,6 @@
 # Replay the demonstrations yourself
 
-Each feature sheet contains an interactive replay section: launch the real Sensai
+Each feature sheet contains an interactive replay section: launch the real SensaiUwu
 CLI, type the listed messages and inspect its responses. The launcher supplies a
 fictional account and disposable copies of the fixtures, so the steps do not depend
 on your personal profile or on changing the repository's original demo projects.
@@ -105,7 +105,7 @@ required behavior from what was actually observed.
 
 The five updated GIFs are captured from a real pseudo-terminal. The automation
 submits the documented messages and answers `y` at actual approval prompts; the
-Sensai agent chooses and executes the tools and generates every answer.
+SensaiUwu agent chooses and executes the tools and generates every answer.
 
 ```bash
 PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py file-access mcp sandbox streaming web

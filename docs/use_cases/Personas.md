@@ -1,7 +1,7 @@
 # Personas
 
 A persona defines the assistant's role through a name, description and system
-prompt. Sensai loads personas from JSON and can switch the active system prompt
+prompt. SensaiUwu loads personas from JSON and can switch the active system prompt
 during a conversation without changing the model or tool implementation.
 
 ## Scenario
@@ -67,7 +67,7 @@ responses, not guaranteed instruction compliance.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual Sensai CLI with a temporary fictional profile and
+The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
 working copies. Type the following commands and questions at `Vous >`; `/exit`
 cleans up. Compare the stated facts and tool results, not identical model wording.
 
@@ -78,16 +78,16 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py persona
 1. The launcher loads the QA/reviewer fixture file from the disposable workspace.
    List and select the first role:
 
-```text
-/persona list
-/persona switch qa
-```
+   ```text
+   /persona list
+   /persona switch qa
+   ```
 
 2. Send the message used in the GIF:
 
-```text
-I observed one passing test and one failing test: test_empty_basket returns 1 instead of 0. I have not checked payment. Summarize this for my review; do not run tools.
-```
+   ```text
+   I observed one passing test and one failing test: test_empty_basket returns 1 instead of 0. I have not checked payment. Summarize this for my review; do not run tools.
+   ```
 
 3. Expect an actual role-conditioned reply beginning with `QA CHECK`, organized
    around the result and its evidence or limits. The test result here is supplied
