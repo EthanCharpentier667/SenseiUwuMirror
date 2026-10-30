@@ -1,8 +1,8 @@
-# Benchmark des familles de LLM pour Sensai
+# Benchmark des familles de LLM pour SensaiUwu
 
 **Dossier de décision pour la soutenance — sources consultées le 14 octobre 2026.**
 
-Sensai doit permettre de changer de modèle selon le matériel et la tâche.
+SensaiUwu doit permettre de changer de modèle selon le matériel et la tâche.
 Les données publiées soutiennent deux choix complémentaires : **Llama 3.2 3B
 comme référence légère**, et **Qwen 3.5 9B comme candidat pour les tâches plus
 exigeantes**. Les modèles GPT et Claude servent de références externes de
@@ -12,12 +12,12 @@ prétendre être des mesures réalisées par notre équipe.
 
 ## 1. Quel problème le projet résout-il ?
 
-Sensai est un assistant Python en ligne de commande qui communique directement
+SensaiUwu est un assistant Python en ligne de commande qui communique directement
 avec l'API Ollama. Il combine dialogue, historique, réponse en streaming,
 recherche dans des documents et accès à des outils. Le choix du modèle doit
 donc tenir compte de son intégration dans cette application.
 
-| Besoin de Sensai | Éléments du dépôt | Ce qu'il faut comparer |
+| Besoin de SensaiUwu | Éléments du dépôt | Ce qu'il faut comparer |
 | --- | --- | --- |
 | Dialogue et modèle configurable | [`config.py`](https://github.com/EthanCharpentier667/SenseiUwuMirror/blob/e9808b6eaf473e6cfbde099637fe67251bdc5d7a/src/sensai/config.py), [`client.py`](https://github.com/EthanCharpentier667/SenseiUwuMirror/blob/e9808b6eaf473e6cfbde099637fe67251bdc5d7a/src/sensai/client.py) | Qualité de réponse, français, latence et poids à charger |
 | Planification et actions | [`agent.py`](https://github.com/EthanCharpentier667/SenseiUwuMirror/blob/e9808b6eaf473e6cfbde099637fe67251bdc5d7a/src/sensai/agent.py), [`react.py`](https://github.com/EthanCharpentier667/SenseiUwuMirror/blob/e9808b6eaf473e6cfbde099637fe67251bdc5d7a/src/sensai/features/react/react.py) | Respect du schéma JSON, choix d'action et arguments corrects |
@@ -27,10 +27,10 @@ donc tenir compte de son intégration dans cette application.
 
 **Particularité importante de notre agent :** le modèle propose une action
 en JSON contraint ; le contrôleur Python valide cette proposition et décide
-de l'exécution. Les limites actuelles sont 5 étapes, 3 appels d'outils au total
+de l'exécution. Les limites actuelles sont 10 étapes, 10 appels d'outils au total
 et 2 appels par outil. La réponse finale est ensuite générée en streaming.
 Un bon score de function calling est un indicateur utile, mais ne mesure pas
-directement la réussite de cette boucle Sensai.
+directement la réussite de cette boucle SensaiUwu.
 
 Le RAG utilise un modèle d'embeddings distinct, `nomic-embed-text` par défaut.
 Remplacer Llama par Qwen ne remplace donc pas automatiquement la recherche
@@ -39,7 +39,7 @@ et `llama3.2:latest`, avec Llama comme défaut. Notre analyse de Gemma 3 plus ba
 ne doit pas être attribuée à Gemma 4.
 
 Les fonctionnalités RAG, ReAct, outils, MCP et compression d'historique peuvent
-être activées ou désactivées. Pour comparer les modèles dans Sensai, conserver
+être activées ou désactivées. Pour comparer les modèles dans SensaiUwu, conserver
 les mêmes fonctionnalités actives : une différence de configuration pourrait
 sinon être prise à tort pour une différence de qualité du modèle.
 
@@ -48,7 +48,7 @@ sinon être prise à tort pour une différence de qualité du modèle.
 | Source | Nature | Utilité pour ce dossier | Limite |
 | --- | --- | --- | --- |
 | [Artificial Analysis](https://artificialanalysis.ai/models) | Évaluateur indépendant ; indices, performances et prix API | Comparer des modèles nommés dans un même référentiel | Certains indices sont estimés ; les performances API ne sont pas celles de notre PC |
-| [LiveBench](https://livebench.ai/#/) | Benchmark indépendant ; classement daté et données publiques | Situer les capacités de code, raisonnement et travail sur plusieurs étapes | La version 2.0 mesure aussi des agents complets et des capacités hors de Sensai |
+| [LiveBench](https://livebench.ai/#/) | Benchmark indépendant ; classement daté et données publiques | Situer les capacités de code, raisonnement et travail sur plusieurs étapes | La version 2.0 mesure aussi des agents complets et des capacités hors de SensaiUwu |
 | [IA-Top](https://ia-top.fr/comparateur-llm/) | Comparateur et agrégateur | Vue française des familles et repérage des sources | Son indice propre ne se confond pas avec les deux précédents |
 | [Meta — fiche Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct) et [Qwen — fiche 9B](https://huggingface.co/Qwen/Qwen3.5-9B) | Évaluations déclarées par les éditeurs | Détail des épreuves et identification exacte des variantes | Évaluations non indépendantes ; protocoles différents entre éditeurs |
 | [Catalogue Ollama](https://ollama.com/library) | Fiches de distribution | Disponibilité locale, quantification, capacités et taille des fichiers | Le contexte annoncé et la taille des poids ne donnent pas la RAM réelle nécessaire |
@@ -85,7 +85,7 @@ candidats locaux ; ils ne prétendent pas tous être les dernières sorties.
 Le statut « estimé » est conservé, y compris lorsque la FAQ de la fiche le
 mentionne alors que son résumé n'affiche pas d'astérisque.
 
-| Famille / éditeur | Modèle et mode exact | Indice AA | Statut du chiffre | Déploiement et intérêt pour Sensai |
+| Famille / éditeur | Modèle et mode exact | Indice AA | Statut du chiffre | Déploiement et intérêt pour SensaiUwu |
 | --- | --- | --- | --- | --- |
 | GPT / OpenAI | [GPT-5.4, Low](https://artificialanalysis.ai/models/gpt-5-4-low) | **28** | Estimé | API propriétaire ; référence externe, pas un modèle Ollama local |
 | Claude / Anthropic | [Sonnet 4.6, Non-reasoning, High Effort](https://artificialanalysis.ai/models/claude-sonnet-4-6/) | **25** | Estimé selon la FAQ | API propriétaire ; référence externe pour la qualité d'assistance |
@@ -97,7 +97,7 @@ mentionne alors que son résumé n'affiche pas d'astérisque.
 
 **Ce que ce tableau justifie :** retenir plusieurs niveaux de modèle, et
 examiner Qwen 9B pour les tâches complexes. **Ce qu'il ne prouve pas :** que
-Qwen sera meilleur sur chaque prompt français de Sensai, ou que tous les
+Qwen sera meilleur sur chaque prompt français de SensaiUwu, ou que tous les
 modèles d'une famille auront ces résultats. Les tailles, budgets de pensée
 et conditions de service ne sont pas identiques.
 
@@ -137,7 +137,7 @@ colonnes détaillées. Le site indique employer l'effort maximal pris en charge,
 sauf exception signalée dans la ligne détaillée.
 
 **Utilité pour le jury :** une bonne note de raisonnement ne garantit pas une
-bonne exécution sur plusieurs étapes. Pour Sensai, la réussite de la boucle
+bonne exécution sur plusieurs étapes. Pour SensaiUwu, la réussite de la boucle
 d'agent reste un critère à part. Ces données de grands modèles ne sont pas
 transférables à Qwen 9B, Llama 3B ou à notre contrôleur Python. Les notes de
 code concernent des tâches de correction, pas une garantie générale de code
@@ -152,7 +152,7 @@ est `latest`, mais ses caractéristiques identifient la variante 3B. Les
 identifiants ci-dessous permettent de distinguer cet inventaire du catalogue
 en ligne, dont un tag peut évoluer.
 
-| Critère | Llama 3.2 3B | Qwen 3.5 9B | Conséquence pour Sensai |
+| Critère | Llama 3.2 3B | Qwen 3.5 9B | Conséquence pour SensaiUwu |
 | --- | --- | --- | --- |
 | Tag installé | `llama3.2:latest` | `qwen3.5:9b` | Comparer ces variantes précises |
 | Identifiant abrégé | `a80c4f17acd5` | `56671c2ab938` | Retrouver les poids réellement utilisés |
@@ -167,8 +167,8 @@ Sources : commandes locales `ollama list` et `ollama show`, ainsi que les fiches
 [Llama 3.2 3B](https://ollama.com/library/llama3.2:3b) et
 [Qwen 3.5 9B](https://ollama.com/library/qwen3.5:9b).
 
-La configuration de Sensai fixe `num_ctx` à **16 384** par défaut. Une fenêtre
-théorique de 262k ne signifie donc pas que Sensai utilise effectivement 262k.
+La configuration de SensaiUwu fixe `num_ctx` à **16 384** par défaut. Une fenêtre
+théorique de 262k ne signifie donc pas que SensaiUwu utilise effectivement 262k.
 La vision de Qwen est une possibilité d'évolution : le support actuel de
 documents via extraction de texte ne démontre pas une chaîne multimodale
 image→modèle déjà intégrée.
@@ -215,7 +215,7 @@ fiche pour reproduire ces résultats.
 
 **Meta : résultats déclarés pour Llama 3.2 3B Instruct en BF16.**
 
-| Épreuve et protocole Meta | Score publié | Intérêt pour Sensai |
+| Épreuve et protocole Meta | Score publié | Intérêt pour SensaiUwu |
 | --- | --- | --- |
 | MMLU, 5-shot, macro accuracy | **63,4** | Connaissances générales |
 | MMLU français, 5-shot | **54,6** | Repère spécifique au français |
@@ -233,7 +233,7 @@ pas BFCL-V4 ; le résumé IFEval de Meta précise une agrégation que le tableau
 Qwen ne détaille pas de la même façon. Nous ne calculons donc pas un « gain
 Qwen » par soustraction de ces colonnes. La preuve comparative indépendante
 retenue est l'indice AA, avec ses réserves ; les tableaux éditeur expliquent
-pourquoi chaque candidat mérite d'être testé dans Sensai.
+pourquoi chaque candidat mérite d'être testé dans SensaiUwu.
 
 ### 4.4. Décision pour le projet
 
