@@ -1,4 +1,4 @@
-"""Orchestration and setup functions for Sensai components."""
+"""Orchestration and setup functions for SensaiUwu components."""
 
 from pathlib import Path
 
@@ -33,11 +33,13 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         token=config.token,
         timeout=config.timeout,
         verbose=config.verbose,
+        show_prompt=config.show_prompt,
         num_ctx=config.num_ctx,
         temperature=config.temperature,
         top_p=config.top_p,
     )
     ui_handler = CLIHandler()
+    client.events = ui_handler
     agent = Agent(
         model=config.model,
         tools=get_tools(),

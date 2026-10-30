@@ -251,6 +251,25 @@ class CLIHandler(AsyncUIHandler):
         await self.on_stream_end()
         self.console.print(message)
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        """Display a request exactly as it is sent, with its messages in order."""
+        settings = {key: value for key, value in payload.items() if key != "messages"}
+        text = Text(json.dumps(settings, indent=2, ensure_ascii=False))
+        for index, message in enumerate(payload.get("messages", []), start=1):
+            text.append(f"\n\n[{index}] {message.get('role', 'unknown')}\n", style="bold cyan")
+            text.append(str(message.get("content", "")))
+            if message.get("images"):
+                text.append(f"\n<{len(message['images'])} image(s)>", style="dim")
+        self.console.print(Panel(text, title="[bold cyan]Prompt sent to Ollama[/bold cyan]"))
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        """Warn that the prompt nears the context window, where Ollama drops what doesn't fit."""
+        self.console.print(
+            f"\n[bold yellow]Warning: this prompt used about {used} of {limit} context tokens. "
+            "Ollama silently drops what doesn't fit: raise --num-ctx or start a new session."
+            "[/bold yellow]"
+        )
+
     async def prompt_choice(
         self, title: str, text: str, choices: list[tuple[str, str]]
     ) -> str | None:

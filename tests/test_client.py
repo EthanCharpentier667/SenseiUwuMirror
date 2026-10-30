@@ -56,6 +56,12 @@ class MockUIHandler(AsyncUIHandler):
     async def on_thinking_chunk(self, chunk: str) -> None:
         pass
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         pass
 
@@ -79,13 +85,112 @@ class MockUIHandler(AsyncUIHandler):
         return ("ok", checked)
 
 
-@pytest.mark.asyncio
-async def test_client_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_client_sends_no_authorization_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TOKEN", raising=False)
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
-    pattern = re.escape("API token not found in environment variables.")
-    with pytest.raises(ValueError, match=pattern):
-        await client.chat(messages=[{"role": "user", "content": "hi"}])
+    assert "Authorization" not in client._build_headers()  # noqa: SLF001
+
+
+def test_client_sends_authorization_with_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TOKEN", raising=False)
+    client = OllamaClient(base_url=TEST_BASE_URL, token="secret", timeout=TEST_TIMEOUT)  # noqa: S106
+    assert client._build_headers()["Authorization"] == "Bearer secret"  # noqa: SLF001
+
+
+class RecordingEvents(MockUIHandler):
+    """UI handler recording the prompts and context warnings it receives."""
+
+    def __init__(self) -> None:
+        """Start with no prompt and no warning."""
+        super().__init__()
+        self.prompts: list[dict[str, Any]] = []
+        self.warnings: list[tuple[int, int]] = []
+
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        self.prompts.append(payload)
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        self.warnings.append((used, limit))
+
+
+def _client_replying(
+    monkeypatch: pytest.MonkeyPatch, prompt_eval_count: int, **kwargs: Any
+) -> OllamaClient:
+    """A client whose non-streaming requests get a reply with this prompt token count."""
+
+    class MockResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return {"message": {"content": "ok"}, "prompt_eval_count": prompt_eval_count}
+
+    class MockAsyncClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            pass
+
+        async def post(self, *_args: Any, **_kwargs: Any) -> MockResponse:
+            return MockResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    return OllamaClient(base_url=TEST_BASE_URL, token="t", timeout=TEST_TIMEOUT, **kwargs)  # noqa: S106
+
+
+@pytest.mark.asyncio
+async def test_client_shows_the_exact_payload_only_when_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    messages = [{"role": "user", "content": "hi"}]
+    for show_prompt, expected in ((True, 1), (False, 0)):
+        client = _client_replying(monkeypatch, 1, show_prompt=show_prompt, num_ctx=100)
+        events = RecordingEvents()
+        client.events = events
+        await client.chat(messages=messages, model="m", stream=False)
+        assert len(events.prompts) == expected
+    client = _client_replying(monkeypatch, 1, show_prompt=True, num_ctx=100)
+    client.events = events = RecordingEvents()
+    await client.chat(messages=messages, model="m", stream=False)
+    assert events.prompts[0]["messages"] == messages
+    assert events.prompts[0]["options"] == {"num_ctx": 100}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prompt_eval_count", "text", "warnings"),
+    [
+        (50, "hi", []),
+        (95, "hi", [(95, 100)]),
+        (0, "x" * 400, [(100, 100)]),
+    ],
+)
+async def test_client_warns_when_the_prompt_nears_the_context_window(
+    monkeypatch: pytest.MonkeyPatch,
+    prompt_eval_count: int,
+    text: str,
+    warnings: list[tuple[int, int]],
+) -> None:
+    client = _client_replying(monkeypatch, prompt_eval_count, num_ctx=100)
+    client.events = events = RecordingEvents()
+    await client.chat(messages=[{"role": "user", "content": text}], stream=False)
+    assert events.warnings == warnings
+
+
+@pytest.mark.asyncio
+async def test_client_does_not_warn_without_a_context_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _client_replying(monkeypatch, 10**6)
+    client.events = events = RecordingEvents()
+    await client.chat(messages=[{"role": "user", "content": "hi"}], stream=False)
+    assert events.warnings == []
 
 
 @pytest.mark.asyncio

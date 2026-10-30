@@ -17,6 +17,9 @@ dotenv.load_dotenv()
 
 ChunkCallback = Callable[[str], Awaitable[None]]
 
+CONTEXT_WARNING_RATIO = 0.9
+CHARS_PER_TOKEN = 4
+
 
 @dataclass
 class ChatResult:
@@ -29,6 +32,11 @@ class ChatResult:
     prompt_eval_count: int = 0
     total_duration: int = 0
     status_code: int = 200
+
+
+def _estimated_tokens(messages: list[dict[str, Any]]) -> int:
+    """Estimate a prompt's size in tokens from its text, at about 4 characters per token."""
+    return sum(len(str(message.get("content", ""))) for message in messages) // CHARS_PER_TOKEN
 
 
 def _messages_from_payload(
@@ -66,10 +74,10 @@ def _messages_with_reply(
 
 @dataclass
 class Response:
-    """A response from the Sensei API.
+    """A response from the SensaiUwu API.
 
     Attributes:
-        response (str): The response text from the Sensei API.
+        response (str): The response text from the SensaiUwu API.
         respond_time (float): The time taken to respond, in seconds.
         request_time (float): The time taken to make the request, in seconds.
         total_duration (float): The total duration of the request and response, in seconds.
@@ -134,12 +142,14 @@ class OllamaClient:
         temperature: float | None = None,
         top_p: float | None = None,
         verbose: bool = False,
+        show_prompt: bool = False,
     ) -> None:
         """Initialize the Ollama client.
 
         Args:
             base_url: Base endpoint URL for the chat API.
-            token: Bearer authentication token of the Ollama API.
+            token: Bearer authentication token of the Ollama API. Optional: a local Ollama
+                needs none, so the header is only sent when a token is set.
             timeout: HTTP request timeout in seconds.
             num_ctx: Context window size (in tokens) for chat requests. When None, Ollama
                 uses its own default, small enough to silently drop the oldest messages
@@ -147,11 +157,14 @@ class OllamaClient:
             temperature: Sampling temperature for generation.
             top_p: Nucleus sampling probability threshold for generation.
             verbose: Whether to print debug information.
+            show_prompt: Whether to show ``events`` each request exactly as it is sent.
         """
         self.base_url: str = base_url
         self.token = token or os.getenv("TOKEN")
         self.timeout = timeout
         self.verbose = verbose
+        self.show_prompt = show_prompt
+        self.events: AsyncUIHandler | None = None
         self.num_ctx = num_ctx
         self.temperature = temperature
         self.top_p = top_p
@@ -159,13 +172,10 @@ class OllamaClient:
 
     def _build_headers(self) -> dict[str, str]:
         """Construct authorization and content-type headers."""
-        if not self.token:
-            msg = "API token not found in environment variables."
-            raise ValueError(msg)
-        return {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
-        }
+        headers = {"Content-Type": "application/json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
 
     def _default_options(self) -> dict[str, Any]:
         """Build the default generation options configured on the client."""
@@ -177,6 +187,20 @@ class OllamaClient:
         if self.top_p is not None:
             options["top_p"] = self.top_p
         return options
+
+    async def _warn_if_context_full(
+        self, messages: list[dict[str, Any]], prompt_tokens: int, num_ctx: int | None
+    ) -> None:
+        """Warn the user when a prompt nears the context window, where Ollama truncates it.
+
+        Ollama drops what doesn't fit without any error, and its count stops at the window
+        or leaves out a cached prefix, so the size estimated from the text is checked too.
+        """
+        if self.events is None or not num_ctx:
+            return
+        used = max(prompt_tokens, _estimated_tokens(messages))
+        if used >= num_ctx * CONTEXT_WARNING_RATIO:
+            await self.events.on_context_warning(used, num_ctx)
 
     async def _consume_chunk(
         self,
@@ -315,6 +339,8 @@ class OllamaClient:
                     {k: v for k, v in msg.items() if k != "content"} for msg in messages_list
                 ]
             print(f"Sending request to Ollama: {safe_payload}")  # noqa: T201
+        if self.show_prompt and self.events is not None:
+            await self.events.on_prompt(payload)
         start_time = time.time()
         async with httpx.AsyncClient(timeout=self.timeout) as http_client:
             if not stream:
@@ -333,6 +359,9 @@ class OllamaClient:
                         await ui_handler.on_stream_end()
 
         respond_time = time.time()
+        await self._warn_if_context_full(
+            messages, parsed.prompt_eval_count, merged_options.get("num_ctx")
+        )
         return Response(
             response=parsed.text,
             respond_time=respond_time,
