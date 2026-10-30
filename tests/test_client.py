@@ -85,14 +85,13 @@ class MockUIHandler(AsyncUIHandler):
         return ("ok", checked)
 
 
-def test_client_sends_no_authorization_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("TOKEN", raising=False)
+def test_client_ignores_the_token_of_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOKEN", "env-secret")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     assert "Authorization" not in client._build_headers()  # noqa: SLF001
 
 
-def test_client_sends_authorization_with_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("TOKEN", raising=False)
+def test_client_sends_authorization_with_token() -> None:
     client = OllamaClient(base_url=TEST_BASE_URL, token="secret", timeout=TEST_TIMEOUT)  # noqa: S106
     assert client._build_headers()["Authorization"] == "Bearer secret"  # noqa: SLF001
 
@@ -227,7 +226,6 @@ async def test_client_chat_non_stream(monkeypatch: pytest.MonkeyPatch) -> None:
             return MockResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     result = await client.chat(
         messages=[{"role": "user", "content": "hi"}],
@@ -262,7 +260,6 @@ async def test_client_chat_non_stream_error(monkeypatch: pytest.MonkeyPatch) -> 
             return MockResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     with pytest.raises(RuntimeError, match="Ollama error: model not found"):
         await client.chat(messages=[{"role": "user", "content": "hi"}], stream=False)
@@ -310,7 +307,6 @@ async def test_client_chat_stream_success(monkeypatch: pytest.MonkeyPatch) -> No
             return MockStreamContext()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     ui_handler = MockUIHandler()
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     res = await client.chat(
@@ -357,7 +353,6 @@ async def test_client_chat_stream_error_chunk(monkeypatch: pytest.MonkeyPatch) -
             return MockStreamContext()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     with pytest.raises(RuntimeError, match="Ollama error: something went wrong in stream"):
         await client.chat(messages=[{"role": "user", "content": "hi"}], stream=True)
@@ -395,7 +390,6 @@ async def test_client_chat_stream_incomplete_without_done(monkeypatch: pytest.Mo
             return MockStreamContext()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     pattern = re.escape("Incomplete response: stream ended without done event.")
     with pytest.raises(RuntimeError, match=pattern):
@@ -443,7 +437,6 @@ async def test_client_chat_stream_invalid_json(monkeypatch: pytest.MonkeyPatch) 
             return MockStreamContext()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
     res = await client.chat(
         messages=[{"role": "user", "content": "hi"}],
@@ -495,7 +488,6 @@ def _mock_embed_endpoint(
             return MockEmbedResponse({"embeddings": [[float(i)] for i in range(len(inputs))]})
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     return sent
 
 
@@ -568,7 +560,6 @@ async def test_client_chat_sends_options(
             return MockResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT, num_ctx=num_ctx)
     schema = {"type": "object"}
     await client.chat(
@@ -612,7 +603,6 @@ async def test_client_chat_sends_client_temperature_and_top_p(
             return MockResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
-    monkeypatch.setenv("TOKEN", "test_env_token")
     client = OllamaClient(
         base_url=TEST_BASE_URL,
         token=None,

@@ -1,19 +1,15 @@
 """HTTP client for interacting with the Ollama API."""
 
 import json
-import os
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
-import dotenv
 import httpx
 
 from sensai.data.session.message import Message
 from sensai.ui.protocol import AsyncUIHandler
-
-dotenv.load_dotenv()
 
 ChunkCallback = Callable[[str], Awaitable[None]]
 
@@ -160,7 +156,7 @@ class OllamaClient:
             show_prompt: Whether to show ``events`` each request exactly as it is sent.
         """
         self.base_url: str = base_url
-        self.token = token or os.getenv("TOKEN")
+        self.token = token
         self.timeout = timeout
         self.verbose = verbose
         self.show_prompt = show_prompt

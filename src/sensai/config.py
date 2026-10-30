@@ -1,6 +1,7 @@
 """Configuration for the SensaiUwu CLI."""
 
 import json
+import os
 import sys
 from argparse import SUPPRESS, ArgumentParser, ArgumentTypeError, Namespace
 from pathlib import Path
@@ -158,6 +159,7 @@ class Config:
         )
         self.add_argument(
             "--files",
+            action="extend",
             nargs="*",
             type=Path,
             default=[],
@@ -165,6 +167,7 @@ class Config:
         )
         self.add_argument(
             "--disable",
+            action="extend",
             nargs="*",
             choices=list(FEATURES),
             default=[],
@@ -173,6 +176,7 @@ class Config:
         )
         self.add_argument(
             "--disable-tool",
+            action="extend",
             nargs="*",
             default=[],
             metavar="TOOL",
@@ -180,6 +184,7 @@ class Config:
         )
         self.add_argument(
             "--enable",
+            action="extend",
             nargs="*",
             choices=list(FEATURES),
             default=[],
@@ -189,6 +194,7 @@ class Config:
         )
         self.add_argument(
             "--enable-tool",
+            action="extend",
             nargs="*",
             default=[],
             metavar="TOOL",
@@ -318,9 +324,9 @@ class Config:
 
     @property
     def token(self) -> str | None:
-        """The bearer token for the Ollama API."""
-        token = self._parsed().token
-        return str(token) if token is not None else None
+        """The bearer token for the Ollama API, from ``--token`` or else ``TOKEN``."""
+        token = self._parsed().token or os.getenv("TOKEN")
+        return str(token) if token else None
 
     @property
     def embed_url(self) -> str:
@@ -337,7 +343,7 @@ class Config:
         args = self._parsed()
         token = args.embed_token
         if token is None and args.embed_url == args.url:
-            token = args.token
+            return self.token
         return str(token) if token is not None else None
 
     @property
