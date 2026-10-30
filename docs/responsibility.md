@@ -100,15 +100,15 @@ What crossing this limit means:
 
 What we do about it:
 
-- **The server is local by default.** SensaiUwu uses `http://localhost:11434/api/chat`
-  unless `--url` points it at another server, such as the company's, and then nothing leaves the machine except
-  through web tools and MCP.
-- **Leaky tools can be turned off.** `--disable-tool web_search --disable-tool
-  web_fetch`, or `--disable mcp`, removes the other ways out (see
+- **The server is local by default.** SensaiUwu uses `http://localhost:11434/api/chat`.
+  When `--url` points it at another server, such as the company's, the full prompt goes
+  to that server. Web tools and MCP are other destinations.
+- **Leaky tools can be turned off.** `--disable-tool web_search web_fetch`, or
+  `--disable mcp`, removes the other ways out (see
   [Feature flags](use_cases/Feature-flags-and-settings.md)).
-- **Nothing is sent without being visible.** With the `none` and `partial` trust
-  levels, every tool that isn't read-only asks for approval and shows its arguments
-  first.
+- **Approval shows what a tool sends.** With the `none` trust level, every tool asks
+  for approval and shows its arguments first. With `partial`, only unsafe tools do:
+  web search and fetch are marked safe, so they run without asking.
 
 ### Personal data in the database and the trace
 
@@ -221,7 +221,7 @@ GPU server the company owns and shares between its developers:
 
 - one machine is bought once;
 - every developer gets the model without needing the hardware;
-- the code never leaves the company.
+- inference on the code stays inside the company.
 
 Ollama Cloud remains an opt-in, for the rare task that needs a much more capable model
 (`gemma4:cloud`). The worst case also

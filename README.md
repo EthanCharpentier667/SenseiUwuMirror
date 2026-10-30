@@ -1,8 +1,8 @@
 # SensaiUwu 🍜
 
-SensaiUwu helps a small development team check code before review, without sending it
-outside the company. It runs the project's tests, observes the result, explains a
-failure and, with the developer's approval, applies a fix and checks again.
+SensaiUwu helps a small development team check code before review, with the model
+running on the company's own server. It runs the project's tests, observes the result,
+explains a failure and, with the developer's approval, applies a fix and checks again.
 
 **Reference scenario:** Camille Moreau, a developer at the fictional online store
 Atelier Nova, checks her cart module before Malik Benali reviews it. Atelier Nova runs
@@ -10,6 +10,12 @@ Ollama on a GPU server of its own, shared by the team. See the
 [full use case](docs/use-case.md).
 
 All model calls go directly to the Ollama HTTP API, with no LLM framework.
+
+**Where your data goes:** prompts go to the Ollama server you configure. A cloud model
+such as `gemma4:cloud` sends them to Ollama, a third party. The web tools send their
+queries and URLs to `ollama.com`, without asking for approval under `--trust partial`,
+and MCP tools send their arguments to the server you connected. To keep the web tools and
+MCP off, use `--disable-tool web_search web_fetch --disable mcp`.
 
 ## Team
 
@@ -129,7 +135,8 @@ uv run sensai --show-prompt
 ```
 
 SensaiUwu warns you when a prompt reaches 90% of the context window, since Ollama drops
-what doesn't fit without an error. `/stats` shows the current fill.
+what doesn't fit without an error. The check is an estimate that can miss images, so a
+prompt with images can be cut without a warning. `/stats` shows the current fill.
 
 **Choose the model and generation parameters:**
 

@@ -1,9 +1,10 @@
 # Use case: SensaiUwu, the testing assistant
 
-> **SensaiUwu helps a small development team check code before review, without sending
-> it outside the company.** It runs the project's tests, observes the result, explains
-> a failure and, with the developer's approval, applies a fix and checks again. The
-> model runs on Ollama, on a server the company owns.
+> **SensaiUwu helps a small development team check code before review, with the model
+> running on the company's own server.** It runs the project's tests, observes the
+> result, explains a failure and, with the developer's approval, applies a fix and checks
+> again. Web tools, MCP servers and cloud models can send data elsewhere: see
+> [where data goes](responsibility.md).
 
 This page describes the testing assistant and its usage scenarios. Feature sheets
 detail each capability, its user stories and its role in the developer's workflow.
@@ -22,7 +23,7 @@ Benali, the developer reviewing the change, expects a test summary before review
 it: items priced at 10 and 20 must total 30, and an empty cart must total 0.
 
 Atelier Nova runs Ollama on a GPU server of its own, shared by its small development
-team, so its code and logs stay inside the company. Camille uses SensaiUwu in the
+team, so inference on its code and logs stays inside the company. Camille uses SensaiUwu in the
 terminal, from a local checkout, pointed at that server with `--url`. In the live
 demonstration, an RTX 4090 machine plays the role of this server. She wants to distinguish an actual passing suite from a regression,
 without delegating production deployment or allowing uncontrolled file changes.
