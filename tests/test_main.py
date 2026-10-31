@@ -521,7 +521,7 @@ def test_main_greets_the_profile_and_exits_on_eof(
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
     main()
     captured = capsys.readouterr()
-    assert "Hello Default Profile! Welcome to Sensai." in captured.out
+    assert "Hello Default Profile! Welcome to SensaiUwu." in captured.out
     assert "Program terminated by user." in captured.out
 
 

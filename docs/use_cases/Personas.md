@@ -1,7 +1,7 @@
 # Personas
 
 A persona defines the assistant's role through a name, description and system
-prompt. Sensai loads personas from JSON and can switch the active system prompt
+prompt. SensaiUwu loads personas from JSON and can switch the active system prompt
 during a conversation without changing the model or tool implementation.
 
 ## Scenario
@@ -85,16 +85,16 @@ rather than identical model wording.
 1. The example loads the QA/reviewer personas copied into the temporary workspace.
    List and select the first role:
 
-```text
-/persona list
-/persona switch qa
-```
+   ```text
+   /persona list
+   /persona switch qa
+   ```
 
 2. Send the message used in the GIF:
 
-```text
-I observed one passing test and one failing test: test_empty_basket returns 1 instead of 0. I have not checked payment. Summarize this for my review; do not run tools.
-```
+   ```text
+   I observed one passing test and one failing test: test_empty_basket returns 1 instead of 0. I have not checked payment. Summarize this for my review; do not run tools.
+   ```
 
 3. Expect an actual role-conditioned reply beginning with `QA CHECK`, organized
    around the result and its evidence or limits. The test result here is supplied

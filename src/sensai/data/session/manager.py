@@ -311,7 +311,7 @@ def build_messages(
 
     Returns:
         list[dict[str, Any]]: The conversation history followed by the new prompt, in the
-            raw ``{"role": ..., "content": ...}`` shape the Sensei API expects.
+            raw ``{"role": ..., "content": ...}`` shape the SensaiUwu API expects.
     """
     history = [
         {"role": message.role, "content": message.content}

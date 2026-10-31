@@ -1,4 +1,4 @@
-"""Local state management for Sensai CLI."""
+"""Local state management for SensaiUwu CLI."""
 
 import contextlib
 import json

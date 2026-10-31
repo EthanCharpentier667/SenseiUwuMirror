@@ -1,13 +1,13 @@
-# Connect an MCP server to Sensai
+# Connect an MCP server to SensaiUwu
 
-This guide explains how to add an MCP server's tools to a Sensai conversation.
+This guide explains how to add an MCP server's tools to a SensaiUwu conversation.
 For the GitHub examples, the server is already hosted by GitHub:
-you only run Sensai on your computer.
+you only run SensaiUwu on your computer.
 
 The current command is **`/mcp add-json <name> '<json>'`**. Enter it in
-the Sensai chat, at the `Vous >` prompt, after launching the application.
+the SensaiUwu chat, at the `Vous >` prompt, after launching the application.
 
-## 1. Set up Sensai
+## 1. Set up SensaiUwu
 
 From the repository root:
 
@@ -16,7 +16,7 @@ uv sync
 uv run sensai
 ```
 
-Complete the sign-in process for your Sensai profile. If Sensai is not installed
+Complete the sign-in process for your SensaiUwu profile. If SensaiUwu is not installed
 or configured yet, follow the [getting started guide](index.md#quickstart),
 including the Ollama model access configuration. The model token and MCP
 credentials are for different services.
@@ -24,11 +24,11 @@ credentials are for different services.
 The following examples contain two types of blocks:
 
 - `bash`: commands to run in your system terminal.
-- `text`: commands or messages to enter in the Sensai chat.
+- `text`: commands or messages to enter in the SensaiUwu chat.
 
 Do not copy the `Vous >` prefix. Replace placeholders such as
 `YOUR_GITHUB_PAT`, `YOUR_GITHUB_CLIENT_ID`, and `YOUR_GITHUB_CLIENT_SECRET` before submitting.
-Sensai does not automatically substitute environment variables in the JSON.
+SensaiUwu does not automatically substitute environment variables in the JSON.
 
 ## 2. Understand the command and JSON format
 
@@ -64,7 +64,7 @@ JSON object, whose keys and strings use double quotes. This preserves spaces,
 including the one in `Bearer TOKEN`. Write `https://`, without a `\` before
 the colon. The example placeholders do not contain single quotes.
 
-Sensai expects an object for a single server. The `mcpServers` or `servers`
+SensaiUwu expects an object for a single server. The `mcpServers` or `servers`
 wrappers, the `serverUrl` key, and a path to a JSON file are not accepted in place
 of this object. Convert the configuration to `url`, `headers`, and
 `oauth` as shown in this guide.
@@ -93,7 +93,7 @@ In a second terminal:
 uv run sensai
 ```
 
-In the Sensai chat:
+In the SensaiUwu chat:
 
 ```text
 /mcp add-json local '{"url":"http://127.0.0.1:8000/mcp"}'
@@ -111,7 +111,7 @@ Then send:
 Use the add tool to calculate 2 + 3.
 ```
 
-Approve the call if Sensai asks you to. The tool's result should be `5`.
+Approve the call if SensaiUwu asks you to. The tool's result should be `5`.
 The server also exposes a `greeting://{name}` resource and a
 `summarize_text` prompt, but the CLI only adds the tools returned by
 `list_tools()`. Seeing just one tool added is therefore normal.
@@ -140,11 +140,11 @@ Use the GitHub tools to look up my account information.
 
 A response from a remote tool confirms actual access. The number of tools added
 depends on what the server exposes. An expired token must be replaced manually;
-restart Sensai to reconnect to this URL with the new token.
+restart SensaiUwu to reconnect to this URL with the new token.
 
 ## 5. Understand the OAuth options
 
-OAuth lets you authorize Sensai through the provider's sign-in page.
+OAuth lets you authorize SensaiUwu through the provider's sign-in page.
 The SDK obtains the token and handles renewal if a refresh token is provided.
 See the [MCP SDK OAuth documentation](https://py.sdk.modelcontextprotocol.io/client/oauth-clients/).
 
@@ -158,7 +158,7 @@ See the [MCP SDK OAuth documentation](https://py.sdk.modelcontextprotocol.io/cli
 | `tokenEndpointAuthMethod` | Authentication method for the token endpoint. For this flow, use the provider's method, such as `none`, `client_secret_post`, or `client_secret_basic`. |
 
 With `clientSecret`, the default method is `client_secret_post`. Otherwise, it
-is `none`. Sensai does not request any scopes by default. For a preregistered
+is `none`. SensaiUwu does not request any scopes by default. For a preregistered
 application, retrieve the issuer from the provider's metadata; do not use
 an arbitrary URL.
 
@@ -175,27 +175,27 @@ against `example.com`.
 ### Choose the callback for your environment
 
 The autocompletion template contains `https://your-callback.example/callback`:
-replace this address before sending the command. Sensai does not choose a
+replace this address before sending the command. SensaiUwu does not choose a
 callback for you or create an HTTP service at that address.
 
 - **Local execution**: if the provider accepts it, you can choose
   `http://127.0.0.1:9000/my-callback` or another registered redirect URL.
-- **VPS or machine without a browser**: Sensai displays the authorization link if
+- **VPS or machine without a browser**: SensaiUwu displays the authorization link if
   no browser can open. Open it on your computer, complete authorization,
   and paste the full redirect URL into the VPS CLI.
   `localhost` in the browser refers to your computer, not the VPS.
 - **Public HTTPS callback**: use an address you control that is registered
   with the provider. You are responsible for configuring and hosting this page;
-  Sensai still expects you to enter the redirect URL manually in the CLI.
+  SensaiUwu still expects you to enter the redirect URL manually in the CLI.
 
 Choose a URL accepted by the provider and preserve its exact
 scheme, host, port, and path in `oauth.redirectUri`.
 
-### Complete authorization in Sensai
+### Complete authorization in SensaiUwu
 
 1. When the browser opens, sign in with the provider and accept the requested permissions.
 2. After the redirect, copy the full address from the address bar.
-3. In Sensai, paste this address at the following prompt:
+3. In SensaiUwu, paste this address at the following prompt:
 
 ```text
 Paste the URL you were redirected to:
@@ -208,10 +208,10 @@ http://localhost:8080/callback?code=RECEIVED_CODE&state=RECEIVED_STATE
 ```
 
 These values are examples: paste those from your own redirect without changing
-them. If the URL also contains `iss`, keep it. Sensai expects the full URL,
+them. If the URL also contains `iss`, keep it. SensaiUwu expects the full URL,
 not just the code. The SDK checks `state` and the returned issuer.
 
-The current callback is **manual**: Sensai does not start an HTTP server at
+The current callback is **manual**: SensaiUwu does not start an HTTP server at
 the configured address. The browser may therefore display a connection error on
 the redirect page; copy its address anyway. This address is the OAuth redirect,
 not the remote MCP server. Authorization may be requested when connecting or
@@ -229,7 +229,7 @@ interactive authorization-code flow.
 Follow [Creating an OAuth App](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app):
 
 1. Open **Settings → Developer settings → OAuth Apps → New OAuth App** on GitHub.
-2. Set **Application name** to `Sensai CLI` and **Homepage URL** to your application's public URL, such as your GitHub project page.
+2. Set **Application name** to `SensaiUwu CLI` and **Homepage URL** to your application's public URL, such as your GitHub project page.
 3. Set **Authorization callback URL** to the exact value below, then register the application.
 4. Copy the **Client ID** and generate a **Client secret** for your application.
 
@@ -237,7 +237,7 @@ Follow [Creating an OAuth App](https://docs.github.com/en/apps/oauth-apps/buildi
 http://localhost:8080/callback
 ```
 
-The callback uses Sensai's manual flow described above. Use the same address in
+The callback uses SensaiUwu's manual flow described above. Use the same address in
 the application registration and in the JSON configuration.
 
 ### Connect GitHub from the chat
@@ -251,20 +251,20 @@ credentials, then submit this command in the chat:
 
 GitHub documents `https://github.com/login/oauth` as its authorization
 [issuer](https://docs.github.com/en/apps/github-authentication-discovery-endpoints).
-Sensai's SDK discovers the authorization and token endpoints from the provider's
+SensaiUwu's SDK discovers the authorization and token endpoints from the provider's
 metadata. The `client_secret_post` method sends the app credentials in the token
 request body, as described in [Authorizing OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
 The [`read:user` scope](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps)
 requests access to profile data for this first test.
 
 Authorize the app in the browser. Copy the complete redirect URL, including
-`code`, `state` and `iss` when present, and paste it at Sensai's prompt:
+`code`, `state` and `iss` when present, and paste it at SensaiUwu's prompt:
 
 ```text
 Paste the URL you were redirected to:
 ```
 
-The browser can show a connection error at localhost because Sensai does not
+The browser can show a connection error at localhost because SensaiUwu does not
 host the callback page. Copy that address anyway. No GitHub MCP server needs
 to run locally.
 
@@ -283,10 +283,10 @@ alone does not establish that repository operations are authorized.
 
 The `read:user` scope does not grant repository write access. Additional operations
 require suitable permissions and any organization approval. If the PAT example
-is already connected to this URL, restart Sensai before trying OAuth: duplicate
+is already connected to this URL, restart SensaiUwu before trying OAuth: duplicate
 URLs are rejected, even under a different connection name.
 
-The example JSON is validated against Sensai's configuration parser. Completing
+The example JSON is validated against SensaiUwu's configuration parser. Completing
 GitHub authorization requires your own registered application and credentials.
 
 ## 7. Connection lifetime
@@ -306,18 +306,18 @@ placeholders only; real values grant access to your services.
 
 | Message or symptom | Action |
 | --- | --- |
-| `Usage: /mcp add-json <name> '<json>'` | Enter the command in Sensai with a name and a JSON object enclosed in single quotes. `/mcp <url>` is no longer accepted. |
+| `Usage: /mcp add-json <name> '<json>'` | Enter the command in SensaiUwu with a name and a JSON object enclosed in single quotes. `/mcp <url>` is no longer accepted. |
 | `Invalid MCP JSON at line ...` | Check double quotes, commas, and braces. Remove escapes such as `https\://`. |
 | `No closing quotation` | Close the single quotes around the JSON and copy the command onto one line. |
 | The configuration must be a JSON object | Provide an object for a single server, without an `mcpServers` or `servers` wrapper. |
-| `This MCP server name is already connected.` | Choose a different name for another URL, or restart Sensai to replace a connection. |
+| `This MCP server name is already connected.` | Choose a different name for another URL, or restart SensaiUwu to replace a connection. |
 | `This MCP server is already connected.` | This URL is already active; reuse its tools. |
 | `MCP tool names conflict ...` | Tool names conflict. Choose a different set of tools on the server or open a new session. |
 | HTTP `401` / `403` | Check the authentication method, granted scopes, account access and organization approval for the GitHub OAuth App. |
 | GitHub rejects the callback URL | Register the JSON's exact `redirectUri` in the OAuth App, including scheme, host, port and path. |
 | OAuth client registration fails or returns `404` | GitHub does not support Dynamic Client Registration. Supply a preregistered app's `clientId`, `clientSecret` and correct `issuer`. |
 | OAuth requires `redirectUri` | Add a callback URL suitable for your environment and registered with the provider. |
-| Localhost page unavailable after authorization | Expected with the manual callback: copy the full URL from the address bar and paste it into Sensai. |
+| Localhost page unavailable after authorization | Expected with the manual callback: copy the full URL from the address bar and paste it into SensaiUwu. |
 | `OAuth authorization was refused or failed ...` | Retry authorization and check that the account can access the application. |
 | The callback must contain a `code` and a `state` | Paste the full URL from the latest attempt, not just the code. Do not change the parameters. |
 | State or issuer verification fails | Use the redirect from the current attempt and check the issuer associated with the OAuth client. |

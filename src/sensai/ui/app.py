@@ -217,7 +217,9 @@ class CLIApp:
 
     async def run(self) -> None:
         """Run the interactive REPL loop."""
-        self.console.print(f"[bold cyan]Hello {self.profile_name}! Welcome to Sensai.[/bold cyan]")
+        self.console.print(
+            f"[bold cyan]Hello {self.profile_name}! Welcome to SensaiUwu.[/bold cyan]"
+        )
         self.console.print(
             "[dim](Type /help for commands, Press Enter to submit, "
             "Alt+Enter for new line, Ctrl+C to exit)[/dim]\n"

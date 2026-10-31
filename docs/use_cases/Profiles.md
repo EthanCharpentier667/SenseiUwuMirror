@@ -84,19 +84,19 @@ rather than identical model wording.
 
 1. In the fresh fictional Camille profile, type:
 
-```text
-/prefs add Use concise English summaries and pytest -q.
-/inst add Do not edit payment code.
-/prefs list
-/inst list
-```
+   ```text
+   /prefs add Use concise English summaries and pytest -q.
+   /inst add Do not edit payment code.
+   /prefs list
+   /inst list
+   ```
 
 2. Each slash command is submitted separately. Confirm that the saved preference
    and instruction appear, then send:
 
-```text
-Which test command should I use and which module must I leave untouched? Answer using my saved preferences and instructions, not an assumed convention.
-```
+   ```text
+   Which test command should I use and which module must I leave untouched? Answer using my saved preferences and instructions, not an assumed convention.
+   ```
 
 3. Expect a real response referring to `pytest -q` and the payment module. Those
    facts were supplied through the profile, not through this question.

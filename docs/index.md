@@ -1,6 +1,6 @@
-# Sensai 🍜
+# SensaiUwu 🍜
 
-> **Sensai** is an LLM chatbot with unlimited functionalities, designed to interact with the Ollama Sensei API and provide an enriched conversational experience.
+> **SensaiUwu** helps a small development team check code before review: it runs the tests, observes the result, explains a failure and, with approval, fixes it and checks again. Models run on Ollama, on hardware the company owns.
 
 ---
 
@@ -18,8 +18,9 @@
 
 ### Prerequisites
 
-- **Python** 3.11
+- **Python** 3.11 to 3.13
 - **[uv](https://docs.astral.sh/uv/)** installed on your system
+- **[Ollama](https://ollama.com/download)**, on your machine or on a server you own
 
 ### Installation
 
@@ -33,35 +34,31 @@ uv sync
 
 ### Environment Configuration
 
-The default Ollama URL points to the team's hosted Sensei backend. Ask a
-maintainer of that backend for its bearer token; this is a project credential,
-not a token generated in your Ollama account. Create a `.env` file at the root
-of the project:
+Create a `.env` file at the root of the project, with the password hashing settings
+SensaiUwu needs for profiles:
 
 ```bash
 cp .env.exemple .env
 ```
 
-Replace the `TOKEN` placeholder with the token you received:
+Download the default chat and embedding models:
 
-```dotenv
-TOKEN="your_api_token_here"
+```bash
+ollama pull llama3.2:latest
+ollama pull nomic-embed-text
 ```
 
-Keep `.env` private; it is ignored by Git. If you use a different Ollama server,
-set `--url` to its chat endpoint and use the token required by that server.
-The `--token` CLI option can also supply the bearer token instead of `TOKEN`.
-Document embeddings (RAG) go through their own endpoint, `--embed-url`, which stays
-on the default server when you change `--url`: a server that hosts only chat models,
-such as `https://ollama.com/api/chat`, can't embed documents. Set `--embed-url` (same
-format as `--url`) and `--embed-token` to use another embedding server. Without
-`--embed-token`, `--token` is reused only when both URLs are the same.
-For the optional Ollama web search and fetch tools, create an API key in
-[your Ollama account](https://ollama.com/settings/keys) and set it as
-`API_TOKEN` in `.env`. This key is separate from the hosted Sensei backend
-`TOKEN`.
+By default, SensaiUwu uses the Ollama server at `http://localhost:11434/api/chat`, with
+no token. To use a company server, set `--url` to its chat endpoint and `--embed-url` to
+the endpoint used for document embeddings (RAG), which doesn't follow `--url`. If that
+server requires a bearer token, set `TOKEN` in `.env` or pass `--token`; `--embed-token`
+does the same for embeddings. Without it, `--token` is reused only when both URLs are
+the same. Keep `.env` private; it is ignored by Git.
 
-### Running Sensai
+The optional web search and fetch tools need an API key from
+[your Ollama account](https://ollama.com/settings/keys), set as `API_TOKEN` in `.env`.
+
+### Running SensaiUwu
 
 Launch the command line interface:
 
@@ -99,7 +96,7 @@ without planning, so no tool is called.
 
 ## MCP Connections
 
-Connect local or remote Streamable HTTP servers from the Sensai chat with
+Connect local or remote Streamable HTTP servers from the SensaiUwu chat with
 `/mcp add-json <name> '<json>'`. The [MCP connection guide](mcp-server.md)
 includes step-by-step examples for the local calculator, GitHub with a token,
 and GitHub with OAuth, plus configuration fields and troubleshooting.

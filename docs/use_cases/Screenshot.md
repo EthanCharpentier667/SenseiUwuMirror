@@ -17,7 +17,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-SCREEN-01 — Inspect the visible cart preview
 
-**As Camille Moreau, the developer checking the cart preview, I want Sensai to capture the visible window, so that I can compare the displayed subtotal with the test expectation.**
+**As Camille Moreau, the developer checking the cart preview, I want SensaiUwu to capture the visible window, so that I can compare the displayed subtotal with the test expectation.**
 
 Preconditions: a display is available, a vision-capable model is selected and the screenshot call is approved when required.
 
@@ -58,7 +58,7 @@ This differs from [browser screenshots](Browser.md), which capture the browser p
 
 The recording captures an actual window on a dedicated nested X display containing
 only fictional Atelier Nova data. The screenshot tool returns a 1024 × 640 image,
-which is then sent through Sensai's HTTP client to local `qwen3.5:9b`. Its actual
+which is then sent through SensaiUwu's HTTP client to local `qwen3.5:9b`. Its actual
 reply reads `ATELIER NOVA`, subtotal `30` and empty cart `0` from those pixels.
 The saved-image destination is redirected to a temporary demo directory. This
 shows image acquisition and interpretation; it does not establish that the cart
@@ -72,7 +72,7 @@ from that workspace. Complete the normal sign-in flow with a dedicated demo
 profile. Type the listed messages at `Vous >`; compare observed tool results
 rather than identical model wording.
 
-Before launching Sensai, create an isolated fictional window in the prepared
+Before launching SensaiUwu, create an isolated fictional window in the prepared
 workspace. This Linux example requires Xephyr and `xmessage`:
 
 ```bash
@@ -93,7 +93,7 @@ export SENSAI_DEMO_PARENT_DISPLAY="$DISPLAY"
 export DISPLAY=:88
 ```
 
-Then launch Sensai in this same terminal:
+Then launch SensaiUwu in this same terminal:
 
 ```bash
 "$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
@@ -109,9 +109,9 @@ Then launch Sensai in this same terminal:
    amounts are 30 for the filled cart and 0 for the empty cart.
 2. Send:
 
-```text
-Use screenshot to capture the dedicated demo display, then read the image. Give the title, subtotal and empty-cart amount in at most three short lines. Do not claim tests ran.
-```
+   ```text
+   Use screenshot to capture the dedicated demo display, then read the image. Give the title, subtotal and empty-cart amount in at most three short lines. Do not claim tests ran.
+   ```
 
 3. Approve `screenshot`. Expect a captured image, then a real model reply identifying
    `ATELIER NOVA`, subtotal `30` and empty cart `0`.

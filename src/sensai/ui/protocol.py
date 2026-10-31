@@ -44,6 +44,14 @@ class AsyncUIHandler(Protocol):
         """Called when the system needs to display a generic message to the user."""
         ...  # pragma: no cover
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        """Called with a request to the model exactly as it is about to be sent."""
+        ...  # pragma: no cover
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        """Called when a prompt of ``used`` tokens nears the ``limit`` of the context window."""
+        ...  # pragma: no cover
+
     async def start_spinner(self, message: str) -> None:
         """Start a loading spinner with a message."""
         ...  # pragma: no cover

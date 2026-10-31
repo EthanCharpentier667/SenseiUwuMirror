@@ -1,7 +1,7 @@
 # RAG on documents
 
 Retrieval-augmented generation adds relevant excerpts from attached documents to
-the model's context. Sensai converts documents to text, chunks and embeds them,
+the model's context. SensaiUwu converts documents to text, chunks and embeds them,
 then combines semantic and keyword search within the current session's documents.
 
 ## Scenario
@@ -18,7 +18,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-RAG-01 — Retrieve the requirement relevant to a failing test
 
-**As Camille Moreau, the developer investigating the empty-cart failure, I want Sensai to retrieve the matching part of the attached cart specification, so that the diagnosis uses the project requirement rather than an assumed rule.**
+**As Camille Moreau, the developer investigating the empty-cart failure, I want SensaiUwu to retrieve the matching part of the attached cart specification, so that the diagnosis uses the project requirement rather than an assumed rule.**
 
 Preconditions: RAG is enabled, the specification is attached and the embedding model is available.
 
@@ -95,9 +95,9 @@ rather than identical model wording.
    answer must use conversation/document context rather than a file or web lookup.
 2. Send this exact question; it deliberately does not supply the rule or marker:
 
-```text
-According to the attached specification, what is the empty-cart subtotal, which rule and review marker support it, and does this cover payment? Cite the excerpt.
-```
+   ```text
+   According to the attached specification, what is the empty-cart subtotal, which rule and review marker support it, and does this cover payment? Cite the excerpt.
+   ```
 
 3. Expect a real answer containing subtotal `0`, rule `CART-EMPTY-001`, marker
    `NOVA-QA-4827`, and a reference to the retrieved document/excerpt. Payment is
@@ -134,8 +134,6 @@ while being less robust to paraphrased questions.
 
 The embedding model must be available and compatible with the fixed vector size.
 Scanned documents without extractable text may fail; unsupported formats and empty
-content need explicit handling. The startup ingestion path currently can print a
-success message after catching an extraction failure, so that message alone does
-not prove ingestion. Top-ranked chunks are not proof of correctness or complete
-coverage, and unrelated queries can still retrieve weakly relevant excerpts.
+content need explicit handling. Top-ranked chunks are not proof of correctness or
+complete coverage, and unrelated queries can still retrieve weakly relevant excerpts.
 Attached documents may contain untrusted instructions or private data.

@@ -1,7 +1,7 @@
 # Replay the demonstrations yourself
 
 The feature sheets contain shell examples and the messages to enter in the real
-Sensai CLI. All setup commands are included below. The examples use fictional
+SensaiUwu CLI. All setup commands are included below. The examples use fictional
 Atelier Nova data and temporary working copies of the cart projects.
 
 ## Shared prerequisites

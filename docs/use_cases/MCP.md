@@ -1,7 +1,7 @@
 # MCP servers
 
-MCP connections extend Sensai with tools exposed by an HTTP server. The tools are
-discovered during the conversation, adapted to Sensai's tool interface and made
+MCP connections extend SensaiUwu with tools exposed by an HTTP server. The tools are
+discovered during the conversation, adapted to SensaiUwu's tool interface and made
 available to the same ReAct and approval pipeline as built-in tools.
 
 ## Scenario
@@ -17,7 +17,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-MCP-01 — Retrieve a review rule through a connected tool
 
-**As Camille Moreau, the developer checking the cart requirements, I want Sensai to discover a rule-reading tool from a configured MCP server, so that the review can refer to the requirement held by that service.**
+**As Camille Moreau, the developer checking the cart requirements, I want SensaiUwu to discover a rule-reading tool from a configured MCP server, so that the review can refer to the requirement held by that service.**
 
 Preconditions: the local demo server is running and MCP is enabled.
 
@@ -59,7 +59,7 @@ and JSON configuration.
 ![An MCP rule used in a real conversation](../demo_assets/assets/demos/mcp.gif)
 
 Camille connects the read-only Atelier Nova rule server with `/mcp add-json`.
-Sensai discovers its tool, then the model selects that MCP tool to retrieve
+SensaiUwu discovers its tool, then the model selects that MCP tool to retrieve
 `CART-EMPTY-001`. Camille sees the tool request and approves it. The bot uses the
 returned requirement—an empty cart has subtotal `0`—to explain the expected test
 value.
@@ -114,21 +114,21 @@ proposed tool call before answering `y` to its approval prompt.
 
 1. With the server running, submit this slash command and check that one tool is discovered.
 
-```text
-/mcp add-json atelier '{"url":"http://127.0.0.1:18876/mcp"}'
-```
+    ```text
+    /mcp add-json atelier '{"url":"http://127.0.0.1:18876/mcp"}'
+    ```
 
 2. Approve the discovered MCP tool call. Expect `CART-EMPTY-001: An empty cart has subtotal 0.` in the answer, tied to an expected value of `0`.
 
-```text
-Use the MCP tool cart_rule with rule_id=CART-EMPTY-001. Quote the returned rule and explain what value my empty-cart test should expect. Do not answer from memory.
-```
+    ```text
+    Use the MCP tool cart_rule with rule_id=CART-EMPTY-001. Quote the returned rule and explain what value my empty-cart test should expect. Do not answer from memory.
+    ```
 
 3. Approve the second MCP call. Expect an unknown-rule response and no invented payment requirement.
 
-```text
-Use cart_rule with rule_id=CART-PAYMENT-999. If the rule is unknown, say that payment is not covered by this source. Do not invent a rule.
-```
+    ```text
+    Use cart_rule with rule_id=CART-PAYMENT-999. If the rule is unknown, say that payment is not covered by this source. Do not invent a rule.
+    ```
 
 Finish with `/exit` to close the application. The workspace remains available
 for inspection; repeat the setup example for a fresh copy. Stop the standalone

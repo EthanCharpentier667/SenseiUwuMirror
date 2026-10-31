@@ -1,6 +1,6 @@
 # Streaming and event-driven UI
 
-Sensai streams model text through asynchronous UI callbacks and reports tool
+SensaiUwu streams model text through asynchronous UI callbacks and reports tool
 requests, results, errors and progress through the same interface contract.
 The agent does not need to write terminal rendering code for each event.
 
@@ -60,7 +60,7 @@ verified explanation of the model's internal reasoning.
 ![A response appearing progressively in the real terminal](../demo_assets/assets/demos/streaming.gif)
 
 Camille asks the bot for a short cart-testing explanation. The GIF records the
-actual Sensai terminal while Ollama generates the answer: partial sentences and
+actual SensaiUwu terminal while Ollama generates the answer: partial sentences and
 numbered points appear progressively before the completed response remains on
 screen. Cursor movements and Rich live refreshes come from the application itself.
 

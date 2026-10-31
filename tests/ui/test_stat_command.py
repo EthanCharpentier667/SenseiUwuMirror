@@ -23,6 +23,12 @@ class CapturingUI:
         """Start with no captured messages."""
         self.messages: list[Any] = []
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         self.messages.append(message)
 

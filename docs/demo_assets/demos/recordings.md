@@ -17,13 +17,13 @@ outcomes without rewriting either original fixture.
 
 ## Recorded scope
 
-Eight GIFs are archived component walkthroughs using actual Sensai tools, command
+Eight GIFs are archived component walkthroughs using actual SensaiUwu tools, command
 handlers, database functions and HTTP clients. Their sequences were automated;
 their tool order was not autonomously planned by the model.
 The earlier pytest GIF and the updated file-access, MCP, sandbox, streaming and
 web GIFs record the real interactive application. For those five updates, only the
 human messages and approvals are scripted: model decisions and tool execution
-come from Sensai itself.
+come from SensaiUwu itself.
 
 | Recording | Actual scope |
 | --- | --- |
@@ -66,7 +66,7 @@ observations for its own GIF.
 
 ## Example: convert a terminal recording to a GIF
 
-Launch Sensai with the command from the feature sheet and record the terminal
+Launch SensaiUwu with the command from the feature sheet and record the terminal
 using a desktop recorder. Keep the actual approval prompts, tool outcomes and
 model responses. Save the recording as `/tmp/sensai-demo.mp4`, then run this
 standalone FFmpeg example:

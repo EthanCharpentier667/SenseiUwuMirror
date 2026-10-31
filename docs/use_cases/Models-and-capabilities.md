@@ -1,6 +1,6 @@
 # Models and capabilities
 
-Sensai selects an Ollama model and checks its advertised capabilities before
+SensaiUwu selects an Ollama model and checks its advertised capabilities before
 offering tools that require them. This prevents a text-only model from receiving
 a tool intended to produce an image it cannot interpret.
 
@@ -85,9 +85,9 @@ rather than identical model wording.
 
 1. The session starts on `llama3.2:latest`. Send:
 
-```text
-Explain why a cart containing no items has subtotal zero. Answer in English in at most two short sentences, without running tools.
-```
+   ```text
+   Explain why a cart containing no items has subtotal zero. Answer in English in at most two short sentences, without running tools.
+   ```
 
 2. Inspect the real answer. Open `/tools`: with this text model, a screenshot is
    not usable by the model even if the tool is enabled in settings. The archived component capture shows the capability-filtered list directly.

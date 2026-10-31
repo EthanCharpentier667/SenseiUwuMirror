@@ -6,7 +6,7 @@ the summary and later turns become the context used for subsequent requests.
 
 ## Scenario
 
-Camille investigates the empty-cart regression over several exchanges with Sensai.
+Camille investigates the empty-cart regression over several exchanges with SensaiUwu.
 She wants to retain the expected value, the observed failure and the fact that payment
 is outside the check, without resending an ever-growing conversation to the local
 model. Malik must still be able to distinguish original results from a generated
@@ -106,9 +106,9 @@ The separate correct version passed both tests. Payment remains untested. Acknow
 The threshold of `1` requests automatic compression after completed turns whose
 prompt token count exceeds that threshold. Then ask:
 
-```text
-Using the previous review context, which test originally failed and what remains untested? Answer in at most three lines.
-```
+   ```text
+   Using the previous review context, which test originally failed and what remains untested? Answer in at most three lines.
+   ```
 
 Check that the reply identifies the empty-cart test and untested payment without
 inventing a payment test or a code correction. `/stats` shows current session and

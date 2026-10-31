@@ -8,8 +8,8 @@ Our constraints are the project's:
 
 - **bare Python**, with no LLM framework (no LangChain, no LlamaIndex);
 - **Ollama** as the only model API;
-- **the user's own hardware**, a laptop that is also building and running the project
-  under test;
+- **the company's own hardware**, a small GPU server shared by the team, of the kind
+  profiled in our [benchmark](benchmark.md);
 - **the use case**: a testing assistant that acts on the machine rather than only
   talking.
 
@@ -17,13 +17,13 @@ Our constraints are the project's:
 
 ## Scope, from the usage scenario
 
-The [flagship scenario](use-case.md#flagship-scenario-does-ethans-vulkan-window-open)
-is checking that a Vulkan window opens without errors. Its cycle is **read → run →
+The [reference scenario](use-case.md#scenario-de-reference-camille-verifie-le-panier-datelier-nova)
+is Camille checking Atelier Nova's cart module before Malik reviews it. Its cycle is **read → run →
 observe → conclude → fix → check again**. Each feature is there because a step of that
 cycle needs it:
 
 | Step of the cycle | What it needs | Feature |
-|---|---|---|
+| --- | --- | --- |
 | Read how the project runs | Read files, remember them | `file_read`, RAG on documents |
 | Run the project | Run commands, including programs that never exit | `bash_tool` (with `background`), `bash_job` |
 | Observe the result | Exit code and logs, the screen, a web page | Command output, `screenshot`, browser tools |
@@ -33,16 +33,16 @@ cycle needs it:
 | Throughout: the user stays in control | Approve what changes the machine | Trust levels |
 | Throughout: tests that need extras | A reference implementation, a fuzzer, a doc lookup | Sandbox, `web_search`, MCP |
 
-The test frameworks themselves (GoogleTest, Criterion, pytest, cargo test) have **no
-dedicated integration**: they are commands, and `bash_tool` reaches them all. This
+Test frameworks such as Camille's pytest have **no dedicated integration**: they are
+commands, and `bash_tool` reaches them. This
 saves one integration per framework, at the cost of making the model read their output.
 
 ### Features left out on purpose
 
 | Feature | Why we left it out |
-|---|---|
+| --- | --- |
 | **Semantic cache** (issue #24) | The answer to a testing question depends on the current state of the code. A cache hit on *"do my tests pass?"* would serve an old "yes" after a commit that broke the build. A wrong answer to a tester is worse than a slow one. The cost we cut with a cache is better cut by the budgets and the cut observations |
-| **Multi-agent orchestration** (issue #20) | With a local 3B model, each extra agent multiplies the LLM calls, so the latency, on a laptop that is also running the project under test. One test is a single sequential cycle, and one ReAct loop covers it. Splitting it into a "runner" and a "reviewer" would add messages between agents, which a small model gets wrong more often, without any step of the scenario needing it |
+| **Multi-agent orchestration** (issue #20) | With a local 3B model, each extra agent multiplies the LLM calls, so latency matters on a server the whole team shares. One test is a single sequential cycle, and one ReAct loop covers it. Splitting it into a "runner" and a "reviewer" would add messages between agents, which a small model gets wrong more often, without any step of the scenario needing it |
 | **Web UI** (issue #30) | Our users test from a terminal, where their build and their tests already run. A web UI would duplicate the interface without serving the scenario. The core talks to the interface through events ([Event System](events.md)), so a web UI can be added later without touching the agent |
 | **Automated prompt optimization** (issue #25) | Our prompts are short and tied to the controller's rules (allowed actions, JSON shape). The failures we saw came from the model (invented refs, reports of fake successes), and we fixed them in the code: name targeting, `failed` status, re-asking without the schema. Optimizing prompts automatically would need an eval suite we don't have yet (see the [retrospective](retrospective.md)) |
 
@@ -64,7 +64,7 @@ model chooses one or more tools in the same call, and the loop continues as long
 returns `tool_calls`.
 
 | Constraint | Native tool calling | Constrained ReAct (chosen) |
-|---|---|---|
+| --- | --- | --- |
 | Reliability with a 3B model | The model decides on its own when to stop. Invalid arguments are only seen once the tool runs | The schema only allows actions that are valid now. Invalid steps are rejected by the code, and the model is told why |
 | Cost in calls and latency | The model can answer in the same call that uses the last tool | One planning call per step, plus one for the reply: more calls, so more latency |
 | Control and safety | Budgets enforced from outside, by counting `tool_calls` | Budgets and refusals are part of the loop: an action is no longer offered once its budget is spent |
@@ -91,16 +91,16 @@ Retrieval merges both rankings with Reciprocal Rank Fusion (`_RRF_K = 60`,
   service to install and run, and two stores to keep in sync.
 
 | Constraint | JSON file | Vector database | SQLite + sqlite-vec + FTS5 (chosen) |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Installation on the user's machine | Nothing | A service or a large dependency | One Python package, one file |
 | Integrity (crash in the middle of a save) | File can be corrupted | Two stores can disagree | Transactions, `ON DELETE CASCADE` between session, messages and chunks |
-| Search on identifiers | Linear scan | Weak: embeddings blur `VUID-vkCmdDraw-None-08600` or `test_parse_empty` | FTS5 finds the exact identifier, and vectors find the meaning |
+| Search on identifiers | Linear scan | Weak: embeddings blur `test_empty_basket` or a rule identifier | FTS5 finds the exact identifier, and vectors find the meaning |
 | Semantic search | None | Very good | Good enough for a session's documents (a few hundred chunks) |
 
 **Why.** A tester's queries are full of exact identifiers: error codes, function and
 test names, file paths. Embeddings alone handle these poorly, and keyword search alone
-misses reformulations, hence the hybrid search. One file also fits the single user on
-one laptop that we target. The cost is that SQLite doesn't handle many users writing at
+misses reformulations, hence the hybrid search. One file also fits one developer's
+workstation, which is where SensaiUwu runs. The cost is that SQLite doesn't handle many users writing at
 the same time, which isn't our use case.
 
 **Chunk size.** We cut chunks at 1,500 characters with a 200-character overlap
@@ -122,11 +122,11 @@ browser/`) drive the installed Chrome. The page is given to the model as its
 accessibility tree, as text, cut at 5,500 characters, with noise removed. Elements are
 targeted by their name as the snapshot shows it, or by their ref.
 
-**Alternative considered:** connecting the official Playwright MCP server, which Sensai
+**Alternative considered:** connecting the official Playwright MCP server, which SensaiUwu
 can already do (`/mcp add-json`), with no code to write.
 
 | Constraint | Playwright MCP server | Built-in tools (chosen) |
-|---|---|---|
+| --- | --- | --- |
 | Setup for the user | Node.js, then adding the server by hand | Nothing beyond Chrome. The tools are there from the first launch |
 | Tokens per observation | Fixed by the server: full snapshots, plus console and tabs | Under our control: noise removed, cut at 5,500 characters to fit the 6,000-character observation limit |
 | Reliability with a small model | Targets elements by `ref` only. In our runs, the model invented refs and clicked `<body>` | Targets by name first (exact, then partial), and asks for the ref only when names are ambiguous. A failure returns the current page |
@@ -148,9 +148,9 @@ Discussed in detail in the [benchmark](benchmark.md) and in
 - **Alternative:** Qwen 3.5 9B by default (Artificial Analysis index 11, against an
   estimated 6 for Llama 3.2 3B; vision; 262k context).
 - **The constraints:**
-  - quality per step against the memory and compute left for the project under test
-    (2.0 GB against 6.6 GB of weights);
-  - token speed on a laptop with no GPU.
-- **The decision:** default to the model every user can run, put the reliability in the
+  - quality per step against the memory and compute left for the rest of the team on
+    the shared server (2.0 GB against 6.6 GB of weights);
+  - the time each developer waits, with up to 11 model calls per message.
+- **The decision:** default to the lighter model, put the reliability in the
   controller (decision 1), and offer `/model` to switch to Qwen for vision or harder
   cases.

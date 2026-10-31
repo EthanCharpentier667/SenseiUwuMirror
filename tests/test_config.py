@@ -176,6 +176,67 @@ def test_config_disables_the_tools_given_on_the_command_line() -> None:
     assert config.features.disabled_tools == {"web_search", "web_fetch"}
 
 
+@pytest.mark.parametrize(
+    ("flag", "attribute"),
+    [
+        ("--disable-tool", "disabled_tools"),
+        ("--disable", "disabled"),
+    ],
+)
+def test_config_adds_up_repeated_flags(flag: str, attribute: str) -> None:
+    first, second = ("web_search", "web_fetch") if attribute == "disabled_tools" else ("rag", "mcp")
+    config = Config()
+    config.parse_args([flag, first, flag, second])
+
+    assert getattr(config.features, attribute) == {first, second}
+
+
+def test_config_adds_up_repeated_files(tmp_path: Path) -> None:
+    first, second = tmp_path / "a.md", tmp_path / "b.md"
+    first.touch()
+    second.touch()
+    config = Config()
+    config.parse_args(["--files", str(first), "--files", str(second)])
+
+    assert config.files == [first, second]
+
+
+def test_config_reads_the_token_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOKEN", "env-secret")
+    config = Config()
+    config.parse_args([])
+
+    assert config.token == "env-secret"  # noqa: S105
+    assert config.embed_token == "env-secret"  # noqa: S105
+
+
+def test_config_prefers_the_token_flag_to_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOKEN", "env-secret")
+    config = Config()
+    config.parse_args(["--token", "flag-secret"])
+
+    assert config.token == "flag-secret"  # noqa: S105
+
+
+def test_config_treats_an_empty_environment_token_as_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOKEN", "")
+    config = Config()
+    config.parse_args([])
+
+    assert config.token is None
+
+
+def test_config_keeps_the_environment_token_off_another_embedding_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TOKEN", "env-secret")
+    config = Config()
+    config.parse_args(["--url", "http://chat/api/chat", "--embed-url", "http://other/api/chat"])
+
+    assert config.token == "env-secret"  # noqa: S105
+    assert config.embed_token is None
+
+
 def test_config_embed_url_stays_on_the_default_when_url_changes() -> None:
     config = Config()
     config.parse_args(["--url", "https://ollama.com/api/chat", "--token", "secret"])

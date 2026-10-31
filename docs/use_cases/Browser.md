@@ -1,6 +1,6 @@
 # Browser
 
-Browser tools let Sensai interact with a web application: navigate, inspect page
+Browser tools let SensaiUwu interact with a web application: navigate, inspect page
 content, fill fields, click controls and capture an image. They test behavior
 rather than only downloading a page's text.
 
@@ -17,7 +17,7 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 ### US-BROWSER-01 — Check the cart through its visible controls
 
-**As Camille Moreau, the developer of the cart preview, I want Sensai to enter prices and calculate the subtotal through the page controls, so that I can verify the interaction a shopper would use.**
+**As Camille Moreau, the developer of the cart preview, I want SensaiUwu to enter prices and calculate the subtotal through the page controls, so that I can verify the interaction a shopper would use.**
 
 Preconditions: the preview is served over local HTTP, the browser is available, and click/type calls are approved when required.
 
