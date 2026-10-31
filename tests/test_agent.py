@@ -156,6 +156,9 @@ class MockUIHandler(AsyncUIHandler):
     ) -> tuple[str, list[str]] | None:
         return ("ok", checked)
 
+    async def prompt_question(self, question: Any) -> str | None:
+        return question.choices[0][0] if question.choices else None
+
 
 class FakeTool:
     """Fake tool for agent tests."""

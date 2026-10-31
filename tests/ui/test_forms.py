@@ -12,7 +12,9 @@ from sensai.ui.forms import Question, prompt_form
 async def test_prompt_form_collects_all_answers() -> None:
     questions = [
         Question(
-            key="color", title="Color", text="Pick a color",
+            key="color",
+            title="Color",
+            text="Pick a color",
             choices=[("red", "Red"), ("blue", "Blue")],
         ),
         Question(key="size", title="Size", text="Enter size", choices=[("s", "Small")]),
@@ -47,7 +49,9 @@ async def test_prompt_form_preserves_none_answers() -> None:
 async def test_prompt_question_predefined_choice() -> None:
     handler = CLIHandler()
     question = Question(
-        key="q", title="Title", text="Text",
+        key="q",
+        title="Title",
+        text="Text",
         choices=[("a", "Option A"), ("b", "Option B")],
     )
 
@@ -62,13 +66,17 @@ async def test_prompt_question_predefined_choice() -> None:
 async def test_prompt_question_other_triggers_input() -> None:
     handler = CLIHandler()
     question = Question(
-        key="q", title="Title", text="Text",
-        choices=[("a", "Option A")], allow_other=True,
+        key="q",
+        title="Title",
+        text="Text",
+        choices=[("a", "Option A")],
+        allow_other=True,
     )
 
-    with patch("sensai.ui.cli.radiolist_dialog") as mock_radio, patch(
-        "sensai.ui.cli.input_dialog"
-    ) as mock_input:
+    with (
+        patch("sensai.ui.cli.radiolist_dialog") as mock_radio,
+        patch("sensai.ui.cli.input_dialog") as mock_input,
+    ):
         mock_radio.return_value.run_async = AsyncMock(return_value="__other__")
         mock_input.return_value.run_async = AsyncMock(return_value="custom answer")
         result = await handler.prompt_question(question)
@@ -80,13 +88,17 @@ async def test_prompt_question_other_triggers_input() -> None:
 async def test_prompt_question_other_cancelled_returns_none() -> None:
     handler = CLIHandler()
     question = Question(
-        key="q", title="Title", text="Text",
-        choices=[("a", "Option A")], allow_other=True,
+        key="q",
+        title="Title",
+        text="Text",
+        choices=[("a", "Option A")],
+        allow_other=True,
     )
 
-    with patch("sensai.ui.cli.radiolist_dialog") as mock_radio, patch(
-        "sensai.ui.cli.input_dialog"
-    ) as mock_input:
+    with (
+        patch("sensai.ui.cli.radiolist_dialog") as mock_radio,
+        patch("sensai.ui.cli.input_dialog") as mock_input,
+    ):
         mock_radio.return_value.run_async = AsyncMock(return_value="__other__")
         mock_input.return_value.run_async = AsyncMock(return_value=None)
         result = await handler.prompt_question(question)
@@ -98,8 +110,11 @@ async def test_prompt_question_other_cancelled_returns_none() -> None:
 async def test_prompt_question_allow_other_false() -> None:
     handler = CLIHandler()
     question = Question(
-        key="q", title="Title", text="Text",
-        choices=[("a", "Option A")], allow_other=False,
+        key="q",
+        title="Title",
+        text="Text",
+        choices=[("a", "Option A")],
+        allow_other=False,
     )
 
     with patch("sensai.ui.cli.radiolist_dialog") as mock_dialog:

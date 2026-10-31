@@ -84,6 +84,9 @@ class MockUIHandler(AsyncUIHandler):
     ) -> tuple[str, list[str]] | None:
         return ("ok", checked)
 
+    async def prompt_question(self, question: Any) -> str | None:
+        return question.choices[0][0] if question.choices else None
+
 
 def test_client_ignores_the_token_of_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TOKEN", "env-secret")

@@ -20,8 +20,6 @@ class Question:
     allow_other: bool = True
 
 
-async def prompt_form(
-    handler: AsyncUIHandler, questions: list[Question]
-) -> dict[str, str | None]:
+async def prompt_form(handler: AsyncUIHandler, questions: list[Question]) -> dict[str, str | None]:
     """Run a sequence of questions and return answers keyed by question.key."""
     return {q.key: await handler.prompt_question(q) for q in questions}
