@@ -34,6 +34,9 @@ class ScriptedUI:
     async def on_context_warning(self, used: int, limit: int) -> None:
         pass
 
+    async def on_compression(self, before: int, after: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         self.messages.append(message)
 

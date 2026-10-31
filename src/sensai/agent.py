@@ -125,6 +125,8 @@ class Agent:
         self._unconstrained_models: set[str] = set()
         self.persona_key: str | None = None
         self.last_prompt_tokens: int | None = None
+        self.compression_count = 0
+        self.last_compression: tuple[int, int] | None = None
 
     @property
     def temperature(self) -> float | None:

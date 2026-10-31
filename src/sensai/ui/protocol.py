@@ -52,6 +52,10 @@ class AsyncUIHandler(Protocol):
         """Called when a prompt of ``used`` tokens nears the ``limit`` of the context window."""
         ...  # pragma: no cover
 
+    async def on_compression(self, before: int, after: int) -> None:
+        """Called when compression took a prompt from ``before`` to ``after`` tokens."""
+        ...  # pragma: no cover
+
     async def start_spinner(self, message: str) -> None:
         """Start a loading spinner with a message."""
         ...  # pragma: no cover

@@ -90,6 +90,7 @@ The [`AsyncUIHandler`](reference/sensai/ui/protocol.md) protocol defines the fol
 | `on_tool_call_request` | A tool is about to be executed and requires user confirmation (`human_in_the_loop=True`). | `name: str`, `arguments: dict[str, Any]` | `bool` (`True` to approve) |
 | `on_tool_call_result` | A tool has completed execution. | `name: str`, `result: Any` | `None` |
 | `on_error` | An exception occurred during model inference or tool dispatch. | `error: Exception` | `None` |
+| `on_compression` | The session's history was compressed before a prompt. | `before: int, after: int` (estimated prompt tokens) | `None` |
 | `on_system_message` | A generic notification needs to be presented (command responses, notices). | `message: Any` | `None` |
 
 ---

@@ -64,6 +64,13 @@ def _add_context_rows(table: Table, context: CommandContext) -> None:
     if not context.config.features.is_enabled(COMPRESSION):
         compression += " [dim](disabled)[/dim]"
     table.add_row("Compression threshold", compression)
+    table.add_row("Compressions", _fmt_int(context.agent.compression_count))
+    if context.agent.last_compression:
+        before, after = context.agent.last_compression
+        table.add_row(
+            "Last compression",
+            f"{_fmt_int(before)} → {_fmt_int(after)} ({_fmt_int(before - after)} reclaimed)",
+        )
 
     if session.summary and session.summarized_message_id is not None:
         folded = sum(

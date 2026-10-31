@@ -29,6 +29,9 @@ class CapturingUI:
     async def on_context_warning(self, used: int, limit: int) -> None:
         pass
 
+    async def on_compression(self, before: int, after: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         self.messages.append(message)
 
@@ -63,6 +66,8 @@ def _agent(**overrides: Any) -> SimpleNamespace:
         "top_p": None,
         "num_ctx": 8000,
         "last_prompt_tokens": None,
+        "compression_count": 0,
+        "last_compression": None,
         "tools": tools,
         "available_tools": lambda: tools[:1],
         "system_prompt": None,
@@ -197,3 +202,13 @@ async def test_persona_switch_tracks_active_key(tmp_path: Path) -> None:
 
     assert agent.persona_key == "wu"
     assert agent.system_prompt == "Be wise."
+
+
+@pytest.mark.asyncio
+async def test_stat_shows_what_the_last_compression_reclaimed() -> None:
+    ctx = _context(CapturingUI(), agent=_agent(compression_count=2, last_compression=(3200, 900)))
+
+    text = await _render(ctx)
+
+    assert "Compressions" in text
+    assert "3,200 → 900 (2,300 reclaimed)" in text

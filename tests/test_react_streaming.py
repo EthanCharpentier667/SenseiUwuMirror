@@ -155,6 +155,9 @@ class CapturingUIHandler(AsyncUIHandler):
     async def on_context_warning(self, used: int, limit: int) -> None:
         pass
 
+    async def on_compression(self, before: int, after: int) -> None:
+        pass
+
     async def on_stream_chunk(self, _chunk: str) -> None:
         pass
 

@@ -3,6 +3,7 @@
 import io
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from rich.console import Console
@@ -12,7 +13,7 @@ from sensai.data.database.database import Database
 from sensai.data.session.document import get_documents_by_message
 from sensai.data.session.manager import get_current_session, new_session
 from sensai.data.session.message import Message, create_message
-from sensai.data.session.session import Session, create_session
+from sensai.data.session.session import Session, create_session, get_session
 from sensai.features.features import COMPRESSION, RAG, TITLE, Features
 from sensai.features.rag.embedder import Embedder
 from sensai.ui.app import CLIApp
@@ -196,3 +197,79 @@ def test_switch_session_updates_the_current_session(db: Database, profile_id: in
     assert app.session is other
     assert get_current_session() is other
     assert app.agent.last_prompt_tokens == 0
+
+
+def _compressing_app(db: Database, session: Session, summary: str) -> tuple[CLIApp, list[Any]]:
+    """A chat app with compression on at a threshold of 10 tokens, recording what it sends."""
+    app, _ = _chat_app(db, session)
+    sent: list[Any] = []
+    agent: Any = app.agent
+    answer = agent.run
+
+    async def run(messages: list[dict[str, str]]) -> Response:
+        sent.append(messages)
+        reply: Response = await answer(messages)
+        return reply
+
+    async def chat(**_kwargs: Any) -> Response:
+        return _response([], summary)
+
+    agent.run = run
+    agent.system_prompt = None
+    agent.compression_count = 0
+    agent.last_compression = None
+    app.client = SimpleNamespace(chat=chat)  # type: ignore[assignment]
+    app.config = SimpleNamespace(  # type: ignore[assignment]
+        features=Features.from_disabled([RAG, TITLE]),
+        verbose=True,
+        compression_threshold=10,
+        compression_keep_turns=1,
+    )
+    return app, sent
+
+
+def _session_with_exchanges(db: Database, profile_id: int) -> Session:
+    created = create_session(db, profile_id, "Mine")
+    assert created.id is not None
+    for index, (role, content) in enumerate(
+        [
+            ("user", "an old question about the empty cart"),
+            ("assistant", "an old answer about the empty cart"),
+            ("user", "a recent question"),
+            ("assistant", "a recent answer"),
+        ]
+    ):
+        create_message(db, created.id, content, role, float(index))
+    session = get_session(db, created.id)
+    assert session is not None
+    return session
+
+
+@pytest.mark.asyncio
+async def test_history_over_the_threshold_is_compressed_before_the_prompt_is_sent(
+    db: Database, profile_id: int
+) -> None:
+    app, sent = _compressing_app(db, _session_with_exchanges(db, profile_id), "old facts")
+
+    await app._handle_chat("next")  # noqa: SLF001
+
+    contents = [message["content"] for message in sent[0]]
+    assert "Conversation summary so far: old facts" in contents
+    assert "an old question about the empty cart" not in contents
+    assert "a recent answer" in contents
+    assert app.agent.compression_count == 1
+    assert app.agent.last_compression is not None
+    assert app.agent.last_compression[1] < app.agent.last_compression[0]
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_compression_sends_the_whole_history(
+    db: Database, profile_id: int
+) -> None:
+    app, sent = _compressing_app(db, _session_with_exchanges(db, profile_id), "")
+
+    await app._handle_chat("next")  # noqa: SLF001
+
+    assert "an old question about the empty cart" in [m["content"] for m in sent[0]]
+    assert app.agent.compression_count == 0
+    assert [m.content for m in app.session.messages][-2:] == ["next", "hello"]

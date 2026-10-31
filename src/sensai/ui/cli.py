@@ -270,6 +270,14 @@ class CLIHandler(AsyncUIHandler):
             "[/bold yellow]"
         )
 
+    async def on_compression(self, before: int, after: int) -> None:
+        """Report how many tokens compressing the session's history reclaimed."""
+        await self.stop_spinner()
+        self.console.print(
+            f"[dim]History compressed: about {before} → {after} prompt tokens "
+            f"({before - after} reclaimed).[/dim]"
+        )
+
     async def prompt_choice(
         self, title: str, text: str, choices: list[tuple[str, str]]
     ) -> str | None:

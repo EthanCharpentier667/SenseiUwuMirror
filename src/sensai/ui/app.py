@@ -9,7 +9,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 
 from sensai.agent import Agent
-from sensai.client import OllamaClient
+from sensai.client import OllamaClient, estimated_tokens
 from sensai.config import Config
 from sensai.data.database.database import Database
 from sensai.data.session.document import get_document
@@ -119,6 +119,8 @@ class CLIApp:
         self.session = session
         set_current_session(session)
         self.agent.last_prompt_tokens = 0
+        self.agent.compression_count = 0
+        self.agent.last_compression = None
 
     async def _handle_chat(self, user_input: str) -> None:
         """Process a standard chat message with the AI."""
@@ -131,7 +133,7 @@ class CLIApp:
                 if features.is_enabled(RAG)
                 else []
             )
-            messages = build_messages(self.session, user_input, retrieved)
+            messages = await self._build_turn_messages(user_input, retrieved)
             sent_prefix_length = len(messages) - 1
 
             response = await self.agent.run(messages=messages)
@@ -151,20 +153,41 @@ class CLIApp:
 
             if features.is_enabled(TITLE) and not self.session.name:
                 await self._generate_title(response.model or self.agent.model)
-
-            if features.is_enabled(COMPRESSION):
-                compressed = await maybe_compress_session(
-                    self.database,
-                    self.session,
-                    response,
-                    threshold=self.config.compression_threshold,
-                    client=self.client,
-                    ui_handler=self.agent.ui_handler,
-                )
-                self._set_session(compressed)
         finally:
             if self.agent.ui_handler:
                 await self.agent.ui_handler.stop_spinner()
+
+    async def _build_turn_messages(self, user_input: str, retrieved: list[Any]) -> list[Any]:
+        """Build the prompt of a turn, compressing the history first if it's over the threshold."""
+        messages = build_messages(self.session, user_input, retrieved)
+        if not self.config.features.is_enabled(COMPRESSION):
+            return messages
+        before = self._prompt_tokens(messages)
+        compressed = await maybe_compress_session(
+            self.database,
+            self.session,
+            before,
+            threshold=self.config.compression_threshold,
+            client=self.client,
+            model=self.agent.model,
+            keep_turns=self.config.compression_keep_turns,
+            ui_handler=self.agent.ui_handler,
+        )
+        if compressed is self.session:
+            return messages
+        self._set_session(compressed)
+        messages = build_messages(self.session, user_input, retrieved)
+        after = self._prompt_tokens(messages)
+        self.agent.compression_count += 1
+        self.agent.last_compression = (before, after)
+        if self.agent.ui_handler:
+            await self.agent.ui_handler.on_compression(before, after)
+        return messages
+
+    def _prompt_tokens(self, messages: list[Any]) -> int:
+        """Estimate a prompt's size, with the system prompt the agent adds to it."""
+        system_prompt = {"content": self.agent.system_prompt or ""}
+        return estimated_tokens([system_prompt, *messages])
 
     def _set_session(self, session: Session) -> None:
         """Replace the current session with a newer copy of itself, here and process-wide."""

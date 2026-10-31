@@ -62,6 +62,9 @@ class MockUIHandler(AsyncUIHandler):
     async def on_context_warning(self, used: int, limit: int) -> None:
         pass
 
+    async def on_compression(self, before: int, after: int) -> None:
+        pass
+
     async def on_system_message(self, message: Any) -> None:
         pass
 
@@ -110,6 +113,9 @@ class RecordingEvents(MockUIHandler):
 
     async def on_context_warning(self, used: int, limit: int) -> None:
         self.warnings.append((used, limit))
+
+    async def on_compression(self, before: int, after: int) -> None:
+        pass
 
 
 def _client_replying(

@@ -96,8 +96,10 @@ async def _fake_retrieve_chunks(*_args: Any, **_kwargs: Any) -> list[Any]:
     return []
 
 
-async def _fake_maybe_compress_session(*_args: Any, **_kwargs: Any) -> Session:
-    return _make_session()
+async def _fake_maybe_compress_session(
+    _database: Any, session: Session, *_args: Any, **_kwargs: Any
+) -> Session:
+    return session
 
 
 def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
