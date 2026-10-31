@@ -11,7 +11,7 @@ import mkdocs_gen_files
 
 nav = mkdocs_gen_files.Nav()
 
-root = Path(__file__).parent.parent
+root = Path(__file__).resolve().parents[4]
 src = root / "src"
 
 for path in sorted((src / "sensai").rglob("*.py")):

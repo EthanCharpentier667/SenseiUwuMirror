@@ -14,6 +14,7 @@ class TempToolExample(Tool):
         """Initialize the temperature tool definition."""
         super().__init__(
             name="get_temperature",
+            group="example",
             description="Get the current temperature for a city.",
             tool_type="function",
             parameters={

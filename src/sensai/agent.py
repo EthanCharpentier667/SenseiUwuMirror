@@ -11,6 +11,7 @@ from sensai.features.features import MCP, REACT, TOOLS, Features
 from sensai.features.react.react import DEFAULT_MAX_STEPS, Decision, ReActController
 from sensai.features.react.stream import StreamingThoughtExtractor
 from sensai.features.tools.mcp.mcp_tools import MCPTools
+from sensai.features.tools.tool import is_failure
 from sensai.ui.protocol import AsyncUIHandler
 
 PLAN_OPTIONS = {"temperature": 0}
@@ -122,6 +123,35 @@ class Agent:
         self.structured_output_schema: dict[str, Any] | None = None
         self.read_documents: list[str] = []
         self._unconstrained_models: set[str] = set()
+        self.persona_key: str | None = None
+        self.last_prompt_tokens: int | None = None
+
+    @property
+    def temperature(self) -> float | None:
+        """Sampling temperature forwarded to client."""
+        return self.client.temperature
+
+    @temperature.setter
+    def temperature(self, value: float | None) -> None:
+        self.client.temperature = value
+
+    @property
+    def top_p(self) -> float | None:
+        """Nucleus sampling top_p forwarded to client."""
+        return self.client.top_p
+
+    @top_p.setter
+    def top_p(self, value: float | None) -> None:
+        self.client.top_p = value
+
+    @property
+    def num_ctx(self) -> int | None:
+        """Context window size forwarded to client."""
+        return self.client.num_ctx
+
+    @num_ctx.setter
+    def num_ctx(self, value: int | None) -> None:
+        self.client.num_ctx = value
 
     def _prepare_messages(
         self,
@@ -239,7 +269,7 @@ class Agent:
             show_output = bool(getattr(tool, "show_output", False))
             await self.ui_handler.on_tool_call_result(decision.action, res, show_output=show_output)
         observation, images = await self._observe(res, images)
-        status = "failed" if isinstance(res, dict) and res.get("error") else "done"
+        status = "failed" if is_failure(res) else "done"
         return status, observation, images
 
     def _take_attachments(self, res: Any) -> tuple[Any, list[str]]:

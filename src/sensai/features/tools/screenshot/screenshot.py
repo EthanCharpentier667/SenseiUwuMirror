@@ -23,6 +23,7 @@ class Screenshot(Tool):
         """Initialize the Screenshot tool definition."""
         super().__init__(
             name="screenshot",
+            group="screenshot",
             description=(
                 "Capture a screenshot of the user's current screen. The image is shown to "
                 "you right away, to describe the screen or answer questions about it."

@@ -1,0 +1,22 @@
+{
+  "recorded_on": "2026-10-27",
+  "kind": "real interactive CLI in a PTY",
+  "model": "llama3.2:latest",
+  "approvals": 2,
+  "prompts": [
+    "Use web_search to find official pytest documentation for our failing cart assertion. Search for: site:docs.pytest.org how to assert. Give one documentation title and its URL from the actual results. No JSON. Do not fetch yet.",
+    "Use web_fetch on https://docs.pytest.org/en/stable/how-to/assert.html . Based on the returned page, state whether pytest supports ordinary Python assert statements for our cart tests. Answer in one short sentence and include the source URL. No JSON. Do not search again."
+  ],
+  "wall_seconds": 19.93,
+  "output_substituted": false,
+  "tools_executed_by": "Sensai ReAct agent",
+  "gif_frames": 35,
+  "gif_bytes": 404667,
+  "gif_sha256": "24e7212e841ebd007b66c0b53b2f0f6e866c39305222c30c303b166e5616714f",
+  "cast_sha256": "a39a08bd1fc0c60de6cc61718e2174f95db43624b7ea60c79215d14140f6d179",
+  "playback": "Actual PTY states; idle intervals capped at 1.8 seconds",
+  "playback_seconds": 21.55,
+  "num_ctx": 8192,
+  "source_commit": "704aa90f9bb8652f5756e1ad16aa8c5db7b22205",
+  "execution_evidence_checked": true
+}

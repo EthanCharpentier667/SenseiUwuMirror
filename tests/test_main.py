@@ -107,7 +107,7 @@ def _patch_main_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.argv", ["sensai"])
     monkeypatch.setattr("sensai.setup_database", lambda *args, **kwargs: _FakeDatabase())
     monkeypatch.setattr("sensai.authenticate_user", _mock_auth)
-    monkeypatch.setattr("sensai.get_or_create_session", lambda *args, **kwargs: _make_session())
+    monkeypatch.setattr("sensai.start_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.update_session", lambda *args, **kwargs: _make_session())
     monkeypatch.setattr("sensai.ui.app.maybe_compress_session", _fake_maybe_compress_session)
     monkeypatch.setattr("sensai.ui.app.retrieve_chunks", _fake_retrieve_chunks)
@@ -521,7 +521,7 @@ def test_main_greets_the_profile_and_exits_on_eof(
     monkeypatch.setattr("sensai.ui.app.PromptSession.prompt_async", fake_prompt_async)
     main()
     captured = capsys.readouterr()
-    assert "Hello Default Profile! Welcome to Sensai." in captured.out
+    assert "Hello Default Profile! Welcome to SensaiUwu." in captured.out
     assert "Program terminated by user." in captured.out
 
 

@@ -1,4 +1,4 @@
-"""Orchestration and setup functions for Sensai components."""
+"""Orchestration and setup functions for SensaiUwu components."""
 
 from pathlib import Path
 
@@ -9,7 +9,7 @@ from sensai.client import OllamaClient
 from sensai.config import Config
 from sensai.data.database.database import Database
 from sensai.data.profile.profile import Profile
-from sensai.data.session.manager import create_new_session
+from sensai.data.session.manager import new_session, set_current_session
 from sensai.data.session.message import create_message, delete_message
 from sensai.data.session.session import Session
 from sensai.features.features import RAG, Features
@@ -33,31 +33,45 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
         token=config.token,
         timeout=config.timeout,
         verbose=config.verbose,
+        show_prompt=config.show_prompt,
         num_ctx=config.num_ctx,
+        temperature=config.temperature,
+        top_p=config.top_p,
     )
     ui_handler = CLIHandler()
+    client.events = ui_handler
     agent = Agent(
         model=config.model,
-        tools=get_tools(ui_handler),
-        trust_level="none",
+        tools=get_tools(),
+        trust_level=config.trust_level,
         ui_handler=ui_handler,
         client=client,
         features=config.features,
     )
     agent.structured_output_schema = config.output_schema
+    agent.max_turns = config.max_steps
     return client, agent
 
 
-def get_or_create_session(database: Database, profile: Profile) -> Session:
-    """Create or load a test session for the profile."""
+def setup_embedder(config: Config) -> Embedder:
+    """Initialize and return the embedder, with its own client on the embedding URL."""
+    client = OllamaClient(
+        base_url=config.embed_url,
+        token=config.embed_token,
+        timeout=config.timeout,
+        verbose=config.verbose,
+    )
+    return Embedder(client)
+
+
+def start_session(profile: Profile) -> Session:
+    """Start an untitled session for the profile, saved once its first message is sent."""
     if profile.id is None:
         msg = "Profile ID cannot be None when creating a session."
         raise ValueError(msg)
 
-    session: Session | None = create_new_session(database, profile.id, "test_session")
-    if session is None:
-        msg = "Failed to create the default session."
-        raise ValueError(msg)
+    session = new_session(profile.id)
+    set_current_session(session)
     return session
 
 
@@ -106,6 +120,7 @@ async def ingest_initial_files(  # noqa: PLR0913
             except ValueError:
                 delete_message(database, file_message.id)
                 console.print(f"[red]Failed to ingest file: {file_path}[/red]")
+                continue
             console.print(f"[green]Successfully ingested file: {file_path}[/green]")
         except Exception as e:  # noqa: BLE001
             console.print(f"[red]Error reading file {file_path}: {e}[/red]")

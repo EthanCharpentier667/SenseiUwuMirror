@@ -14,7 +14,9 @@ def _parse_persona(key: str, data: dict[str, Any]) -> Persona:
 
     Args:
         key: The persona's identifier key in the config file.
-        data: Raw dictionary with name, description, and system_prompt fields.
+        data: Raw dictionary with name, description, and system_prompt fields. The
+            system_prompt is a string, or a list of lines joined with newlines so long
+            prompts stay readable in the JSON file.
 
     Returns:
         A fully constructed Persona instance.
@@ -25,10 +27,13 @@ def _parse_persona(key: str, data: dict[str, Any]) -> Persona:
     for field in ("name", "description", "system_prompt"):
         if field not in data:
             raise ValueError(f"Persona '{key}' is missing required field '{field}'.")
+    system_prompt = data["system_prompt"]
+    if isinstance(system_prompt, list):
+        system_prompt = "\n".join(system_prompt)
     return Persona(
         name=data["name"],
         description=data["description"],
-        system_prompt=data["system_prompt"],
+        system_prompt=system_prompt,
     )
 
 

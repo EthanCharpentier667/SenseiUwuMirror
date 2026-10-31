@@ -3,7 +3,16 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
-from peewee import SQL, CharField, DateTimeField, ForeignKeyField, IntegerField, TextField
+from peewee import (
+    SQL,
+    AutoField,
+    CharField,
+    DateTimeField,
+    ForeignKeyField,
+    IntegerField,
+    TextField,
+    fn,
+)
 
 from sensai.data.database.base_model import BaseModel
 from sensai.data.profile.profile import Profile
@@ -30,6 +39,7 @@ class Session(BaseModel):
     last_updated = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
     messages: list[Message]
+    message_count: int
 
     def __init__(
         self, *args: object, messages: list[Message] | None = None, **kwargs: object
@@ -84,6 +94,61 @@ def get_session(db: "Database", session_id: int) -> Session | None:
     with db.database.bind_ctx([Session]):
         session = Session.get_or_none(Session.id == session_id)
     return _with_messages(db, session) if session is not None else None
+
+
+def list_sessions(db: "Database", profile_id: int) -> list[Session]:
+    """List a profile's sessions, most recently used first, without their messages.
+
+    Args:
+        db (Database): The database to read from.
+        profile_id (int): The ID of the profile whose sessions to list.
+
+    Returns:
+        list[Session]: The sessions, each with ``message_count`` set.
+    """
+    with db.database.bind_ctx([Session, Message]):
+        count = (
+            Message.select(fn.COUNT(Message.id))
+            .where(Message.session_id == Session.id)
+            .alias("message_count")
+        )
+        return list(
+            Session.select(Session, count)
+            .where(Session.profile == profile_id)
+            .order_by(Session.last_updated.desc(), cast("AutoField", Session.id).desc())
+        )
+
+
+def find_sessions_by_name(db: "Database", profile_id: int, name: str) -> list[Session]:
+    """Find a profile's sessions by name, without their messages.
+
+    Exact matches win; otherwise the sessions whose name starts with ``name``,
+    ignoring case, are returned.
+
+    Args:
+        db (Database): The database to read from.
+        profile_id (int): The ID of the profile whose sessions to search.
+        name (str): The name, or the start of the name, to look for.
+
+    Returns:
+        list[Session]: The matching sessions, most recently used first.
+    """
+    named = [(session, session.name) for session in list_sessions(db, profile_id) if session.name]
+    exact = [session for session, title in named if title == name]
+    if exact:
+        return exact
+    return [session for session, title in named if title.lower().startswith(name.lower())]
+
+
+def delete_session(db: "Database", session_id: int) -> None:
+    """Delete a session, along with its messages, documents and chunks.
+
+    Args:
+        db (Database): The database to write to.
+        session_id (int): The unique identifier for the session.
+    """
+    with db.database.bind_ctx([Session]):
+        Session.delete().where(Session.id == session_id).execute()
 
 
 def rename_session(db: "Database", session_id: int, name: str) -> None:

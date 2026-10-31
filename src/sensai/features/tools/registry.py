@@ -1,4 +1,4 @@
-"""Registry of the tools available to Sensai."""
+"""Registry of the tools available to SensaiUwu."""
 
 from __future__ import annotations
 
@@ -56,11 +56,17 @@ def get_tools(ui_handler: AsyncUIHandler | None = None) -> list[Tool]:
     return tools
 
 
-async def get_mcp_tools(client: Client) -> list[Tool]:
+async def get_mcp_tools(client: Client, server: str | None = None) -> list[Tool]:
     """Create MCP tools that can be passed to the language model.
+
+    Args:
+        client (Client): The connected MCP client.
+        server (str | None): The name the server was connected under, used to group its
+            tools as ``mcp:<server>``. Default is None, which groups them as ``mcp``.
 
     Returns:
         list[Tool]: Instantiated tools ready to be defined and executed.
     """
     result = await client.list_tools()
-    return [MCPTools(client, definition) for definition in result.tools]
+    group = f"mcp:{server}" if server else "mcp"
+    return [MCPTools(client, definition, group=group) for definition in result.tools]

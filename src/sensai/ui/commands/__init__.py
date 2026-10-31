@@ -1,25 +1,44 @@
 """Built-in slash commands for the CLI."""
 
+from typing import TYPE_CHECKING
+
 from sensai.ui.command import Command, CommandRegistry
 from sensai.ui.commands.auth import logout_execute
-from sensai.ui.commands.help import help_execute
+from sensai.ui.commands.help import make_help_execute
 from sensai.ui.commands.model import model_execute
 from sensai.ui.commands.persona import persona_execute
 from sensai.ui.commands.prefs import inst_execute, prefs_execute
+from sensai.ui.commands.session import SessionNameCompleter, session_execute
 from sensai.ui.commands.settings import settings_execute
+from sensai.ui.commands.stat import stat_execute
 from sensai.ui.commands.system import exit_execute
-from sensai.ui.commands.tool import tool_execute
+from sensai.ui.commands.tool import ToolNameCompleter, tool_execute
+
+if TYPE_CHECKING:
+    from sensai.agent import Agent
+    from sensai.data.database.database import Database
 
 
-def setup_builtin_commands(registry: CommandRegistry) -> None:
-    """Register all built-in commands."""
-    registry.register(Command("/help", "List all available commands.", help_execute))
+def setup_builtin_commands(
+    registry: CommandRegistry, agent: "Agent | None" = None, database: "Database | None" = None
+) -> None:
+    """Register all built-in commands.
+
+    Args:
+        registry (CommandRegistry): The registry to add the commands to.
+        agent (Agent | None): The agent whose tool names /tools completes. Default is
+            None, which registers /tools without name completion.
+        database (Database | None): The database whose session names /session completes.
+            Default is None, which registers /session without name completion.
+    """
+    registry.register(Command("/help", "List all available commands.", make_help_execute(registry)))
     registry.register(
         Command(
             "/tools",
-            "List tools, or enable/disable one: /tools enable|disable <name>.",
+            "Toggle tools in a dialog, /tools list, or /tools enable|disable <tool or group>...",
             tool_execute,
-            subcommands=["enable", "disable"],
+            subcommands=["list", "enable", "disable"],
+            argument_completer=ToolNameCompleter(agent) if agent is not None else None,
         )
     )
     registry.register(Command("/logout", "Log out and clear saved credentials.", logout_execute))
@@ -43,12 +62,22 @@ def setup_builtin_commands(registry: CommandRegistry) -> None:
     )
     registry.register(Command("/settings", "Open interactive settings menu.", settings_execute))
     registry.register(
+        Command(
+            "/session",
+            "Pick a session, or /session list|new|switch <name>|rename [name]|delete [name].",
+            session_execute,
+            subcommands=["list", "new", "switch", "rename", "delete"],
+            argument_completer=SessionNameCompleter(database) if database is not None else None,
+        )
+    )
+    registry.register(Command("/stats", "Show statistics for the current session.", stat_execute))
+    registry.register(
         Command("/model", "Change the AI model used in the current session.", model_execute)
     )
     registry.register(
         Command(
             "/persona",
-            "Manage agent persona.",
+            "List personas, or switch to one (saved to your profile).",
             persona_execute,
             subcommands=["list", "switch"],
         )

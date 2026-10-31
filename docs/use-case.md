@@ -1,42 +1,69 @@
 # Use case: SensaiUwu, the testing assistant
 
-> **SensaiUwu is an assistant for every kind of testing.** It measures your coverage,
-> writes your tests and fixes them with the frameworks you already use (GoogleTest,
-> Criterion, pytest, cargo test…). It also tests any project **functionally**, by
-> running it and looking at what it does: algorithms, graphics, web, networking and
-> more.
+> **SensaiUwu helps a small development team check code before review, with the model
+> running on the company's own server.** It runs the project's tests, observes the
+> result, explains a failure and, with the developer's approval, applies a fix and checks
+> again. Web tools, MCP servers and cloud models can send data elsewhere: see
+> [where data goes](responsibility.md).
 
-This page describes this use case, then every feature of Sensai: what it does, why the
-testing assistant needs it, and a concrete scenario showing it at work.
+This page describes the testing assistant and its usage scenarios. Feature sheets
+detail each capability, its user stories and its role in the developer's workflow.
 
----
-
-## Who it is for
-
-Developers who want their project checked, not just discussed. A chatbot can tell you
-*how* to test a Vulkan window or a REST endpoint; SensaiUwu **does it** on your machine:
-it reads the project, runs it, observes the result (exit code, logs, screen, HTTP
-response) and concludes with a verdict and, if something is wrong, a fix.
-
-It covers two families of tests:
-
-| Family | What SensaiUwu does | Typical tools |
-|---|---|---|
-| **Unit and integration tests** | Runs the suite, reads the failures, measures coverage, writes missing tests, fixes broken ones | GoogleTest, Criterion, pytest, cargo test, Jest, `gcovr`, `coverage.py`, `cargo llvm-cov` |
-| **Functional tests** | Runs the program like a user would and checks the observable result | Shell commands, screenshots, logs, HTTP requests, sandboxed scripts |
-
-Functional testing is what sets it apart: some projects have no test framework at all
-(a game engine window, a network server, a sorting algorithm handed in as a binary),
-and still need to be checked.
-
-| Domain | Example of a functional test |
-|---|---|
-| **Algorithms** | Run a solver on generated inputs, compare its output with a reference implementation, time it |
-| **Graphics** | Launch a Vulkan/OpenGL/SFML app, take a screenshot, check the window opened and the terminal shows no validation error |
-| **Web** | Start a server in the background, fetch its pages or call its API, check the answers |
-| **Networking** | Start a server and a client, check they connect and exchange the expected messages |
+The feature sheets connect the scenario to user stories, current behavior and
+recordings. Their captions identify what each recording demonstrates and distinguish
+component execution from a complete conversation with the assistant.
 
 ---
+
+## Reference scenario: Camille checks Atelier Nova's cart { #scenario-de-reference-camille-verifie-le-panier-datelier-nova }
+
+Camille Moreau is a Python developer at **Atelier Nova**, a fictional small online
+store. She is preparing a merge request for the cart calculation module. Malik
+Benali, the developer reviewing the change, expects a test summary before reviewing
+it: items priced at 10 and 20 must total 30, and an empty cart must total 0.
+
+Atelier Nova runs Ollama on a GPU server of its own, shared by its small development
+team, so inference on its code and logs stays inside the company. Camille uses SensaiUwu in the
+terminal, from a local checkout, pointed at that server with `--url`. In the live
+demonstration, an RTX 4090 machine plays the role of this server. She wants to distinguish an actual passing suite from a regression,
+without delegating production deployment or allowing uncontrolled file changes.
+Demo amounts and customer-facing content are fictional; no real customer records
+are used.
+
+The workflow is built on two situations:
+
+| Situation | Demo project | Reference result |
+| --- | --- | --- |
+| Empty-cart regression | [Faulty version](demo_assets/demos/python-tests.md) | `1 failed, 1 passed`, exit code `1`; empty cart totals 1 instead of 0. |
+| Correct calculation | [Correct version](demo_assets/demos/python-tests-passing.md) | `2 passed`, exit code `0`; empty cart totals 0 and the non-empty cart totals 30. |
+
+Camille requests a test run, inspects the proposed command and decides whether to
+approve it. SensaiUwu uses the actual output to produce a concise summary. A failure
+identifies the test and the observed mismatch; success confirms only the two covered
+behaviors, not the whole application. Refusing an action prevents that call from
+executing. After a failure, Camille can approve a [correction](use_cases/File-access.md)
+and have the same tests run again, so the summary she gives Malik rests on the fixed
+code.
+
+The review can also use the [fictional cart specification](demo_assets/demos/cart-spec.md),
+a [local browser preview](use_cases/Browser.md), and a read-only rule server.
+These extend the same workflow: identify the expectation, perform a check, inspect
+its result and keep the developer in control.
+
+This work takes place before code review, without an instant-response requirement.
+A small module and two tests keep execution lightweight; model inference on the shared
+server adds planning and response latency. Progress, proposed actions and streamed answers keep
+Camille informed while she waits. The workflow is interactive development support,
+not a production gate with a guaranteed response deadline.
+
+The [ReAct loop](use_cases/ReAct.md) organizes execution and interpretation.
+[Tools and trust levels](use_cases/Tools-and-trust-levels.md) determine which actions
+require Camille's approval. Each feature sheet links its user stories and acceptance
+criteria to this scenario.
+
+*The people and company are fictional. This scenario and its user stories were
+formalized on 26 October 2026; that date does not establish that they preceded
+implementation.*
 
 ## How it works
 
@@ -61,353 +88,44 @@ run?), **act** (build, run, capture), **observe** (logs, screen, files), **concl
 
 ---
 
-## Flagship scenario: does Ethan's Vulkan window open?
-
-Ethan wrote a Vulkan application for his engine (the best of all time). He wants to
-know whether its window opens correctly and without errors. There is no test framework
-for that: it has to be run and looked at.
-
-**Ethan:**
-> Check that my engine's window opens without errors.
-
-**1. Read how the project runs.** The model doesn't guess the command: it reads the
-project's instructions.
-
-```json
-{"thought": "I need to know how this project is built and run.",
- "action": "file_read", "args": {"file_path": "README.md"}}
-```
-
-The README says `xmake run`. The file is also ingested into the session's RAG, so the
-next messages can rely on it without reading it again.
-
-**2. Run it in the background.** A graphical app never exits on its own: run in the
-foreground, it would hit the 30-second timeout. The model starts it as a background
-job and gets a `job_id` at once.
-
-```json
-{"thought": "The app opens a window and keeps running: start it as a job.",
- "action": "bash_tool", "args": {"command": "xmake run", "background": true}}
-```
-
-**3. Look at the screen.** The model takes a screenshot; the image is shown to it
-directly (vision models only).
-
-```json
-{"thought": "The window should be open now; let me see the screen.",
- "action": "screenshot", "args": {}}
-```
-
-**4. Read the terminal.** It checks the job: still running, and the end of its output,
-where validation layer errors and crashes appear.
-
-```json
-{"thought": "Check the logs for Vulkan validation errors.",
- "action": "bash_job", "args": {"job_id": "job_1"}}
-```
-
-**5. Conclude, and fix if needed.** The model crosses both observations and answers:
-
-> The window opens: the screenshot shows a 1280×720 window titled "Engine" with the
-> clear color. However, the terminal shows a validation error:
-> `VUID-vkCmdDraw-None-08600: descriptor set 0 is not bound`. The pipeline is bound,
-> but `vkCmdBindDescriptorSets` is never called before `vkCmdDraw` in
-> `src/render/frame.cpp`. Add the bind right after `vkCmdBindPipeline`. Do you want
-> me to make the change and run the test again?
-
-On Ethan's "yes", the model edits the file with `file_write`, runs `xmake run` again
-and checks that the error is gone. That's a complete test cycle: **read → run →
-observe → conclude → fix → check again**.
-
-!!! note "Budgets"
-    This scenario uses 4 tool calls in one message, within the ReAct loop's budgets
-    (10 tool calls and 10 steps per message, see [Current limits](#current-limits)).
-
----
-
 ## Features
 
 | Feature | Role in the testing assistant |
-|---|---|
-| [ReAct loop](#react-loop) | Turns a request into a test procedure: read, act, observe, conclude |
-| [Tools and trust levels](#tools-and-trust-levels) | Lets the model act on the machine, under the user's control |
-| [Bash: `bash_tool` and `bash_job`](#bash-bash_tool-and-bash_job) | Builds, runs test suites, launches programs and servers |
-| [File access: `file_read` and `file_write`](#file-access-file_read-and-file_write) | Reads the code and the test reports, writes tests and fixes |
-| [Screenshot](#screenshot) | Observes graphical output |
-| [Browser](#browser) | Tests websites and web apps like a user: open, read, click, type |
-| [Sandboxed code](#sandboxed-code) | Runs throwaway or risky code away from the host |
-| [Web search and web fetch](#web-search-and-web-fetch) | Finds documentation, checks deployed pages |
-| [MCP servers](#mcp-servers) | Plugs in external tools: GitHub, browsers, databases… |
-| [RAG on documents](#rag-on-documents) | Remembers specs, READMEs and reports across messages |
-| [Session compression](#session-compression) | Keeps long debugging sessions within the context window |
-| [Profiles, preferences and instructions](#profiles-preferences-and-instructions) | Remembers how *you* test |
-| [Personas](#personas) | Adapts the agent's role and tone |
-| [Models and capabilities](#models-and-capabilities) | Picks the right model, hides tools it can't use |
-| [Feature flags and settings](#feature-flags-and-settings) | Switches capabilities on and off |
-| [Streaming and event-driven UI](#streaming-and-event-driven-ui) | Shows the reasoning live, keeps the core UI-agnostic |
-
-### ReAct loop
-
-**What it is.** For each message, the model proposes one step at a time as JSON
-(`thought`, `action`, `args`), constrained by a schema listing the actions still
-allowed. The controller (`sensai/features/react/react.py`) checks each step (unknown
-tool, missing or mistyped arguments, exact repeated call) and replays the trajectory
-to the model, so the last thing it reads is the last observation. Servers that ignore
-the schema (e.g. Ollama Cloud) are detected, and the JSON shape is then spelled out in
-the instructions instead.
-
-**Why it matters.** Testing is never a single action: you need to look before acting,
-and react to what you see. The loop is what lets the agent decide "the build failed,
-let me read the error" instead of answering blindly. The budgets keep a small model
-from looping forever on the same call.
-
-**Use case.** *"Why does `make test` fail?"* The model runs `make test`, sees a
-compilation error in `tests/test_list.c`, reads that file, finds a test calling a
-function renamed in the last commit, and explains it.
-
-### Tools and trust levels
-
-**What it is.** Every tool declares whether it is `safe` (read-only, harmless). The
-user picks a trust level in `/settings`:
-
-| Trust level | Behavior |
-|---|---|
-| `none` | Every tool call asks for approval |
-| `partial` | Safe tools run on their own; the others ask |
-| `total` | Everything runs without asking |
-
-A refused call doesn't stop the loop: the model sees the refusal and adapts.
-
-**Why it matters.** A tester runs commands and edits files on your machine. You stay
-in control of what actually runs, and can loosen it once you trust the workflow.
-
-**Use case.** In `partial`, checking a job (`bash_job`, safe) runs without asking, but
-`bash_tool` with `rm -rf build && xmake` asks for approval first.
-
-### Bash: `bash_tool` and `bash_job`
-
-**What it is.** `bash_tool` runs a command on the host. In the foreground it waits at
-most 30 s and returns the exit code and the end of the output (the last 8,000
-characters, where a build's errors are). With `background: true` it starts a job and
-returns its `job_id` at once. `bash_job` checks a job: still running or not, its exit
-code, the end of its log; it can wait for the job to finish (up to 120 s) or stop it
-along with everything it launched. Every job is stopped when Sensai exits.
-
-**Why it matters.** This is how SensaiUwu reaches every test framework without a
-dedicated integration: `pytest`, `ctest`, `cargo test`, `criterion` binaries,
-`gcovr`, `npm test` are all commands. Background jobs cover what never exits on its
-own: GUI apps, servers, long builds.
-
-**Use case.** *"What's my coverage?"* on a Rust project: the model starts
-`cargo llvm-cov --summary-only` in the background, waits for it with
-`bash_job` (`wait_seconds: 120`), and reports the per-file coverage with the least
-covered functions to test first.
-
-### File access: `file_read` and `file_write`
-
-**What it is.** `file_read` reads a text file, after checking it exists and is
-readable; the file is also ingested into the session's RAG. `file_write` writes a file
-(creating or overwriting it), after checking the target is writable and its folder
-exists.
-
-**Why it matters.** Writing and fixing tests means reading the code under test and
-editing test files. Reading also covers what the tools produce: JUnit XML reports,
-`coverage.xml`, logs.
-
-**Use case.** *"Write the missing tests for `src/parser.py`."* The model reads the
-module, reads the existing `tests/test_parser.py` to follow its style, writes the new
-tests with `file_write`, then runs `pytest tests/test_parser.py` to check they pass.
-
-### Screenshot
-
-**What it is.** `screenshot` captures the screen, downscaled to 1920×1080, and shows
-the image to the model directly. It requires a model with vision: for other models the
-tool is hidden.
-
-**Why it matters.** Some results only exist on screen: a window, a rendering, a UI
-layout. Without eyes, the agent can only check that the program didn't crash.
-
-**Use case.** The [flagship scenario](#flagship-scenario-does-ethans-vulkan-window-open):
-the screenshot proves the window opened and shows the expected render, which logs
-alone can't.
-
-### Browser
-
-**What it is.** Five tools drive the user's Chrome (visible, launched on first use and
-kept open between calls, closed when Sensai exits), through Playwright:
-
-| Tool | Role | Safe |
-|---|---|---|
-| `browser_navigate(url)` | Opens an http(s) URL, returns its title and snapshot | Yes |
-| `browser_snapshot()` | Reads the open page again | Yes |
-| `browser_click(name or ref)` | Clicks a button, link, checkbox… of the page | No |
-| `browser_type(name or ref, text, submit?)` | Fills a field, optionally presses Enter | No |
-| `browser_screenshot()` | Shows the page as an image (vision models only) | Yes |
-
-The snapshot is the page's accessibility tree as text (`- button "Log in" [ref=e2]`),
-compact enough for a small model. Click and type find an element by its name as the
-snapshot quotes it (`Log in`), or by its `ref` (`e2`) when two elements share a name:
-small models give names reliably, but tend to guess refs. An element that can't be
-found is reported as a failure, with the current page to try again. Click and type
-return the page as it is afterwards, saving a snapshot call.
-`browser_navigate` refuses `file://` URLs, so it can't read local files without the
-approval `file_read` asks for.
-
-**Why it matters.** A web app's behavior lives in the browser: forms, redirects,
-JavaScript, rendering. `web_fetch` reads a page; the browser *uses* it.
-
-**Use case.** *"Check that login works on http://localhost:3000."* The model opens
-the page, types the email and password, submits, and checks the snapshot now shows
-the dashboard; with a wrong password, it checks an error message appears.
-
-### Sandboxed code
-
-**What it is.** `sandboxed_code` runs Python or Bash in a disposable Docker container:
-no network, read-only filesystem, half a CPU, 512 MB of memory, 64 processes, a 20 s
-limit, and the container is removed afterwards.
-
-**Why it matters.** Testing algorithms often means writing throwaway code: a reference
-implementation, an input generator, a fuzzer. The sandbox runs it without risk for the
-host, and is the place for any command that could be destructive.
-
-**Use case.** *"Is my `fast_sort` correct?"* The model writes a Python script that
-generates 1,000 random arrays (empty, sorted, reversed, with duplicates), compares
-`fast_sort` with `sorted` on each and prints the first counterexample. It runs it in
-the sandbox.
-
-### Web search and web fetch
-
-**What it is.** `web_search` searches the web, `web_fetch` reads a given page, both
-through Ollama's web API (an `API_TOKEN` is needed).
-
-**Why it matters.** Test failures often come with cryptic messages from tools the user
-doesn't know by heart. And for web projects, `web_fetch` checks a deployed page's
-content.
-
-**Use case.** A GoogleTest suite fails with `TYPED_TEST_SUITE_P is defined but not
-registered`. The model searches for it, finds that the suite must be instantiated with
-`INSTANTIATE_TYPED_TEST_SUITE_P`, and adds the missing line.
-
-### MCP servers
-
-**What it is.** `/mcp add-json <name> '<json>'` connects an MCP server during a
-conversation, and its tools become the agent's tools (see
-[MCP connections](mcp-server.md)).
-
-**Why it matters.** It extends the tester without writing code: a GitHub server to read
-an issue or a PR, a browser server (e.g. Playwright MCP) to click through a web app, a
-database server to check what a test wrote.
-
-**Use case.** *"Reproduce issue #42."* With GitHub's MCP server connected, the model
-reads the issue's steps, runs them with `bash_tool`, and confirms or refutes the bug
-with the actual output.
-
-### RAG on documents
-
-**What it is.** Documents (text, Markdown, HTML, PDF, DOCX…) are converted to Markdown,
-split into chunks and embedded with `nomic-embed-text`. For each prompt, the most
-relevant chunks are added to the context. Documents come from `--files` at startup, or
-from the files the agent reads with `file_read`.
-
-**Why it matters.** Testing against a spec: the expected behavior is in a PDF subject,
-an RFC or a README. RAG lets the model check the program against it without the whole
-document in every prompt.
-
-**Use case.** Started with `--files subject.pdf`, the user asks *"Does my server follow
-the protocol?"* The relevant protocol section is retrieved, and the model checks the
-server's responses against each command it describes.
-
-### Session compression
-
-**What it is.** Once a prompt goes over a token threshold (3,000 by default,
-`--compression-threshold`), the history is folded into a running summary by the same
-model.
-
-**Why it matters.** A debugging session goes through many rounds of run, read, fix,
-run again. Compression keeps it going without overflowing a small model's context, and
-keeps the decisions made along the way.
-
-**Use case.** After an hour of fixing a flaky network test, the summary still holds
-"the failure only happens when the client connects before `listen()`; a retry with
-backoff was added in `client.c`", so the model doesn't suggest that fix again.
-
-### Profiles, preferences and instructions
-
-**What it is.** Users log in to a profile. `/prefs` and `/inst` store preferences and
-instructions added to every conversation; sessions and their history are saved in a
-SQLite database.
-
-**Why it matters.** Every developer tests differently. Saying once "use pytest with
-`-q`", "my C tests use Criterion" or "never touch `src/legacy/`" saves repeating it, and
-avoids a fix in the wrong place.
-
-**Use case.** With the instruction *"Run tests with `uv run pytest -q`"*, the model
-never tries a bare `pytest` that would miss the virtual environment.
-
-### Personas
-
-**What it is.** A persona is a name, a description and a system prompt, defined in
-`personas.json`, picked with `--persona` or `/persona switch`.
-
-**Why it matters.** The system prompt sets the agent's role. A dedicated testing
-persona can set the method (always reproduce before fixing, always run the tests
-again after a fix) and the report format.
-
-**Use case.** A "QA" persona that ends every answer with a summary table: test, result,
-evidence (log line or screenshot), suggested fix.
-
-### Models and capabilities
-
-**What it is.** `--model` and `/model` choose the Ollama model. Sensai asks Ollama what
-the model can do: tools needing a missing capability are hidden (the screenshot needs
-`vision`), and images are never sent to a model that can't see them.
-
-**Why it matters.** Testing a GUI needs a vision model; a quick unit-test fix runs fine
-on a small one. The agent never offers a tool the current model can't use.
-
-**Use case.** On `llama3.2` (no vision), the screenshot tool isn't offered; the model
-checks the Vulkan app through its logs only, and suggests switching to a vision model
-to check the render.
-
-### Feature flags and settings
-
-**What it is.** Each feature (`tools`, `react`, `rag`, `compression`, `mcp`) and each
-tool can be switched off: `--disable` and `--disable-tool` at startup, `/settings` and
-`/tools enable|disable` at runtime.
-
-**Why it matters.** Restrict the tester to what a task needs: no web access for a
-confidential project, no `bash_tool` when only the sandbox should run code.
-
-**Use case.** For an exam project, `--disable-tool web_search --disable-tool web_fetch`
-ensures the analysis relies only on the local code and tests.
-
-### Streaming and event-driven UI
-
-**What it is.** The agent's thoughts and the final answer are streamed as they are
-generated. The core talks to the interface through events (see
-[Event System & UI](events.md)), so the same agent can drive the terminal UI or a future
-web UI.
-
-**Why it matters.** A test run takes several steps: seeing the reasoning live ("the
-build passed, now checking the logs") shows what the agent is doing and lets the user
-stop it early if it goes the wrong way.
-
-**Use case.** While a long `cargo test` runs in the background, the user follows each
-step: the command, the job check, the failing test, the analysis.
+| --- | --- |
+| [ReAct loop](use_cases/ReAct.md) | Turns a request into a test procedure: read, act, observe, conclude |
+| [Tools and trust levels](use_cases/Tools-and-trust-levels.md) | Lets the model act on the machine, under the user's control |
+| [Bash: `bash_tool` and `bash_job`](use_cases/Bash.md) | Runs the test suite and longer checks |
+| [File access: `file_read` and `file_write`](use_cases/File-access.md) | Reads the code and the test reports, writes tests and fixes |
+| [Screenshot](use_cases/Screenshot.md) | Observes what is on screen, such as the local preview |
+| [Browser](use_cases/Browser.md) | Tests websites and web apps like a user: open, read, click, type |
+| [Sandboxed code](use_cases/Sandboxed-code.md) | Runs throwaway or risky code away from the host |
+| [Web search and web fetch](use_cases/Web-search-and-fetch.md) | Finds documentation for a failing check |
+| [MCP servers](use_cases/MCP.md) | Plugs in external tools, such as the read-only rule server of the review |
+| [RAG on documents](use_cases/RAG.md) | Remembers the cart specification and reports across messages |
+| [Session compression](use_cases/Session-compression.md) | Keeps long review sessions within the context window |
+| [Profiles, preferences and instructions](use_cases/Profiles.md) | Remembers how Camille tests |
+| [Personas](use_cases/Personas.md) | Adapts the agent's role and tone |
+| [Models and capabilities](use_cases/Models-and-capabilities.md) | Picks the right model, hides tools it can't use |
+| [Feature flags and settings](use_cases/Feature-flags-and-settings.md) | Switches capabilities on and off |
+| [Streaming and event-driven UI](use_cases/Streaming-and-UI.md) | Shows the reasoning live, keeps the core UI-agnostic |
+
+`get_temperature` is an example tool showing the tool interface; it plays no part in
+the testing use case.
 
 ---
 
 ## Current limits
 
 | Limit | Value | Impact |
-|---|---|---|
-| Tool calls per message | 10 in total, 2 per tool | A flow with more than 2 clicks needs `DEFAULT_MAX_CALLS_PER_TOOL` raised |
+| --- | --- | --- |
+| Successful tool calls per message | 10 in total, 2 per tool | Longer interaction sequences can exceed the per-tool budget |
 | Planned steps per message | 10 (`DEFAULT_MAX_STEPS`) | Long procedures are split across several messages |
-| Observation kept for the model | 4,000 characters | Long logs are truncated; ask for a targeted `grep` |
+| Observation kept for the model | 6,000 characters | Long outputs may be truncated before analysis |
 | Foreground command | 30 s | Use `background: true` for builds, apps and servers |
 | Screenshot | Vision model and a display needed | No visual check on a headless machine |
 | Host Bash | Runs with the user's rights | Keep the trust level at `none` or `partial` on sensitive machines |
-| Browser | Google Chrome must be installed | `browser_navigate` reports it if Chrome can't be launched |
-
-`get_temperature` is an example tool showing the tool interface; it plays no part in
-the testing use case.
+| Browser | Google Chrome and a display for the normal launcher | The component recording uses a preopened portable Chromium page |
+| Web lookup | External API and separate `API_TOKEN` required | The recorded case shows unavailable lookup without a token |
+| Compression | Model-generated, potentially lossy summary | Short summaries can grow and introduce unsupported test claims |
+| RAG | Compatible embedding model and extractable documents | Retrieved excerpts do not prove answer quality or full requirement coverage |
+| Saved sessions | SQLite history; a new session at startup, earlier ones reopened with [`/session`](use_cases/Sessions.md) | Automatic titles are model-generated and can be vague |

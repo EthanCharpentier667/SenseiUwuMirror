@@ -57,7 +57,7 @@ async def authenticate_user(database: Database, console: Console) -> Profile:
     if profile:
         return profile
 
-    console.print("\n[bold cyan]--- Sensai Authentication ---[/bold cyan]")
+    console.print("\n[bold cyan]--- SensaiUwu Authentication ---[/bold cyan]")
     session: PromptSession[str] = PromptSession()
 
     while True:

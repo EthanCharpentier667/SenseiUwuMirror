@@ -7,7 +7,13 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import Application, get_app
+from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
+from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
+from prompt_toolkit.key_binding.defaults import load_key_bindings
+from prompt_toolkit.layout import HSplit, Layout
 from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
+from prompt_toolkit.widgets import Button, CheckboxList, Dialog, Label
 from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.markdown import Markdown
@@ -15,6 +21,8 @@ from rich.panel import Panel
 from rich.segment import Segment
 from rich.syntax import Syntax
 from rich.text import Text
+
+from sensai.features.tools.tool import is_failure
 
 from .protocol import AsyncUIHandler
 
@@ -44,6 +52,45 @@ class _Tail:
         for line in lines[-height:]:
             yield from line
             yield Segment.line()
+
+
+def _checklist_dialog(
+    title: str,
+    text: str,
+    choices: list[tuple[str, str]],
+    checked: list[str],
+    extra: str | None,
+) -> Application[tuple[str, list[str]] | None]:
+    """Build a checkbox dialog like prompt_toolkit's, with an optional third button.
+
+    Escape cancels the dialog, like its Cancel button.
+    """
+    cb_list: CheckboxList[str] = CheckboxList(values=choices, default_values=checked)
+
+    def exit_with(action: str) -> None:
+        get_app().exit(result=(action, list(cb_list.current_values)))
+
+    buttons = [Button(text="Ok", handler=lambda: exit_with("ok"))]
+    if extra is not None:
+        buttons.append(Button(text=extra, width=len(extra) + 4, handler=lambda: exit_with("extra")))
+    buttons.append(Button(text="Cancel", handler=lambda: get_app().exit(result=None)))
+    dialog = Dialog(
+        title=title,
+        body=HSplit([Label(text=text, dont_extend_height=True), cb_list], padding=1),
+        buttons=buttons,
+        with_background=True,
+    )
+
+    bindings = KeyBindings()
+    bindings.add("tab")(focus_next)
+    bindings.add("s-tab")(focus_previous)
+    bindings.add("escape", eager=True)(lambda event: event.app.exit(result=None))
+    return Application(
+        layout=Layout(dialog),
+        key_bindings=merge_key_bindings([load_key_bindings(), bindings]),
+        mouse_support=True,
+        full_screen=True,
+    )
 
 
 class CLIHandler(AsyncUIHandler):
@@ -166,9 +213,7 @@ class CLIHandler(AsyncUIHandler):
         await self.stop_spinner()
         await self.on_stream_end()
 
-        if isinstance(result, dict) and (
-            "error" in result or ("exit_code" in result and result.get("exit_code") != 0)
-        ):
+        if is_failure(result):
             err_msg = str(result.get("error") or result.get("stderr") or result)
             await self.on_error(err_msg, title=f"Tool Error: {name}")
             return
@@ -208,6 +253,25 @@ class CLIHandler(AsyncUIHandler):
         await self.on_stream_end()
         self.console.print(message)
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        """Display a request exactly as it is sent, with its messages in order."""
+        settings = {key: value for key, value in payload.items() if key != "messages"}
+        text = Text(json.dumps(settings, indent=2, ensure_ascii=False))
+        for index, message in enumerate(payload.get("messages", []), start=1):
+            text.append(f"\n\n[{index}] {message.get('role', 'unknown')}\n", style="bold cyan")
+            text.append(str(message.get("content", "")))
+            if message.get("images"):
+                text.append(f"\n<{len(message['images'])} image(s)>", style="dim")
+        self.console.print(Panel(text, title="[bold cyan]Prompt sent to Ollama[/bold cyan]"))
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        """Warn that the prompt nears the context window, where Ollama drops what doesn't fit."""
+        self.console.print(
+            f"\n[bold yellow]Warning: this prompt used about {used} of {limit} context tokens. "
+            "Ollama silently drops what doesn't fit: raise --num-ctx or start a new session."
+            "[/bold yellow]"
+        )
+
     async def prompt_choice(
         self, title: str, text: str, choices: list[tuple[str, str]]
     ) -> str | None:
@@ -218,6 +282,18 @@ class CLIHandler(AsyncUIHandler):
             values=choices,
         ).run_async()
         return str(choice) if choice is not None else None
+
+    async def prompt_checklist(
+        self,
+        title: str,
+        text: str,
+        choices: list[tuple[str, str]],
+        checked: list[str],
+        *,
+        extra: str | None = None,
+    ) -> tuple[str, list[str]] | None:
+        """Prompt the user to tick any number of choices."""
+        return await _checklist_dialog(title, text, choices, checked, extra).run_async()
 
     async def prompt_input(self, title: str, text: str) -> str | None:
         """Prompt the user to input a free-form text string."""

@@ -1,0 +1,22 @@
+{
+  "recorded_on": "2026-10-27",
+  "kind": "real interactive CLI in a PTY",
+  "model": "llama3.2:latest",
+  "approvals": 2,
+  "prompts": [
+    "Use sandboxed_code with language=python to execute: import os; assert sum([10, 20]) == 30; assert sum([]) == 0; print('2 cart checks passed'); print('container uid:', os.getuid()). Report the actual output in one short sentence, no JSON. Do not run on the host.",
+    "Actually execute sandboxed_code now with language=python and code=\"assert sum([]) == 1\". I need the real Docker error, even if you can predict the result. Report the observed error in one short sentence, no JSON. Do not repair or retry."
+  ],
+  "wall_seconds": 17.38,
+  "output_substituted": false,
+  "tools_executed_by": "Sensai ReAct agent",
+  "gif_frames": 30,
+  "gif_bytes": 564256,
+  "gif_sha256": "7b8fb47314c97e7e44f98bfbe4aabe2453005efa2573e6a5cbdb0ef7a4faaf37",
+  "cast_sha256": "4cf461ca01eac92137e03751a3c083b511ff6e48ce5c9a6bda9438257ff53754",
+  "playback": "Actual PTY states; idle intervals capped at 1.8 seconds",
+  "playback_seconds": 18.56,
+  "num_ctx": 8192,
+  "source_commit": "704aa90f9bb8652f5756e1ad16aa8c5db7b22205",
+  "execution_evidence_checked": true
+}

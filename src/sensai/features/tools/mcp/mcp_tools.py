@@ -1,12 +1,12 @@
 ##
 ## EPITECH PROJECT, 2026
-## SenseiUwuMirror
+## SensaiUwu
 ## File description:
 ## MCPTools
 ##
 
 
-"""Adapt MCP server tools to the Sensai tool interface."""
+"""Adapt MCP server tools to the SensaiUwu tool interface."""
 
 import json
 from collections.abc import Callable
@@ -47,10 +47,13 @@ class MCPTools(Tool):
         client: Client,
         definition: MCPToolDefinition,
         argument_transform: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        *,
+        group: str = "mcp",
     ) -> None:
         """Initialize the MCP tool and its optional argument policy."""
         super().__init__(
             name=definition.name,
+            group=group,
             description=definition.description or "",
             tool_type="function",
             parameters=definition.input_schema,

@@ -15,6 +15,7 @@ class FileRead(Tool):
         """Initialize the FileRead tool definition."""
         super().__init__(
             name="file_read",
+            group="files",
             description=(
                 "Read the contents of a file and return it as a string. "
                 "The file must be accessible and readable by the system."

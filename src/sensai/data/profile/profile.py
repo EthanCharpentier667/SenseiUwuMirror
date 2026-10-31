@@ -1,6 +1,7 @@
 """Profile Manager for handling user profiles."""
 
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
 
 from peewee import SQL, CharField, DateTimeField, TextField
 
@@ -115,3 +116,35 @@ def update_profile_settings(db: "Database", profile_id: int, settings: str) -> N
     """
     with db.database.bind_ctx([Profile]):
         Profile.update(settings=settings).where(Profile.id == profile_id).execute()
+
+
+def load_profile_settings(profile: Profile) -> dict[str, Any]:
+    """A profile's settings as a dict, empty if they are unset or not a JSON object.
+
+    Args:
+        profile (Profile): The profile to read the settings of.
+
+    Returns:
+        dict[str, Any]: The parsed settings.
+    """
+    try:
+        settings = json.loads(profile.settings) if profile.settings else {}
+    except json.JSONDecodeError:
+        return {}
+    return settings if isinstance(settings, dict) else {}
+
+
+def save_profile_settings(db: "Database", profile: Profile, settings: dict[str, Any]) -> None:
+    """Write a profile's settings to the database and keep the in-memory profile in sync.
+
+    Args:
+        db (Database): The database to write to.
+        profile (Profile): The profile to update; it must have an ID.
+        settings (dict[str, Any]): The full settings to store.
+    """
+    if profile.id is None:
+        msg = "Cannot save the settings of a profile without an ID."
+        raise ValueError(msg)
+    settings_str = json.dumps(settings)
+    update_profile_settings(db, profile.id, settings_str)
+    profile.settings = settings_str

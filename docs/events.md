@@ -1,6 +1,6 @@
 # Event System & UI Handlers
 
-Sensai decouples core agentic logic from UI presentation using an **asynchronous event-driven architecture**. This ensures the backend engine ([`Agent`](reference/sensai/agent.md), [`OllamaClient`](reference/sensai/client.md)) remains presentation-agnostic, supporting terminal interfaces ([`CLIHandler`](reference/sensai/ui/cli.md)) as well as future web or WebSocket clients ([X1] Web UI).
+SensaiUwu decouples core agentic logic from UI presentation using an **asynchronous event-driven architecture**. This ensures the backend engine ([`Agent`](reference/sensai/agent.md), [`OllamaClient`](reference/sensai/client.md)) remains presentation-agnostic, supporting terminal interfaces ([`CLIHandler`](reference/sensai/ui/cli.md)) as well as future web or WebSocket clients ([X1] Web UI).
 
 ---
 

@@ -26,6 +26,7 @@ class BrowserType(Tool):
         """Initialize the BrowserType tool definition."""
         super().__init__(
             name="browser_type",
+            group="browser",
             description=(
                 "Type text into a field of the page open in the browser (replacing what it "
                 "held), given its name as the latest snapshot quotes it (Email for textbox "

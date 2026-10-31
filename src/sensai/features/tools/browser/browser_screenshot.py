@@ -19,6 +19,7 @@ class BrowserScreenshot(Tool):
         """Initialize the BrowserScreenshot tool definition."""
         super().__init__(
             name="browser_screenshot",
+            group="browser",
             description=(
                 "Capture the page open in the browser as an image, shown to you right "
                 "away: to check its rendering (layout, colors, images), which the "

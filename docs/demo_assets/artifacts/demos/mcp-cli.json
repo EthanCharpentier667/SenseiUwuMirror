@@ -1,0 +1,23 @@
+{
+  "recorded_on": "2026-10-27",
+  "kind": "real interactive CLI in a PTY",
+  "model": "llama3.2:latest",
+  "approvals": 2,
+  "prompts": [
+    "/mcp add-json atelier '{\"url\":\"http://127.0.0.1:18876/mcp\"}'",
+    "Use the MCP tool cart_rule with rule_id=CART-EMPTY-001. Quote the returned rule and explain what value my empty-cart test should expect. Do not answer from memory.",
+    "Use cart_rule with rule_id=CART-PAYMENT-999. If the rule is unknown, say that payment is not covered by this source. Do not invent a rule."
+  ],
+  "wall_seconds": 17.83,
+  "output_substituted": false,
+  "tools_executed_by": "Sensai ReAct agent",
+  "gif_frames": 31,
+  "gif_bytes": 347529,
+  "gif_sha256": "7eb5a2e9b4ff92fb27ee1060f82c5c5c199e9ea2a026f8cd01a056cfe3bcee29",
+  "cast_sha256": "a231a1cc8f2452226e7748e004f60b00e6fd9bc20746f4811c23dafd751784ca",
+  "playback": "Actual PTY states; idle intervals capped at 1.8 seconds",
+  "playback_seconds": 17.06,
+  "num_ctx": 8192,
+  "source_commit": "704aa90f9bb8652f5756e1ad16aa8c5db7b22205",
+  "execution_evidence_checked": true
+}

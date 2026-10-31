@@ -5,6 +5,14 @@ from collections.abc import Collection
 from typing import Any
 
 
+def is_failure(result: Any) -> bool:
+    """Whether a tool's result reports a failure: an error, or a non-zero exit code."""
+    if not isinstance(result, dict):
+        return False
+    exit_code = result.get("exit_code")
+    return bool(result.get("error")) or (exit_code is not None and exit_code != 0)
+
+
 class Tool(ABC):
     """Base class for tools that can be used with the ``sensai`` package."""
 
@@ -16,6 +24,7 @@ class Tool(ABC):
         tool_type: str,
         parameters: dict[str, Any],
         *,
+        group: str = "misc",
         safe: bool = False,
         show_output: bool = False,
         requires: Collection[str] = (),
@@ -28,6 +37,8 @@ class Tool(ABC):
             description (str): A brief description of the tool's functionality.
             tool_type (str): The type of the tool.
             parameters (dict[str, Any]): The parameters for the tool.
+            group (str): The family the tool belongs to (e.g. "browser"), so related tools
+                can be enabled or disabled together.
             safe (bool): Whether this tool is safe to run automatically in partial trust mode.
             show_output (bool): Whether this tool's execution result should be displayed in the UI.
             requires (Collection[str]): The model capabilities (as Ollama names them, e.g.
@@ -40,6 +51,7 @@ class Tool(ABC):
         self.description = description
         self.type = tool_type
         self.parameters = parameters
+        self.group = group
         self.safe = safe
         self.show_output = show_output
         self.requires = frozenset(requires)

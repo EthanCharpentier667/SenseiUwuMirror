@@ -1,0 +1,21 @@
+{
+  "recorded_on": "2026-10-27",
+  "kind": "real interactive CLI in a PTY",
+  "model": "llama3.2:latest",
+  "approvals": 0,
+  "prompts": [
+    "I am reviewing our Python cart function before a merge. Explain in six short numbered points how to test normal prices, an empty cart, decimal prices, negative prices, invalid input and regressions. Use one sentence per point. Do not run tests or claim execution."
+  ],
+  "wall_seconds": 7.12,
+  "output_substituted": false,
+  "tools_executed_by": "Sensai ReAct agent",
+  "gif_frames": 12,
+  "gif_bytes": 44252,
+  "gif_sha256": "d7a07a09d918417d40772f449a280a53e3b5faab1b1c1dc73878b0eba379248b",
+  "cast_sha256": "5707b17af209dee4ba417762a7455239d0fcfcbddf5fd1d0ce7ede4529c80fc9",
+  "playback": "Actual PTY states; idle intervals capped at 1.8 seconds",
+  "playback_seconds": 8.45,
+  "num_ctx": 8192,
+  "source_commit": "704aa90f9bb8652f5756e1ad16aa8c5db7b22205",
+  "execution_evidence_checked": true
+}

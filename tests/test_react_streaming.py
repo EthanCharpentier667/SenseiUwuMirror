@@ -149,6 +149,12 @@ class CapturingUIHandler(AsyncUIHandler):
         self.thinking: list[str] = []
         self.spinners: list[str] = []
 
+    async def on_prompt(self, payload: dict[str, Any]) -> None:
+        pass
+
+    async def on_context_warning(self, used: int, limit: int) -> None:
+        pass
+
     async def on_stream_chunk(self, _chunk: str) -> None:
         pass
 
@@ -189,8 +195,16 @@ class CapturingUIHandler(AsyncUIHandler):
     async def prompt_input(self, _title: str, _text: str) -> str | None:
         return None
 
-    async def prompt_question(self, question: Any) -> str | None:
-        return question.choices[0][0] if question.choices else None
+    async def prompt_checklist(
+        self,
+        _title: str,
+        _text: str,
+        _choices: list[tuple[str, str]],
+        checked: list[str],
+        *,
+        extra: str | None = None,  # noqa: ARG002
+    ) -> tuple[str, list[str]] | None:
+        return ("ok", checked)
 
 
 @pytest.mark.asyncio

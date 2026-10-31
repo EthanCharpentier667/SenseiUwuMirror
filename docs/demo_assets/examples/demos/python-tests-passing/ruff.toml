@@ -1,0 +1,5 @@
+extend = "../../../../../pyproject.toml"
+
+[lint]
+# Support autonome de démonstration ; les assertions constituent les tests.
+extend-ignore = ["INP001", "S101", "PLR2004"]
