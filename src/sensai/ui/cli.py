@@ -302,21 +302,38 @@ class CLIHandler(AsyncUIHandler):
 
     async def prompt_question(self, question: Question) -> str | None:
         """Prompt the user with predefined choices plus an optional free-text 'Other' option."""
+        await self.stop_spinner()
+        await self.on_stream_end()
+
         choices = list(question.choices)
         if question.allow_other:
-            choices.append(("__other__", "Other (specify)"))
+            choices.append(("__other__", "Autre (précisez)"))
 
-        selected = await radiolist_dialog(
-            title=question.title,
-            text=question.text,
-            values=choices,
-        ).run_async()
+        body = Text(question.text + "\n")
+        for i, (_, label) in enumerate(choices, 1):
+            body.append(f"\n  {i}. ", style="bold cyan")
+            body.append(label)
 
-        if selected == "__other__":
-            answer = await input_dialog(
-                title=question.title,
-                text="Enter your answer:",
-            ).run_async()
-            return str(answer) if answer is not None else None
+        self.console.print(
+            Panel(body, title=f"[bold yellow]{question.title}[/bold yellow]", border_style="yellow")
+        )
 
-        return str(selected) if selected is not None else None
+        session: PromptSession[str] = PromptSession()
+        try:
+            if choices:
+                raw = await session.prompt_async(f"Votre choix (1-{len(choices)}) : ")
+                try:
+                    idx = int(raw.strip()) - 1
+                    if 0 <= idx < len(choices):
+                        value, _ = choices[idx]
+                        if value == "__other__":
+                            answer = await session.prompt_async("Votre réponse : ")
+                            return answer.strip() or None
+                        return value
+                except ValueError:
+                    pass
+                return raw.strip() or None
+            answer = await session.prompt_async("Votre réponse : ")
+            return answer.strip() or None
+        except (EOFError, KeyboardInterrupt):
+            return None

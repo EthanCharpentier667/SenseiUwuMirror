@@ -55,11 +55,28 @@ async def test_prompt_question_predefined_choice() -> None:
         choices=[("a", "Option A"), ("b", "Option B")],
     )
 
-    with patch("sensai.ui.cli.radiolist_dialog") as mock_dialog:
-        mock_dialog.return_value.run_async = AsyncMock(return_value="a")
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(return_value="1")
         result = await handler.prompt_question(question)
 
     assert result == "a"
+
+
+@pytest.mark.asyncio
+async def test_prompt_question_second_choice() -> None:
+    handler = CLIHandler()
+    question = Question(
+        key="q",
+        title="Title",
+        text="Text",
+        choices=[("a", "Option A"), ("b", "Option B")],
+    )
+
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(return_value="2")
+        result = await handler.prompt_question(question)
+
+    assert result == "b"
 
 
 @pytest.mark.asyncio
@@ -73,12 +90,8 @@ async def test_prompt_question_other_triggers_input() -> None:
         allow_other=True,
     )
 
-    with (
-        patch("sensai.ui.cli.radiolist_dialog") as mock_radio,
-        patch("sensai.ui.cli.input_dialog") as mock_input,
-    ):
-        mock_radio.return_value.run_async = AsyncMock(return_value="__other__")
-        mock_input.return_value.run_async = AsyncMock(return_value="custom answer")
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(side_effect=["2", "custom answer"])
         result = await handler.prompt_question(question)
 
     assert result == "custom answer"
@@ -95,12 +108,8 @@ async def test_prompt_question_other_cancelled_returns_none() -> None:
         allow_other=True,
     )
 
-    with (
-        patch("sensai.ui.cli.radiolist_dialog") as mock_radio,
-        patch("sensai.ui.cli.input_dialog") as mock_input,
-    ):
-        mock_radio.return_value.run_async = AsyncMock(return_value="__other__")
-        mock_input.return_value.run_async = AsyncMock(return_value=None)
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(side_effect=["2", ""])
         result = await handler.prompt_question(question)
 
     assert result is None
@@ -117,12 +126,11 @@ async def test_prompt_question_allow_other_false() -> None:
         allow_other=False,
     )
 
-    with patch("sensai.ui.cli.radiolist_dialog") as mock_dialog:
-        mock_dialog.return_value.run_async = AsyncMock(return_value="a")
-        await handler.prompt_question(question)
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(return_value="1")
+        result = await handler.prompt_question(question)
 
-        values = mock_dialog.call_args.kwargs.get("values") or mock_dialog.call_args[1]["values"]
-        assert not any(v == "__other__" for v, _ in values)
+    assert result == "a"
 
 
 @pytest.mark.asyncio
@@ -130,8 +138,20 @@ async def test_prompt_question_cancelled_returns_none() -> None:
     handler = CLIHandler()
     question = Question(key="q", title="Title", text="Text", choices=[("a", "Option A")])
 
-    with patch("sensai.ui.cli.radiolist_dialog") as mock_dialog:
-        mock_dialog.return_value.run_async = AsyncMock(return_value=None)
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(side_effect=KeyboardInterrupt)
         result = await handler.prompt_question(question)
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_prompt_question_no_choices_free_text() -> None:
+    handler = CLIHandler()
+    question = Question(key="q", title="Title", text="Text", allow_other=True)
+
+    with patch("sensai.ui.cli.PromptSession") as mock_session_cls:
+        mock_session_cls.return_value.prompt_async = AsyncMock(return_value="free text answer")
+        result = await handler.prompt_question(question)
+
+    assert result == "free text answer"
