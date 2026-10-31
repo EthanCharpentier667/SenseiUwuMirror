@@ -1,0 +1,134 @@
+{
+  "description": "Fictional Atelier Nova review session replayed by evals/compression/run.py.",
+  "turns": [
+    {
+      "user": "I'm preparing the Atelier Nova merge request for the cart module. Malik Benali reviews it and expects a test summary. Run the cart tests and tell me what you see.",
+      "assistant": "I ran `pytest test_cart.py`. Result: 1 failed, 1 passed, exit code 1. test_empty_basket failed: an empty cart must total 0, but the observed total is 1. test_total_of_items passed: items priced 10 and 20 total 30."
+    },
+    {
+      "user": "Noted. Payment code is out of scope for this merge request: do not edit it. It is also not covered by these tests.",
+      "assistant": "Understood: payment code stays untouched and payment remains untested in this review."
+    },
+    {
+      "user": "Marketing asked one more thing. The coupon code NOVA10 gives 10 percent off and only one coupon applies per cart. Keep that rule in mind.",
+      "assistant": "Noted: coupon NOVA10 gives 10 percent off, with one coupon per cart."
+    },
+    {
+      "user": "Now check the shipping module, it shares helpers with the cart.",
+      "assistant": "All shipping tests pass, here is the output:\n$ pytest tests/test_shipping.py -v\n============ test session starts ============\ntests/test_shipping.py::test_shipping_creates_0 PASSED [  4%]\ntests/test_shipping.py::test_shipping_updates_1 PASSED [  8%]\ntests/test_shipping.py::test_shipping_rejects_invalid_2 PASSED [ 12%]\ntests/test_shipping.py::test_shipping_rounds_3 PASSED [ 16%]\ntests/test_shipping.py::test_shipping_lists_4 PASSED [ 20%]\ntests/test_shipping.py::test_shipping_merges_5 PASSED [ 25%]\ntests/test_shipping.py::test_shipping_expires_6 PASSED [ 29%]\ntests/test_shipping.py::test_shipping_sorts_7 PASSED [ 33%]\ntests/test_shipping.py::test_shipping_filters_8 PASSED [ 37%]\ntests/test_shipping.py::test_shipping_exports_9 PASSED [ 41%]\ntests/test_shipping.py::test_shipping_validates_10 PASSED [ 45%]\ntests/test_shipping.py::test_shipping_retries_11 PASSED [ 50%]\ntests/test_shipping.py::test_shipping_creates_12 PASSED [ 54%]\ntests/test_shipping.py::test_shipping_updates_13 PASSED [ 58%]\ntests/test_shipping.py::test_shipping_rejects_invalid_14 PASSED [ 62%]\ntests/test_shipping.py::test_shipping_rounds_15 PASSED [ 66%]\ntests/test_shipping.py::test_shipping_lists_16 PASSED [ 70%]\ntests/test_shipping.py::test_shipping_merges_17 PASSED [ 75%]\ntests/test_shipping.py::test_shipping_expires_18 PASSED [ 79%]\ntests/test_shipping.py::test_shipping_sorts_19 PASSED [ 83%]\ntests/test_shipping.py::test_shipping_filters_20 PASSED [ 87%]\ntests/test_shipping.py::test_shipping_exports_21 PASSED [ 91%]\ntests/test_shipping.py::test_shipping_validates_22 PASSED [ 95%]\ntests/test_shipping.py::test_shipping_retries_23 PASSED [100%]\n============ 24 passed in 0.10s ============\nNothing in shipping depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the coupons module, it shares helpers with the cart.",
+      "assistant": "All coupons tests pass, here is the output:\n$ pytest tests/test_coupons.py -v\n============ test session starts ============\ntests/test_coupons.py::test_coupons_creates_0 PASSED [  4%]\ntests/test_coupons.py::test_coupons_updates_1 PASSED [  8%]\ntests/test_coupons.py::test_coupons_rejects_invalid_2 PASSED [ 12%]\ntests/test_coupons.py::test_coupons_rounds_3 PASSED [ 16%]\ntests/test_coupons.py::test_coupons_lists_4 PASSED [ 20%]\ntests/test_coupons.py::test_coupons_merges_5 PASSED [ 25%]\ntests/test_coupons.py::test_coupons_expires_6 PASSED [ 29%]\ntests/test_coupons.py::test_coupons_sorts_7 PASSED [ 33%]\ntests/test_coupons.py::test_coupons_filters_8 PASSED [ 37%]\ntests/test_coupons.py::test_coupons_exports_9 PASSED [ 41%]\ntests/test_coupons.py::test_coupons_validates_10 PASSED [ 45%]\ntests/test_coupons.py::test_coupons_retries_11 PASSED [ 50%]\ntests/test_coupons.py::test_coupons_creates_12 PASSED [ 54%]\ntests/test_coupons.py::test_coupons_updates_13 PASSED [ 58%]\ntests/test_coupons.py::test_coupons_rejects_invalid_14 PASSED [ 62%]\ntests/test_coupons.py::test_coupons_rounds_15 PASSED [ 66%]\ntests/test_coupons.py::test_coupons_lists_16 PASSED [ 70%]\ntests/test_coupons.py::test_coupons_merges_17 PASSED [ 75%]\ntests/test_coupons.py::test_coupons_expires_18 PASSED [ 79%]\ntests/test_coupons.py::test_coupons_sorts_19 PASSED [ 83%]\ntests/test_coupons.py::test_coupons_filters_20 PASSED [ 87%]\ntests/test_coupons.py::test_coupons_exports_21 PASSED [ 91%]\ntests/test_coupons.py::test_coupons_validates_22 PASSED [ 95%]\ntests/test_coupons.py::test_coupons_retries_23 PASSED [100%]\n============ 24 passed in 0.11s ============\nNothing in coupons depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the stock module, it shares helpers with the cart.",
+      "assistant": "All stock tests pass, here is the output:\n$ pytest tests/test_stock.py -v\n============ test session starts ============\ntests/test_stock.py::test_stock_creates_0 PASSED [  4%]\ntests/test_stock.py::test_stock_updates_1 PASSED [  8%]\ntests/test_stock.py::test_stock_rejects_invalid_2 PASSED [ 12%]\ntests/test_stock.py::test_stock_rounds_3 PASSED [ 16%]\ntests/test_stock.py::test_stock_lists_4 PASSED [ 20%]\ntests/test_stock.py::test_stock_merges_5 PASSED [ 25%]\ntests/test_stock.py::test_stock_expires_6 PASSED [ 29%]\ntests/test_stock.py::test_stock_sorts_7 PASSED [ 33%]\ntests/test_stock.py::test_stock_filters_8 PASSED [ 37%]\ntests/test_stock.py::test_stock_exports_9 PASSED [ 41%]\ntests/test_stock.py::test_stock_validates_10 PASSED [ 45%]\ntests/test_stock.py::test_stock_retries_11 PASSED [ 50%]\ntests/test_stock.py::test_stock_creates_12 PASSED [ 54%]\ntests/test_stock.py::test_stock_updates_13 PASSED [ 58%]\ntests/test_stock.py::test_stock_rejects_invalid_14 PASSED [ 62%]\ntests/test_stock.py::test_stock_rounds_15 PASSED [ 66%]\ntests/test_stock.py::test_stock_lists_16 PASSED [ 70%]\ntests/test_stock.py::test_stock_merges_17 PASSED [ 75%]\ntests/test_stock.py::test_stock_expires_18 PASSED [ 79%]\ntests/test_stock.py::test_stock_sorts_19 PASSED [ 83%]\ntests/test_stock.py::test_stock_filters_20 PASSED [ 87%]\ntests/test_stock.py::test_stock_exports_21 PASSED [ 91%]\ntests/test_stock.py::test_stock_validates_22 PASSED [ 95%]\ntests/test_stock.py::test_stock_retries_23 PASSED [100%]\n============ 24 passed in 0.12s ============\nNothing in stock depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the invoices module, it shares helpers with the cart.",
+      "assistant": "All invoices tests pass, here is the output:\n$ pytest tests/test_invoices.py -v\n============ test session starts ============\ntests/test_invoices.py::test_invoices_creates_0 PASSED [  4%]\ntests/test_invoices.py::test_invoices_updates_1 PASSED [  8%]\ntests/test_invoices.py::test_invoices_rejects_invalid_2 PASSED [ 12%]\ntests/test_invoices.py::test_invoices_rounds_3 PASSED [ 16%]\ntests/test_invoices.py::test_invoices_lists_4 PASSED [ 20%]\ntests/test_invoices.py::test_invoices_merges_5 PASSED [ 25%]\ntests/test_invoices.py::test_invoices_expires_6 PASSED [ 29%]\ntests/test_invoices.py::test_invoices_sorts_7 PASSED [ 33%]\ntests/test_invoices.py::test_invoices_filters_8 PASSED [ 37%]\ntests/test_invoices.py::test_invoices_exports_9 PASSED [ 41%]\ntests/test_invoices.py::test_invoices_validates_10 PASSED [ 45%]\ntests/test_invoices.py::test_invoices_retries_11 PASSED [ 50%]\ntests/test_invoices.py::test_invoices_creates_12 PASSED [ 54%]\ntests/test_invoices.py::test_invoices_updates_13 PASSED [ 58%]\ntests/test_invoices.py::test_invoices_rejects_invalid_14 PASSED [ 62%]\ntests/test_invoices.py::test_invoices_rounds_15 PASSED [ 66%]\ntests/test_invoices.py::test_invoices_lists_16 PASSED [ 70%]\ntests/test_invoices.py::test_invoices_merges_17 PASSED [ 75%]\ntests/test_invoices.py::test_invoices_expires_18 PASSED [ 79%]\ntests/test_invoices.py::test_invoices_sorts_19 PASSED [ 83%]\ntests/test_invoices.py::test_invoices_filters_20 PASSED [ 87%]\ntests/test_invoices.py::test_invoices_exports_21 PASSED [ 91%]\ntests/test_invoices.py::test_invoices_validates_22 PASSED [ 95%]\ntests/test_invoices.py::test_invoices_retries_23 PASSED [100%]\n============ 24 passed in 0.13s ============\nNothing in invoices depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the customers module, it shares helpers with the cart.",
+      "assistant": "All customers tests pass, here is the output:\n$ pytest tests/test_customers.py -v\n============ test session starts ============\ntests/test_customers.py::test_customers_creates_0 PASSED [  4%]\ntests/test_customers.py::test_customers_updates_1 PASSED [  8%]\ntests/test_customers.py::test_customers_rejects_invalid_2 PASSED [ 12%]\ntests/test_customers.py::test_customers_rounds_3 PASSED [ 16%]\ntests/test_customers.py::test_customers_lists_4 PASSED [ 20%]\ntests/test_customers.py::test_customers_merges_5 PASSED [ 25%]\ntests/test_customers.py::test_customers_expires_6 PASSED [ 29%]\ntests/test_customers.py::test_customers_sorts_7 PASSED [ 33%]\ntests/test_customers.py::test_customers_filters_8 PASSED [ 37%]\ntests/test_customers.py::test_customers_exports_9 PASSED [ 41%]\ntests/test_customers.py::test_customers_validates_10 PASSED [ 45%]\ntests/test_customers.py::test_customers_retries_11 PASSED [ 50%]\ntests/test_customers.py::test_customers_creates_12 PASSED [ 54%]\ntests/test_customers.py::test_customers_updates_13 PASSED [ 58%]\ntests/test_customers.py::test_customers_rejects_invalid_14 PASSED [ 62%]\ntests/test_customers.py::test_customers_rounds_15 PASSED [ 66%]\ntests/test_customers.py::test_customers_lists_16 PASSED [ 70%]\ntests/test_customers.py::test_customers_merges_17 PASSED [ 75%]\ntests/test_customers.py::test_customers_expires_18 PASSED [ 79%]\ntests/test_customers.py::test_customers_sorts_19 PASSED [ 83%]\ntests/test_customers.py::test_customers_filters_20 PASSED [ 87%]\ntests/test_customers.py::test_customers_exports_21 PASSED [ 91%]\ntests/test_customers.py::test_customers_validates_22 PASSED [ 95%]\ntests/test_customers.py::test_customers_retries_23 PASSED [100%]\n============ 24 passed in 0.14s ============\nNothing in customers depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the addresses module, it shares helpers with the cart.",
+      "assistant": "All addresses tests pass, here is the output:\n$ pytest tests/test_addresses.py -v\n============ test session starts ============\ntests/test_addresses.py::test_addresses_creates_0 PASSED [  4%]\ntests/test_addresses.py::test_addresses_updates_1 PASSED [  8%]\ntests/test_addresses.py::test_addresses_rejects_invalid_2 PASSED [ 12%]\ntests/test_addresses.py::test_addresses_rounds_3 PASSED [ 16%]\ntests/test_addresses.py::test_addresses_lists_4 PASSED [ 20%]\ntests/test_addresses.py::test_addresses_merges_5 PASSED [ 25%]\ntests/test_addresses.py::test_addresses_expires_6 PASSED [ 29%]\ntests/test_addresses.py::test_addresses_sorts_7 PASSED [ 33%]\ntests/test_addresses.py::test_addresses_filters_8 PASSED [ 37%]\ntests/test_addresses.py::test_addresses_exports_9 PASSED [ 41%]\ntests/test_addresses.py::test_addresses_validates_10 PASSED [ 45%]\ntests/test_addresses.py::test_addresses_retries_11 PASSED [ 50%]\ntests/test_addresses.py::test_addresses_creates_12 PASSED [ 54%]\ntests/test_addresses.py::test_addresses_updates_13 PASSED [ 58%]\ntests/test_addresses.py::test_addresses_rejects_invalid_14 PASSED [ 62%]\ntests/test_addresses.py::test_addresses_rounds_15 PASSED [ 66%]\ntests/test_addresses.py::test_addresses_lists_16 PASSED [ 70%]\ntests/test_addresses.py::test_addresses_merges_17 PASSED [ 75%]\ntests/test_addresses.py::test_addresses_expires_18 PASSED [ 79%]\ntests/test_addresses.py::test_addresses_sorts_19 PASSED [ 83%]\ntests/test_addresses.py::test_addresses_filters_20 PASSED [ 87%]\ntests/test_addresses.py::test_addresses_exports_21 PASSED [ 91%]\ntests/test_addresses.py::test_addresses_validates_22 PASSED [ 95%]\ntests/test_addresses.py::test_addresses_retries_23 PASSED [100%]\n============ 24 passed in 0.15s ============\nNothing in addresses depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the returns module, it shares helpers with the cart.",
+      "assistant": "All returns tests pass, here is the output:\n$ pytest tests/test_returns.py -v\n============ test session starts ============\ntests/test_returns.py::test_returns_creates_0 PASSED [  4%]\ntests/test_returns.py::test_returns_updates_1 PASSED [  8%]\ntests/test_returns.py::test_returns_rejects_invalid_2 PASSED [ 12%]\ntests/test_returns.py::test_returns_rounds_3 PASSED [ 16%]\ntests/test_returns.py::test_returns_lists_4 PASSED [ 20%]\ntests/test_returns.py::test_returns_merges_5 PASSED [ 25%]\ntests/test_returns.py::test_returns_expires_6 PASSED [ 29%]\ntests/test_returns.py::test_returns_sorts_7 PASSED [ 33%]\ntests/test_returns.py::test_returns_filters_8 PASSED [ 37%]\ntests/test_returns.py::test_returns_exports_9 PASSED [ 41%]\ntests/test_returns.py::test_returns_validates_10 PASSED [ 45%]\ntests/test_returns.py::test_returns_retries_11 PASSED [ 50%]\ntests/test_returns.py::test_returns_creates_12 PASSED [ 54%]\ntests/test_returns.py::test_returns_updates_13 PASSED [ 58%]\ntests/test_returns.py::test_returns_rejects_invalid_14 PASSED [ 62%]\ntests/test_returns.py::test_returns_rounds_15 PASSED [ 66%]\ntests/test_returns.py::test_returns_lists_16 PASSED [ 70%]\ntests/test_returns.py::test_returns_merges_17 PASSED [ 75%]\ntests/test_returns.py::test_returns_expires_18 PASSED [ 79%]\ntests/test_returns.py::test_returns_sorts_19 PASSED [ 83%]\ntests/test_returns.py::test_returns_filters_20 PASSED [ 87%]\ntests/test_returns.py::test_returns_exports_21 PASSED [ 91%]\ntests/test_returns.py::test_returns_validates_22 PASSED [ 95%]\ntests/test_returns.py::test_returns_retries_23 PASSED [100%]\n============ 24 passed in 0.16s ============\nNothing in returns depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the wishlist module, it shares helpers with the cart.",
+      "assistant": "All wishlist tests pass, here is the output:\n$ pytest tests/test_wishlist.py -v\n============ test session starts ============\ntests/test_wishlist.py::test_wishlist_creates_0 PASSED [  4%]\ntests/test_wishlist.py::test_wishlist_updates_1 PASSED [  8%]\ntests/test_wishlist.py::test_wishlist_rejects_invalid_2 PASSED [ 12%]\ntests/test_wishlist.py::test_wishlist_rounds_3 PASSED [ 16%]\ntests/test_wishlist.py::test_wishlist_lists_4 PASSED [ 20%]\ntests/test_wishlist.py::test_wishlist_merges_5 PASSED [ 25%]\ntests/test_wishlist.py::test_wishlist_expires_6 PASSED [ 29%]\ntests/test_wishlist.py::test_wishlist_sorts_7 PASSED [ 33%]\ntests/test_wishlist.py::test_wishlist_filters_8 PASSED [ 37%]\ntests/test_wishlist.py::test_wishlist_exports_9 PASSED [ 41%]\ntests/test_wishlist.py::test_wishlist_validates_10 PASSED [ 45%]\ntests/test_wishlist.py::test_wishlist_retries_11 PASSED [ 50%]\ntests/test_wishlist.py::test_wishlist_creates_12 PASSED [ 54%]\ntests/test_wishlist.py::test_wishlist_updates_13 PASSED [ 58%]\ntests/test_wishlist.py::test_wishlist_rejects_invalid_14 PASSED [ 62%]\ntests/test_wishlist.py::test_wishlist_rounds_15 PASSED [ 66%]\ntests/test_wishlist.py::test_wishlist_lists_16 PASSED [ 70%]\ntests/test_wishlist.py::test_wishlist_merges_17 PASSED [ 75%]\ntests/test_wishlist.py::test_wishlist_expires_18 PASSED [ 79%]\ntests/test_wishlist.py::test_wishlist_sorts_19 PASSED [ 83%]\ntests/test_wishlist.py::test_wishlist_filters_20 PASSED [ 87%]\ntests/test_wishlist.py::test_wishlist_exports_21 PASSED [ 91%]\ntests/test_wishlist.py::test_wishlist_validates_22 PASSED [ 95%]\ntests/test_wishlist.py::test_wishlist_retries_23 PASSED [100%]\n============ 24 passed in 0.17s ============\nNothing in wishlist depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the search module, it shares helpers with the cart.",
+      "assistant": "All search tests pass, here is the output:\n$ pytest tests/test_search.py -v\n============ test session starts ============\ntests/test_search.py::test_search_creates_0 PASSED [  4%]\ntests/test_search.py::test_search_updates_1 PASSED [  8%]\ntests/test_search.py::test_search_rejects_invalid_2 PASSED [ 12%]\ntests/test_search.py::test_search_rounds_3 PASSED [ 16%]\ntests/test_search.py::test_search_lists_4 PASSED [ 20%]\ntests/test_search.py::test_search_merges_5 PASSED [ 25%]\ntests/test_search.py::test_search_expires_6 PASSED [ 29%]\ntests/test_search.py::test_search_sorts_7 PASSED [ 33%]\ntests/test_search.py::test_search_filters_8 PASSED [ 37%]\ntests/test_search.py::test_search_exports_9 PASSED [ 41%]\ntests/test_search.py::test_search_validates_10 PASSED [ 45%]\ntests/test_search.py::test_search_retries_11 PASSED [ 50%]\ntests/test_search.py::test_search_creates_12 PASSED [ 54%]\ntests/test_search.py::test_search_updates_13 PASSED [ 58%]\ntests/test_search.py::test_search_rejects_invalid_14 PASSED [ 62%]\ntests/test_search.py::test_search_rounds_15 PASSED [ 66%]\ntests/test_search.py::test_search_lists_16 PASSED [ 70%]\ntests/test_search.py::test_search_merges_17 PASSED [ 75%]\ntests/test_search.py::test_search_expires_18 PASSED [ 79%]\ntests/test_search.py::test_search_sorts_19 PASSED [ 83%]\ntests/test_search.py::test_search_filters_20 PASSED [ 87%]\ntests/test_search.py::test_search_exports_21 PASSED [ 91%]\ntests/test_search.py::test_search_validates_22 PASSED [ 95%]\ntests/test_search.py::test_search_retries_23 PASSED [100%]\n============ 24 passed in 0.18s ============\nNothing in search depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the newsletter module, it shares helpers with the cart.",
+      "assistant": "All newsletter tests pass, here is the output:\n$ pytest tests/test_newsletter.py -v\n============ test session starts ============\ntests/test_newsletter.py::test_newsletter_creates_0 PASSED [  4%]\ntests/test_newsletter.py::test_newsletter_updates_1 PASSED [  8%]\ntests/test_newsletter.py::test_newsletter_rejects_invalid_2 PASSED [ 12%]\ntests/test_newsletter.py::test_newsletter_rounds_3 PASSED [ 16%]\ntests/test_newsletter.py::test_newsletter_lists_4 PASSED [ 20%]\ntests/test_newsletter.py::test_newsletter_merges_5 PASSED [ 25%]\ntests/test_newsletter.py::test_newsletter_expires_6 PASSED [ 29%]\ntests/test_newsletter.py::test_newsletter_sorts_7 PASSED [ 33%]\ntests/test_newsletter.py::test_newsletter_filters_8 PASSED [ 37%]\ntests/test_newsletter.py::test_newsletter_exports_9 PASSED [ 41%]\ntests/test_newsletter.py::test_newsletter_validates_10 PASSED [ 45%]\ntests/test_newsletter.py::test_newsletter_retries_11 PASSED [ 50%]\ntests/test_newsletter.py::test_newsletter_creates_12 PASSED [ 54%]\ntests/test_newsletter.py::test_newsletter_updates_13 PASSED [ 58%]\ntests/test_newsletter.py::test_newsletter_rejects_invalid_14 PASSED [ 62%]\ntests/test_newsletter.py::test_newsletter_rounds_15 PASSED [ 66%]\ntests/test_newsletter.py::test_newsletter_lists_16 PASSED [ 70%]\ntests/test_newsletter.py::test_newsletter_merges_17 PASSED [ 75%]\ntests/test_newsletter.py::test_newsletter_expires_18 PASSED [ 79%]\ntests/test_newsletter.py::test_newsletter_sorts_19 PASSED [ 83%]\ntests/test_newsletter.py::test_newsletter_filters_20 PASSED [ 87%]\ntests/test_newsletter.py::test_newsletter_exports_21 PASSED [ 91%]\ntests/test_newsletter.py::test_newsletter_validates_22 PASSED [ 95%]\ntests/test_newsletter.py::test_newsletter_retries_23 PASSED [100%]\n============ 24 passed in 0.19s ============\nNothing in newsletter depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the reviews module, it shares helpers with the cart.",
+      "assistant": "All reviews tests pass, here is the output:\n$ pytest tests/test_reviews.py -v\n============ test session starts ============\ntests/test_reviews.py::test_reviews_creates_0 PASSED [  4%]\ntests/test_reviews.py::test_reviews_updates_1 PASSED [  8%]\ntests/test_reviews.py::test_reviews_rejects_invalid_2 PASSED [ 12%]\ntests/test_reviews.py::test_reviews_rounds_3 PASSED [ 16%]\ntests/test_reviews.py::test_reviews_lists_4 PASSED [ 20%]\ntests/test_reviews.py::test_reviews_merges_5 PASSED [ 25%]\ntests/test_reviews.py::test_reviews_expires_6 PASSED [ 29%]\ntests/test_reviews.py::test_reviews_sorts_7 PASSED [ 33%]\ntests/test_reviews.py::test_reviews_filters_8 PASSED [ 37%]\ntests/test_reviews.py::test_reviews_exports_9 PASSED [ 41%]\ntests/test_reviews.py::test_reviews_validates_10 PASSED [ 45%]\ntests/test_reviews.py::test_reviews_retries_11 PASSED [ 50%]\ntests/test_reviews.py::test_reviews_creates_12 PASSED [ 54%]\ntests/test_reviews.py::test_reviews_updates_13 PASSED [ 58%]\ntests/test_reviews.py::test_reviews_rejects_invalid_14 PASSED [ 62%]\ntests/test_reviews.py::test_reviews_rounds_15 PASSED [ 66%]\ntests/test_reviews.py::test_reviews_lists_16 PASSED [ 70%]\ntests/test_reviews.py::test_reviews_merges_17 PASSED [ 75%]\ntests/test_reviews.py::test_reviews_expires_18 PASSED [ 79%]\ntests/test_reviews.py::test_reviews_sorts_19 PASSED [ 83%]\ntests/test_reviews.py::test_reviews_filters_20 PASSED [ 87%]\ntests/test_reviews.py::test_reviews_exports_21 PASSED [ 91%]\ntests/test_reviews.py::test_reviews_validates_22 PASSED [ 95%]\ntests/test_reviews.py::test_reviews_retries_23 PASSED [100%]\n============ 24 passed in 0.20s ============\nNothing in reviews depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Now check the gift_cards module, it shares helpers with the cart.",
+      "assistant": "All gift_cards tests pass, here is the output:\n$ pytest tests/test_gift_cards.py -v\n============ test session starts ============\ntests/test_gift_cards.py::test_gift_cards_creates_0 PASSED [  4%]\ntests/test_gift_cards.py::test_gift_cards_updates_1 PASSED [  8%]\ntests/test_gift_cards.py::test_gift_cards_rejects_invalid_2 PASSED [ 12%]\ntests/test_gift_cards.py::test_gift_cards_rounds_3 PASSED [ 16%]\ntests/test_gift_cards.py::test_gift_cards_lists_4 PASSED [ 20%]\ntests/test_gift_cards.py::test_gift_cards_merges_5 PASSED [ 25%]\ntests/test_gift_cards.py::test_gift_cards_expires_6 PASSED [ 29%]\ntests/test_gift_cards.py::test_gift_cards_sorts_7 PASSED [ 33%]\ntests/test_gift_cards.py::test_gift_cards_filters_8 PASSED [ 37%]\ntests/test_gift_cards.py::test_gift_cards_exports_9 PASSED [ 41%]\ntests/test_gift_cards.py::test_gift_cards_validates_10 PASSED [ 45%]\ntests/test_gift_cards.py::test_gift_cards_retries_11 PASSED [ 50%]\ntests/test_gift_cards.py::test_gift_cards_creates_12 PASSED [ 54%]\ntests/test_gift_cards.py::test_gift_cards_updates_13 PASSED [ 58%]\ntests/test_gift_cards.py::test_gift_cards_rejects_invalid_14 PASSED [ 62%]\ntests/test_gift_cards.py::test_gift_cards_rounds_15 PASSED [ 66%]\ntests/test_gift_cards.py::test_gift_cards_lists_16 PASSED [ 70%]\ntests/test_gift_cards.py::test_gift_cards_merges_17 PASSED [ 75%]\ntests/test_gift_cards.py::test_gift_cards_expires_18 PASSED [ 79%]\ntests/test_gift_cards.py::test_gift_cards_sorts_19 PASSED [ 83%]\ntests/test_gift_cards.py::test_gift_cards_filters_20 PASSED [ 87%]\ntests/test_gift_cards.py::test_gift_cards_exports_21 PASSED [ 91%]\ntests/test_gift_cards.py::test_gift_cards_validates_22 PASSED [ 95%]\ntests/test_gift_cards.py::test_gift_cards_retries_23 PASSED [100%]\n============ 24 passed in 0.21s ============\nNothing in gift_cards depends on the empty-cart behaviour."
+    },
+    {
+      "user": "Last check: the tax helper.",
+      "assistant": "`pytest test_tax.py` gives 1 failed, exit code 1. test_tax_rounding failed: expected 12.35, observed 12.34."
+    }
+  ],
+  "questions": [
+    {
+      "id": "first-failure",
+      "question": "Which cart test failed at the start of this session, and what were the expected and observed totals?",
+      "all_of": [
+        "test_empty_basket",
+        "\\b0\\b",
+        "\\b1\\b"
+      ],
+      "summary_terms": [
+        "test_empty_basket"
+      ]
+    },
+    {
+      "id": "untested-scope",
+      "question": "Is the payment code covered by the tests we ran? Answer yes or no and say why.",
+      "all_of": [
+        "\\bno\\b|\\bnot\\b|untested"
+      ],
+      "summary_terms": [
+        "payment"
+      ]
+    },
+    {
+      "id": "coupon-rule",
+      "question": "What is the coupon code from marketing, what discount does it give, and how many coupons apply per cart?",
+      "all_of": [
+        "NOVA10",
+        "\\b10\\b",
+        "\\bone\\b|\\b1\\b"
+      ],
+      "summary_terms": [
+        "NOVA10"
+      ]
+    },
+    {
+      "id": "reviewer",
+      "question": "Who reviews this merge request?",
+      "all_of": [
+        "Malik"
+      ],
+      "summary_terms": [
+        "Malik"
+      ]
+    },
+    {
+      "id": "recent-failure",
+      "question": "What did the tax helper check show? Give the test name and the values.",
+      "all_of": [
+        "test_tax_rounding",
+        "12\\.35",
+        "12\\.34"
+      ],
+      "summary_terms": []
+    },
+    {
+      "id": "never-ran",
+      "question": "What was the result of test_refund_ledger in this session?",
+      "all_of": [
+        "\\bnot\\b|\\bno\\b|n't|never|unknown"
+      ],
+      "summary_terms": [],
+      "negative": true
+    }
+  ]
+}

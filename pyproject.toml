@@ -77,6 +77,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"evals/**/*.py" = [
+    "INP001", # standalone scripts, not a package
+    "S101",   # assert narrows the types of freshly created rows
+    "T201",   # the report is printed
+]
 "tests/**/*.py" = [
     "S101",    # assert is expected in tests
     "D100",
