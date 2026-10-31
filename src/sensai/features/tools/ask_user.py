@@ -56,7 +56,10 @@ class AskUserTool(Tool):
         question_text: str = kwargs["question"]
         raw_choices: list[str] = kwargs.get("choices") or []
         raw_allow_other = kwargs.get("allow_other", True)
-        allow_other = raw_allow_other if isinstance(raw_allow_other, bool) else str(raw_allow_other).lower() != "false"
+        if isinstance(raw_allow_other, bool):
+            allow_other = raw_allow_other
+        else:
+            allow_other = str(raw_allow_other).lower() != "false"
 
         question = Question(
             key="answer",
