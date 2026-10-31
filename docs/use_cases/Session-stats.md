@@ -24,6 +24,8 @@ read-only and does not send anything to the model.
 | Context | Last prompt | Prompt tokens of the most recent turn. |
 | | Context window | Last prompt against `num_ctx`, with a fill percentage. |
 | | Compression threshold | Last prompt against the [compression](Session-compression.md) threshold. Marked `(disabled)` when compression is off. |
+| | Compressions | Compressions done for this session since launch or the last switch. |
+| | Last compression | Estimated prompt tokens before and after, and the tokens reclaimed. Only shown once one happened. |
 | | Summary | Whether a running summary exists and how many messages it covers. |
 | Config | Model | The model used for the next turn (changed with `/model`). |
 | | Persona | The active persona key (changed with `/persona switch`), or `default`. |
@@ -35,7 +37,8 @@ read-only and does not send anything to the model.
 - Token totals and message counts are read from the database, so they survive a
   restart. **Last prompt** is kept in memory only: right after launching SensaiUwu
   (or switching sessions with [`/session`](Sessions.md)), it shows `n/a` until the first turn completes, and so
-  do the context window and compression percentages.
+  do the context window and compression percentages. The compression counters are
+  kept in memory too, and restart from zero.
 - The context window percentage shows `n/a` when no `num_ctx` is configured,
   because the model's own default size is not known to SensaiUwu.
 - Statistics cover the current session only, not all sessions of the profile.

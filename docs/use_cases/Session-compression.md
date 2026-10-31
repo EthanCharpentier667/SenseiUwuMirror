@@ -20,14 +20,17 @@ This feature belongs to the [Atelier Nova review scenario](../use-case.md#scenar
 
 **As Camille Moreau, the developer continuing a long cart investigation, I want older exchanges folded into a summary, so that later questions can use the established context without resending every old turn.**
 
-Preconditions: compression is enabled and the completed turn exceeds the configured prompt-token threshold.
+Preconditions: compression is enabled and the next prompt exceeds the configured prompt-token threshold.
 
 | Acceptance criterion | Expected result |
 | --- | --- |
-| Trigger | Compression occurs only when the completed response reports a prompt count greater than the threshold. |
-| Model | The summary uses the model selected for the completed exchange. |
+| Trigger | Compression occurs before the prompt is sent, only when its estimated size is greater than the threshold and an exchange is old enough to fold. |
+| Recent turns | The latest `--compression-keep-turns` exchanges (2 by default) stay word for word. |
+| Model | The summary uses the model selected for the session, at temperature 0. |
 | Boundary | A summary and the last summarized message identifier are stored. |
-| Next turn | Older summarized turns are excluded from the next outgoing history, while later turns remain available. |
+| Next turn | Older summarized turns are excluded from the outgoing history, while later turns remain available. |
+| Reported gain | The CLI prints the tokens reclaimed, and `/stats` shows the last compression. |
+| Failure | An empty summary, one no shorter than what it replaces, or a model error is reported; the whole history is sent and nothing is lost. |
 
 ### US-COMP-02 — Preserve the meaning of test evidence
 
@@ -44,16 +47,46 @@ Preconditions: the history states that the empty-cart test failed, a separate co
 
 ## How it works
 
-The default `--compression-threshold` is 3,000 prompt tokens. After a response,
-the application compares its reported prompt token count with this threshold.
-The summary request combines the previous summary with unsummarized conversation
-messages, using the same model as that response.
+The default `--compression-threshold` is 3,000 prompt tokens. Before sending a
+prompt, the application estimates its size at about 4 characters per token, system
+prompt and retrieved excerpts included, and compares it with this threshold. The
+estimate ignores images and the ReAct instructions and trajectory added afterwards.
+The summary request combines the previous summary with the unsummarized messages older
+than the latest `--compression-keep-turns` exchanges, using the session's model at
+temperature 0.
 
 The resulting text and a summarized-message boundary are persisted in SQLite.
 Context construction places profile preferences/instructions first, followed by
 the running summary, remaining history, context framing, optional retrieved chunks
 and the new request. Tool traces remain stored separately and are not resent as
 ordinary conversation history.
+
+## Measured against a baseline
+
+[`evals/compression/run.py`](https://github.com/EthanCharpentier667/SenseiUwuMirror/blob/main/evals/compression/run.py)
+replays a fictional 16-exchange session through the app's compression code, then asks
+6 questions, 5 times each with different seeds. Answers are scored with regular
+expressions listed in `evals/compression/session.json`. Results of 31 October 2026 with
+`llama3.2:latest` on an RTX 4090 Laptop GPU, threshold 3,000, 2 kept turns
+([raw data](../benchmark-sources/compression-2026-10-31.json)):
+
+| `num_ctx` | Compression | Estimated prompt tokens | Correct answers | Median answer time | Compression calls |
+| --- | --- | --- | --- | --- | --- |
+| 4,096 | off | 5,773 | 33% (10/30) | 0.6 s | 0 |
+| 4,096 | on | 2,525 | 80% (24/30) | 0.4 s | 2 (6.4 s in total) |
+| 16,384 | off | 5,773 | 100% (30/30) | 0.4 s | 0 |
+| 16,384 | on | 2,525 | 80% (24/30) | 0.4 s | 2 (6.7 s in total) |
+
+Compression pays off when the history no longer fits the window, where Ollama silently
+truncates it. When everything fits, it costs accuracy: the summary dropped the reviewer's
+name, so all 5 `reviewer` answers failed. It also ended with "The payment, cart, and
+empty-cart behavior remain untested", which is false for the cart.
+
+This is one session, one model and a summary prompt written with this session in view,
+so these figures aren't a general retention rate. Summaries at temperature 0 were
+identical across context sizes, and the seeds only vary the answers. Latency excludes
+the ReAct loop and benefits from Ollama's prompt cache. A prompt change meant to keep
+names lowered the score to about 65% by losing the coupon rule, and was reverted.
 
 ## Demonstration
 
@@ -103,8 +136,8 @@ The observed suite had one passing test and one failing test: test_empty_basket.
 The separate correct version passed both tests. Payment remains untested. Acknowledge briefly; do not run tools.
 ```
 
-The threshold of `1` requests automatic compression after completed turns whose
-prompt token count exceeds that threshold. Then ask:
+The threshold of `1` requests automatic compression before each prompt, as soon as an
+exchange is older than the 2 kept ones. Then ask:
 
    ```text
    Using the previous review context, which test originally failed and what remains untested? Answer in at most three lines.
@@ -112,7 +145,7 @@ prompt token count exceeds that threshold. Then ask:
 
 Check that the reply identifies the empty-cart test and untested payment without
 inventing a payment test or a code correction. `/stats` shows current session and
-context information. Exit with `/exit`.
+context information, including the last compression. Exit with `/exit`.
 
 The GIF used an explicit compression of preloaded history; this example exercises
 the normal CLI's automatic compression with the same source facts. The archived
@@ -130,8 +163,13 @@ The short recorded case shows why compression is not automatically beneficial.
 
 ## Limitations
 
-A summary can invert results, invent a change or grow longer than the original
-history. The configured threshold is checked after the completed turn, not before
-an oversized prompt is sent. Stored original messages are not automatically compared
-against every claim in the summary. No measured improvement or faithful-retention
-rate is established by this example.
+A summary can invert results, invent a claim or drop a fact: the measurement above
+shows all three risks are real. A summary that isn't shorter is rejected, but its
+content isn't checked against the stored messages, and a rejected summary means another
+model call on the next prompt. Tool results aren't sent back as history, so the summary
+only knows them through the assistant's replies. The threshold doesn't cover the ReAct
+trajectory: up to 10 observations of 6,000 characters, about 15,000 tokens, can still
+fill the window, and the context warning comes after sending. The token count is an
+approximation (4 characters per token), not the model's tokenizer. The kept-turns value
+is a startup flag, not a saved `/settings` entry. Compression waits are now paid before
+the reply instead of after it.
