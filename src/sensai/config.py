@@ -19,6 +19,7 @@ DEFAULT_MODEL = "llama3.2:latest"
 DEFAULT_DB_PATH = "./"
 DEFAULT_DB_NAME = "sensai.db"
 DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 3000
+DEFAULT_COMPRESSION_KEEP_TURNS = 2
 DEFAULT_URL = "http://localhost:11434/api/chat"
 DEFAULT_TIMEOUT = 300.0
 DEFAULT_NUM_CTX = 16384
@@ -156,6 +157,13 @@ class Config:
             default=DEFAULT_COMPRESSION_TOKEN_THRESHOLD,
             help="Prompt token count above which a session's history gets compressed. "
             f"Default: {DEFAULT_COMPRESSION_TOKEN_THRESHOLD}.",
+        )
+        self.add_argument(
+            "--compression-keep-turns",
+            type=int,
+            default=DEFAULT_COMPRESSION_KEEP_TURNS,
+            help="Latest exchanges kept word for word when a session's history gets compressed. "
+            f"Default: {DEFAULT_COMPRESSION_KEEP_TURNS}.",
         )
         self.add_argument(
             "--files",
@@ -316,6 +324,11 @@ class Config:
     def compression_threshold(self) -> int:
         """Prompt token count above which a session's history gets compressed."""
         return int(self._parsed().compression_threshold)
+
+    @property
+    def compression_keep_turns(self) -> int:
+        """Latest exchanges kept word for word when a session's history gets compressed."""
+        return int(self._parsed().compression_keep_turns)
 
     @property
     def url(self) -> str:

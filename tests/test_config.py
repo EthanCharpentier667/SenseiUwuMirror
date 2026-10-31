@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from sensai.config import (
+    DEFAULT_COMPRESSION_KEEP_TURNS,
     DEFAULT_COMPRESSION_TOKEN_THRESHOLD,
     DEFAULT_DB_NAME,
     DEFAULT_DB_PATH,
@@ -25,6 +26,7 @@ def test_config_uses_defaults_when_no_arguments_are_given() -> None:
     assert config.db_path == DEFAULT_DB_PATH
     assert config.db_name == DEFAULT_DB_NAME
     assert config.compression_threshold == DEFAULT_COMPRESSION_TOKEN_THRESHOLD
+    assert config.compression_keep_turns == DEFAULT_COMPRESSION_KEEP_TURNS
     assert config.num_ctx == DEFAULT_NUM_CTX
     assert config.output_schema is None
 

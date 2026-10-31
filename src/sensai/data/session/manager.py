@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 DEFAULT_RETRIEVED_CHUNKS = 3
 TITLE_MAX_LENGTH = 60
 TITLE_EXCERPT_LENGTH = 1000
+SUMMARY_OPTIONS = {"temperature": 0}
 
 HISTORY_CONTEXT_NOTE = (
     "Everything above, the conversation summary (if present) and the message history, "
@@ -38,6 +39,10 @@ RETRIEVED_CONTEXT_NOTE = (
     "to the newest user message below. Use them to answer when they are relevant, and say "
     "so if they don't contain the answer rather than making one up."
 )
+
+
+class CompressionRejectedError(ValueError):
+    """The model's summary is unusable: keeping the history is better than folding it in."""
 
 
 class SessionManager:
@@ -129,6 +134,21 @@ def _sendable_messages(session: Session) -> list[Message]:
             or (message.id is not None and message.id > session.summarized_message_id)
         )
     ]
+
+
+def _foldable_messages(session: Session, keep_turns: int) -> list[Message]:
+    """A session's sendable messages older than its latest ``keep_turns`` exchanges.
+
+    An exchange ends with the assistant's reply, so whatever led to a reply, such as
+    "File: ..." messages from attached files, stays with it. Zero keeps nothing back.
+    """
+    sendable = _sendable_messages(session)
+    if keep_turns <= 0:
+        return sendable
+    replies = [index for index, message in enumerate(sendable) if message.role == "assistant"]
+    if len(replies) <= keep_turns:
+        return []
+    return sendable[: replies[-keep_turns - 1] + 1]
 
 
 def _profile_context_message(session: Session) -> dict[str, Any] | None:
@@ -327,29 +347,36 @@ def build_messages(
 
 
 async def compress_session(
-    db: Database, session: Session, client: OllamaClient, model: str = "llama3.2"
+    db: Database,
+    session: Session,
+    client: OllamaClient,
+    model: str = "llama3.2",
+    *,
+    keep_turns: int = 0,
 ) -> Session:
-    """Fold a session's unsummarized history into its running summary via the LLM.
+    """Fold a session's older history into its running summary via the LLM.
 
     Args:
         db (Database): The database to write to.
         session (Session): The session to compress.
         client (OllamaClient): The preconfigured client to summarize with.
         model (str): The model to summarize with. Callers should pass the model the
-            session's own turns are using (e.g. ``response.model``) so the summary is
-            produced by the same model the user configured, rather than silently falling
-            back to the default.
+            session's own turns are using so the summary is produced by the same model the
+            user configured, rather than silently falling back to the default.
+        keep_turns (int): The latest exchanges to leave out of the summary, word for word.
 
     Returns:
         Session: The session refreshed from the database, or unchanged if there was no
-            unsummarized history to fold in.
+            history old enough to fold in.
 
     Raises:
         ValueError: If the session, or its unsummarized messages, have no ID.
+        CompressionRejectedError: If the summary is empty or no shorter than what it
+            replaces. The session is left as it was, so no history is lost.
     """
     if session.id is None:
         raise ValueError("Session does not have a valid ID.")
-    to_fold = _sendable_messages(session)
+    to_fold = _foldable_messages(session, keep_turns)
     if not to_fold:
         return session
 
@@ -358,16 +385,33 @@ async def compress_session(
         f"Previous summary:\n{session.summary or '(none yet)'}\n\n"
         f"New conversation to fold in:\n{transcript}\n\n"
         "Rewrite this as a single, concise, updated summary of the whole conversation, "
-        "preserving important facts, decisions and context needed to continue it."
+        "preserving the facts, decisions and context needed to continue it. "
+        "Keep test names, file names, commands, exit codes, expected and observed values "
+        "exactly as written. For each test, keep whether it passed or failed and on which "
+        "version of the code. Say explicitly what remains untested. "
+        "Only state what the conversation says: don't add tests, changes or results."
     )
     response = await client.chat(
-        messages=[{"role": "user", "content": prompt}], model=model, stream=False
+        messages=[{"role": "user", "content": prompt}],
+        model=model,
+        stream=False,
+        options=SUMMARY_OPTIONS,
     )
+
+    summary = response.response.strip()
+    if not summary:
+        raise CompressionRejectedError("the model returned an empty summary")
+    replaced = len(session.summary or "") + sum(len(message.content) for message in to_fold)
+    if len(summary) >= replaced:
+        raise CompressionRejectedError(
+            f"the summary ({len(summary)} characters) isn't shorter than "
+            f"what it replaces ({replaced} characters)"
+        )
 
     last_folded_id = to_fold[-1].id
     if last_folded_id is None:
         raise ValueError("Cannot compress a session whose messages have no ID.")
-    set_session_summary(db, session.id, response.response, last_folded_id)
+    set_session_summary(db, session.id, summary, last_folded_id)
     compressed = get_session(db, session.id)
     if compressed is None:
         raise ValueError(f"Failed to reload session {session.id} after compression.")
@@ -435,36 +479,44 @@ async def generate_session_title(
 async def maybe_compress_session(  # noqa: PLR0913
     db: Database,
     session: Session,
-    response: Response,
+    prompt_tokens: int,
     threshold: int,
     client: OllamaClient,
     *,
+    model: str = "llama3.2",
+    keep_turns: int = 0,
     ui_handler: AsyncUIHandler | None = None,
 ) -> Session:
-    """Compress a session's history once its last prompt exceeded a token threshold.
+    """Compress a session's older history if the next prompt would exceed a token threshold.
+
+    A failed compression never fails the turn: it's reported, and the history is sent as is.
 
     Args:
         db (Database): The database to write to.
         session (Session): The session to potentially compress.
-        response (Response): The response of the turn just completed; its
-            ``prompt_eval_count`` reflects the size of the prompt that was just sent,
-            history and all.
+        prompt_tokens (int): The estimated size of the prompt about to be sent, history and all.
         threshold (int): The prompt token count above which compression triggers.
             Callers get the default from ``Config.compression_threshold``.
         client (OllamaClient): The preconfigured client to summarize with.
-        ui_handler (AsyncUIHandler | None): Optional UI handler to display a spinner.
+        model (str): The model to summarize with, the one the session uses.
+        keep_turns (int): The latest exchanges to leave out of the summary, word for word.
+        ui_handler (AsyncUIHandler | None): Optional UI handler to display a spinner and errors.
 
     Returns:
-        Session: The session, compressed if the threshold was exceeded.
+        Session: A new copy of the session if it was compressed, otherwise ``session`` itself.
     """
-    if response.prompt_eval_count <= threshold:
+    if prompt_tokens <= threshold or not _foldable_messages(session, keep_turns):
         return session
 
     if ui_handler:
         await ui_handler.start_spinner("Compressing...")
 
     try:
-        return await compress_session(db, session, client, model=response.model)
+        return await compress_session(db, session, client, model=model, keep_turns=keep_turns)
+    except Exception as e:  # noqa: BLE001 - the turn goes on with the uncompressed history
+        if ui_handler:
+            await ui_handler.on_error(f"History kept as is: {e}", title="Compression skipped")
+        return session
     finally:
         if ui_handler:
             await ui_handler.stop_spinner()

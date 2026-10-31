@@ -1,6 +1,7 @@
 """Tests for the ``sensai.data.session.manager`` module."""
 
 import re
+from typing import Any
 
 import pytest
 
@@ -13,6 +14,7 @@ from sensai.data.session.document import create_document
 from sensai.data.session.manager import (
     HISTORY_CONTEXT_NOTE,
     RETRIEVED_CONTEXT_NOTE,
+    CompressionRejectedError,
     SessionManager,
     add_message_to_current_session,
     build_messages,
@@ -510,7 +512,7 @@ async def test_compress_session_summarizes_with_the_given_model(
     session: Session | None = create_new_session(db, profile_id)
     assert session is not None
     assert session.id is not None
-    create_message(db, session.id, "hi", "user", 1.0)
+    create_message(db, session.id, "hello there", "user", 1.0)
     session = get_session(db, session.id)
     assert session is not None
 
@@ -529,7 +531,7 @@ async def test_compress_session_summarizes_with_the_given_model(
 
 
 @pytest.mark.asyncio
-async def test_maybe_compress_session_summarizes_with_the_responses_model(
+async def test_maybe_compress_session_summarizes_with_the_given_model(
     db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     session: Session | None = create_new_session(db, profile_id)
@@ -538,9 +540,6 @@ async def test_maybe_compress_session_summarizes_with_the_responses_model(
     create_message(db, session.id, "hi", "user", 1.0)
     session = get_session(db, session.id)
     assert session is not None
-    response = _make_response(prompt_eval_count=5000)
-    response.model = "mistral"
-
     captured: dict[str, object] = {}
 
     async def fake_chat(_self: OllamaClient, **kwargs: object) -> Response:
@@ -550,7 +549,7 @@ async def test_maybe_compress_session_summarizes_with_the_responses_model(
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
     client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    await maybe_compress_session(db, session, response, threshold=3000, client=client)
+    await maybe_compress_session(db, session, 5000, threshold=3000, client=client, model="mistral")
 
     assert captured["model"] == "mistral"
 
@@ -596,10 +595,9 @@ async def test_maybe_compress_session_skips_when_under_threshold(
     db: Database, profile_id: int
 ) -> None:
     session = create_new_session(db, profile_id)
-    response = _make_response(prompt_eval_count=100)
     client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await maybe_compress_session(db, session, response, threshold=3000, client=client)
+    result = await maybe_compress_session(db, session, 100, threshold=3000, client=client)
 
     assert result is session
 
@@ -611,11 +609,10 @@ async def test_maybe_compress_session_compresses_when_over_threshold(
     session: Session | None = create_new_session(db, profile_id)
     assert session is not None
     assert session.id is not None
-    last_message = create_message(db, session.id, "hi", "user", 1.0)
+    last_message = create_message(db, session.id, "hello there", "user", 1.0)
     assert last_message.id is not None
     session = get_session(db, session.id)
     assert session is not None
-    response = _make_response(prompt_eval_count=5000)
 
     async def fake_chat(_self: OllamaClient, *args: object, **kwargs: object) -> Response:
         return _make_response()
@@ -623,10 +620,180 @@ async def test_maybe_compress_session_compresses_when_over_threshold(
     monkeypatch.setattr(OllamaClient, "chat", fake_chat)
     client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
 
-    result = await maybe_compress_session(db, session, response, threshold=3000, client=client)
+    result = await maybe_compress_session(db, session, 5000, threshold=3000, client=client)
 
     assert result.summary == "hi"
     assert result.summarized_message_id == last_message.id
+
+
+class _SummaryClient(OllamaClient):
+    """Client answering every chat with a fixed summary, or failing, and counting the calls."""
+
+    def __init__(self, summary: str | Exception = "short summary") -> None:
+        """Initialize _SummaryClient with its answer."""
+        super().__init__(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+        self.summary = summary
+        self.prompts: list[str] = []
+        self.options: list[object] = []
+
+    async def chat(self, **kwargs: Any) -> Response:  # type: ignore[override]
+        self.prompts.append(kwargs["messages"][0]["content"])
+        self.options.append(kwargs.get("options"))
+        if isinstance(self.summary, Exception):
+            raise self.summary
+        response = _make_response()
+        response.response = self.summary
+        return response
+
+
+class _ErrorUI:
+    """UI recording the errors it's told about."""
+
+    def __init__(self) -> None:
+        """Initialize _ErrorUI without errors."""
+        self.errors: list[str] = []
+
+    async def start_spinner(self, _message: str) -> None:
+        pass
+
+    async def stop_spinner(self) -> None:
+        pass
+
+    async def on_error(self, error: Exception | str, *, title: str = "Error") -> None:
+        self.errors.append(f"{title}: {error}")
+
+
+def _long_session(db: Database, profile_id: int, *contents: tuple[str, str]) -> Session:
+    created = create_session(db, profile_id)
+    assert created.id is not None
+    for index, (role, content) in enumerate(contents):
+        create_message(db, created.id, content, role, float(index))
+    session = get_session(db, created.id)
+    assert session is not None
+    return session
+
+
+FOUR_EXCHANGES = (
+    ("user", "first question about the cart"),
+    ("assistant", "first answer about the cart"),
+    ("user", "second question about the cart"),
+    ("assistant", "second answer about the cart"),
+    ("user", "third question about the cart"),
+    ("assistant", "third answer about the cart"),
+    ("user", "fourth question about the cart"),
+    ("assistant", "fourth answer about the cart"),
+)
+
+
+@pytest.mark.asyncio
+async def test_compress_session_keeps_the_latest_exchanges_word_for_word(
+    db: Database, profile_id: int
+) -> None:
+    session = _long_session(db, profile_id, *FOUR_EXCHANGES)
+    client = _SummaryClient()
+
+    result = await compress_session(db, session, client, keep_turns=2)
+
+    assert "second answer" in client.prompts[0]
+    assert "third question" not in client.prompts[0]
+    assert build_messages(result, "next")[0] == {
+        "role": "system",
+        "content": "Conversation summary so far: short summary",
+    }
+    assert [m["content"] for m in build_messages(result, "next") if m["role"] != "system"] == [
+        "third question about the cart",
+        "third answer about the cart",
+        "fourth question about the cart",
+        "fourth answer about the cart",
+        "next",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_short_session_is_not_sent_to_the_model(db: Database, profile_id: int) -> None:
+    session = _long_session(db, profile_id, *FOUR_EXCHANGES[:4])
+    client = _SummaryClient()
+
+    result = await maybe_compress_session(
+        db, session, 5000, threshold=3000, client=client, keep_turns=2
+    )
+
+    assert result is session
+    assert client.prompts == []
+
+
+@pytest.mark.asyncio
+async def test_attached_files_stay_with_the_exchange_they_lead_to(
+    db: Database, profile_id: int
+) -> None:
+    session = _long_session(
+        db,
+        profile_id,
+        ("user", "first question about the cart"),
+        ("assistant", "first answer about the cart"),
+        ("user", "File: cart-spec.md"),
+        ("user", "second question about the cart"),
+        ("assistant", "second answer about the cart"),
+    )
+    client = _SummaryClient()
+
+    result = await compress_session(db, session, client, keep_turns=1)
+
+    assert "File: cart-spec.md" not in client.prompts[0]
+    kept = [m["content"] for m in build_messages(result, "next") if m["role"] != "system"]
+    assert kept[:2] == ["File: cart-spec.md", "second question about the cart"]
+
+
+@pytest.mark.asyncio
+async def test_compress_session_summarizes_at_temperature_zero(
+    db: Database, profile_id: int
+) -> None:
+    session = _long_session(db, profile_id, *FOUR_EXCHANGES)
+    client = _SummaryClient()
+
+    await compress_session(db, session, client)
+
+    assert client.options == [{"temperature": 0}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("summary", ["", "   \n", "x" * 1000])
+async def test_compress_session_rejects_an_unusable_summary(
+    db: Database, profile_id: int, summary: str
+) -> None:
+    session = _long_session(db, profile_id, *FOUR_EXCHANGES)
+    assert session.id is not None
+
+    with pytest.raises(CompressionRejectedError):
+        await compress_session(db, session, _SummaryClient(summary))
+
+    unchanged = get_session(db, session.id)
+    assert unchanged is not None
+    assert unchanged.summary is None
+    assert unchanged.summarized_message_id is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("summary", ["", RuntimeError("model down")])
+async def test_a_failed_compression_is_reported_and_keeps_the_history(
+    db: Database, profile_id: int, summary: str | Exception
+) -> None:
+    session = _long_session(db, profile_id, *FOUR_EXCHANGES)
+    ui = _ErrorUI()
+
+    result = await maybe_compress_session(
+        db,
+        session,
+        5000,
+        threshold=3000,
+        client=_SummaryClient(summary),
+        ui_handler=ui,  # type: ignore[arg-type]
+    )
+
+    assert result is session
+    assert len(ui.errors) == 1
+    assert ui.errors[0].startswith("Compression skipped: History kept as is")
+    assert "first question about the cart" in [m["content"] for m in build_messages(result, "next")]
 
 
 def _unit_vector(dimension: int) -> list[float]:

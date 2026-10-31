@@ -30,7 +30,7 @@ class ChatResult:
     status_code: int = 200
 
 
-def _estimated_tokens(messages: list[dict[str, Any]]) -> int:
+def estimated_tokens(messages: list[dict[str, Any]]) -> int:
     """Estimate a prompt's size in tokens from its text, at about 4 characters per token."""
     return sum(len(str(message.get("content", ""))) for message in messages) // CHARS_PER_TOKEN
 
@@ -194,7 +194,7 @@ class OllamaClient:
         """
         if self.events is None or not num_ctx:
             return
-        used = max(prompt_tokens, _estimated_tokens(messages))
+        used = max(prompt_tokens, estimated_tokens(messages))
         if used >= num_ctx * CONTEXT_WARNING_RATIO:
             await self.events.on_context_warning(used, num_ctx)
 
