@@ -73,46 +73,52 @@ crossing or a measured quality/size improvement.
 
 ## Replay this demonstration
 
-From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites)
+and prepare the temporary workspace. This example launches the normal CLI with
+compression enabled and a deliberately low threshold:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py compression
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable tools rag mcp \
+  --compression-threshold 1
 ```
 
-1. The launcher supplies the same three fictional review messages as the GIF:
-   empty cart should return 0 but returned 1; the suite had one passing test and
-   failing `test_empty_basket`; a separate correct version passed both tests and
-   payment remains untested. It calls the real compression function and prints
-   its generated summary before opening the chat.
-2. Send:
+Complete the demo profile's sign-in flow. Submit these fictional review facts as
+three separate messages at `Vous >`:
+
+```text
+Atelier Nova: an empty cart must return 0. Our faulty version returned 1. Use pytest. Do not edit payment code. Acknowledge briefly; do not run tools.
+```
+
+```text
+The observed suite had one passing test and one failing test: test_empty_basket. Acknowledge briefly; do not run tools.
+```
+
+```text
+The separate correct version passed both tests. Payment remains untested. Acknowledge briefly; do not run tools.
+```
+
+The threshold of `1` requests automatic compression after completed turns whose
+prompt token count exceeds that threshold. Then ask:
 
    ```text
    Using the previous review context, which test originally failed and what remains untested? Answer in at most three lines.
    ```
 
-3. Inspect the actual reply. The source facts are the empty-cart failure and
-   untested payment. Check that the model does not infer a payment test passed
-   or claim to have corrected the code.
-4. Compare the generated summary with those original facts. On the recorded run,
-   message count fell from 5 to 3 but context characters grew from 694 to 991.
-   The summary introduced a contradictory claim about a new payment test; the
-   follow-up nevertheless reported an empty-cart failure and untested payment.
+Check that the reply identifies the empty-cart test and untested payment without
+inventing a payment test or a code correction. `/stats` shows current session and
+context information. Exit with `/exit`.
 
-This reproduces explicit summarization followed by a question using its result.
-The automatic threshold path is a separate mechanism: normal sessions trigger it
-after the completed prompt count exceeds `--compression-threshold`. Summary text
-and character counts can change on rerun; reduction and perfect retention are not
-guaranteed.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py compression
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py compression
-```
+The GIF used an explicit compression of preloaded history; this example exercises
+the normal CLI's automatic compression with the same source facts. The archived
+run changed message count from 5 to 3 and context characters from 694 to 991, with
+a contradictory summary claim. These figures describe that capture and are not
+expected counters for this example. Generated summaries and answers can differ.
 
 ## Architecture choices and tradeoffs
 

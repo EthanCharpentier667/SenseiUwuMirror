@@ -67,15 +67,22 @@ responses, not guaranteed instruction compliance.
 ## Replay this demonstration
 
 From the repository root, complete the [shared replay prerequisites](../demo_assets/demos/replay.md#shared-prerequisites).
-The launcher opens the actual SensaiUwu CLI with a temporary fictional profile and
-working copies. Type the following commands and questions at `Vous >`; `/exit`
-cleans up. Compare the stated facts and tool results, not identical model wording.
+Prepare the temporary workspace shown in that guide, then run the example below
+from that workspace. Complete the normal sign-in flow with a dedicated demo
+profile. Type the listed messages at `Vous >`; compare observed tool results
+rather than identical model wording.
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py personas
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable tools rag compression mcp
 ```
 
-1. The launcher loads the QA/reviewer fixture file from the disposable workspace.
+1. The example loads the QA/reviewer personas copied into the temporary workspace.
    List and select the first role:
 
    ```text
@@ -101,13 +108,6 @@ PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py persona
 The recorded model used the expected role prefixes but did not follow every requested
 heading exactly. Role behavior and factual accuracy remain observable criteria,
 not guarantees made by setting a system prompt.
-
-For the exact automated component sequence and a new GIF:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py personas
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_features.py personas
-```
 
 ## Architecture choices and tradeoffs
 

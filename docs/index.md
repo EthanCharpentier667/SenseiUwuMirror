@@ -99,7 +99,7 @@ without planning, so no tool is called.
 Connect local or remote Streamable HTTP servers from the SensaiUwu chat with
 `/mcp add-json <name> '<json>'`. The [MCP connection guide](mcp-server.md)
 includes step-by-step examples for the local calculator, GitHub with a token,
-and Gmail with OAuth, plus configuration fields and troubleshooting.
+and GitHub with OAuth, plus configuration fields and troubleshooting.
 
 ---
 

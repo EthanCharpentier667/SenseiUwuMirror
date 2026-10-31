@@ -8,7 +8,7 @@ customer records, credentials or connection to a production shop.
 | [Cart specification](cart-spec.md) | Document ingestion, real embeddings and session-scoped retrieval. |
 | `docs/demo_assets/examples/demos/feature-tour/index.html` | A local cart form with populated, empty and invalid input cases. |
 | `docs/demo_assets/examples/demos/feature-tour/personas.json` | Evidence-focused QA and code-review roles. |
-| `docs/demo_assets/scripts/demos/mcp_server.py` in the repository | A local, read-only MCP rule server. |
+| Inline server example in the [MCP feature sheet](../../use_cases/MCP.md#replay-this-demonstration) | A local, read-only MCP rule server. |
 
 The companion [faulty cart](python-tests.md) has one failing test and one
 passing test. The [correct cart](python-tests-passing.md) has two passing
@@ -17,10 +17,9 @@ outcomes without rewriting either original fixture.
 
 ## Recorded scope
 
-Eight GIFs remain automated component walkthroughs. Their recording script
-calls actual SensaiUwu tools, command handlers, database functions and HTTP clients;
-it does not replace their outputs with scripted model replies. Component sequences
-are chosen by the recording script, rather than autonomously planned by the model.
+Eight GIFs are archived component walkthroughs using actual SensaiUwu tools, command
+handlers, database functions and HTTP clients. Their sequences were automated;
+their tool order was not autonomously planned by the model.
 The earlier pytest GIF and the updated file-access, MCP, sandbox, streaming and
 web GIFs record the real interactive application. For those five updates, only the
 human messages and approvals are scripted: model decisions and tool execution
@@ -51,8 +50,8 @@ the raw capture files.
 
 Historical captures retain their original commands and paths as evidence of the
 recorded execution. Current replay instructions use `docs/demo_assets/examples/demos/` for executable
-fixtures. The renderer resolves archived image events from `docs/demo_assets/artifacts/demos/`,
-including events containing paths from before the reorganization.
+fixtures. Archived media and terminal captures retain their original paths and
+outputs as evidence of the recorded run.
 
 The generated recording manifest (`docs/demo_assets/artifacts/demos/feature-recordings.json`)
 identifies artifacts and checksums. The five updated interactive recordings also
@@ -61,44 +60,28 @@ claiming every user-story acceptance criterion passed.
 
 ## Interactive replay
 
-The [manual replay guide](replay.md) explains shared prerequisites and the disposable
-CLI launcher. Each feature sheet gives the exact commands, messages and expected
+The [manual replay guide](replay.md) includes workspace setup and application-launch
+examples. Each feature sheet gives the exact commands, messages and expected
 observations for its own GIF.
 
-## Reproducing a component recording
+## Example: convert a terminal recording to a GIF
 
-The optional scripts are `docs/demo_assets/scripts/demos/record_features.py` and
-`docs/demo_assets/scripts/demos/render_features.py`, invoked from the repository root. The Python
-environment must include the project's dependencies plus `pyte`, Pillow,
-Playwright and `pyscreenshot`. A working font installation is required for rendering.
+Launch SensaiUwu with the command from the feature sheet and record the terminal
+using a desktop recorder. Keep the actual approval prompts, tool outcomes and
+model responses. Save the recording as `/tmp/sensai-demo.mp4`, then run this
+standalone FFmpeg example:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_features.py file-access
-.venv/bin/python docs/demo_assets/scripts/demos/render_features.py file-access
+ffmpeg -i /tmp/sensai-demo.mp4 \
+  -vf "fps=8,scale=1280:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=32[p];[b][p]paletteuse=dither=none" \
+  -loop 0 /tmp/sensai-demo.gif
 ```
 
-Supported names are `file-access`, `screenshot`, `browser`, `sandbox`, `web`,
-`mcp`, `rag`, `compression`, `profiles`, `personas`, `models`, `flags` and
-`streaming`. Each recording uses a new temporary database and fictional account.
-Recording writes raw output and intermediate images to `docs/demo_assets/artifacts/demos/`;
-rendering writes the final GIF to `docs/demo_assets/assets/demos/`. Each command overwrites
-only that recording's generated files and removes its temporary working directory
-when finished.
+FFmpeg must be installed separately. The example creates a GIF in `/tmp` and does
+not replace existing project media. Check readability and file size before
+publishing; the repository's file-size limit is 1000 KiB. If needed, lower the
+frame rate, shorten the recording or reduce its dimensions.
 
-The recorded Ollama endpoint is `http://127.0.0.1:11434/api/chat`, with
-`llama3.2:latest` for generated text, `qwen3.5:9b` for model/vision demonstrations and
-`nomic-embed-text` for embeddings. Model tags can change: the manifest retains
-an inventory collected for this run. Text generated in a new run can differ.
-
-The browser recording requires Playwright's Chromium headless shell. During this
-run it was installed under `/tmp/sensai-demo-browsers`; the corresponding
-`PLAYWRIGHT_BROWSERS_PATH` environment variable selects that temporary cache.
-Screenshot recording requires Xephyr, `xmessage` and an accessible parent X display;
-it creates and closes its own `:88` display. It redirects the screenshot destination
-to the temporary workspace.
-
-Docker is required for sandbox recording. The MCP fixture binds only to loopback
-port 18876 and is stopped after the recording. The updated web recording requires
-a valid `API_TOKEN` and makes actual public-documentation lookups. No credential
-is printed or entered as a recorded command. The demo scripts do not modify the
-application's source or use a real account keyring.
+The archived text runs used `llama3.2:latest`, the vision/model demonstrations
+used `qwen3.5:9b`, and embeddings used `nomic-embed-text`. The manifest retains
+the recorded inventory; a new run can produce different text and timings.

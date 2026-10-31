@@ -75,10 +75,16 @@ output and generated answers are preserved.
 ## Replay this demonstration
 
 Complete the [shared prerequisites](../demo_assets/demos/replay.md#shared-prerequisites),
-then launch from the repository root:
+prepare its temporary workspace, then run this example from that workspace:
 
 ```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/replay.py web --model llama3.2:latest
+"$SENSAI_DEMO_ROOT/.venv/bin/sensai" \
+  --url http://127.0.0.1:11434/api/chat \
+  --embed-url http://127.0.0.1:11434/api/chat \
+  --token local-demo-placeholder --embed-token local-demo-placeholder \
+  --model llama3.2:latest --num-ctx 8192 --trust none \
+  --db-path "$SENSAI_DEMO_WORK" --personas-file personas.json \
+  --disable rag compression mcp
 ```
 
 At the `Vous >` prompt, submit the following messages in order. Inspect each
@@ -96,16 +102,9 @@ proposed tool call before answering `y` to its approval prompt.
     Use web_fetch on https://docs.pytest.org/en/stable/how-to/assert.html . Based on the returned page, state whether pytest supports ordinary Python assert statements for our cart tests. Answer in one short sentence and include the source URL. No JSON. Do not search again.
     ```
 
-Finish with `/exit` to close connections and remove the temporary workspace.
-A fresh launch resets the scenario. Model wording and latency may vary; compare
+Finish with `/exit` to close the application. The workspace remains available
+for inspection; repeat the setup example for a fresh copy. Model wording and latency may vary; compare
 the actual tool calls, returned values and errors.
-
-To create a new capture and GIF of this same interactive scenario:
-
-```bash
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/record_cli.py web
-PYTHONPATH=src .venv/bin/python docs/demo_assets/scripts/demos/render_cli.py web
-```
 
 ## Architecture choices and tradeoffs
 
