@@ -42,7 +42,7 @@ def setup_ai_engine(config: Config) -> tuple[OllamaClient, Agent]:
     client.events = ui_handler
     agent = Agent(
         model=config.model,
-        tools=get_tools(),
+        tools=get_tools(ui_handler),
         trust_level=config.trust_level,
         ui_handler=ui_handler,
         client=client,

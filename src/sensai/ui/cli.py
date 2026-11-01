@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from rich.console import ConsoleOptions, RenderResult
     from rich.status import Status
 
+    from .forms import Question
+
 
 class _Tail:
     """The end of a streamed Markdown reply: as many of its last lines as fit on screen.
@@ -297,3 +299,41 @@ class CLIHandler(AsyncUIHandler):
         """Prompt the user to input a free-form text string."""
         choice = await input_dialog(title=title, text=text).run_async()
         return str(choice) if choice is not None else None
+
+    async def prompt_question(self, question: Question) -> str | None:
+        """Prompt the user with predefined choices plus an optional free-text 'Other' option."""
+        await self.stop_spinner()
+        await self.on_stream_end()
+
+        choices = list(question.choices)
+        if question.allow_other:
+            choices.append(("__other__", "Autre (précisez)"))
+
+        body = Text(question.text + "\n")
+        for i, (_, label) in enumerate(choices, 1):
+            body.append(f"\n  {i}. ", style="bold cyan")
+            body.append(label)
+
+        self.console.print(
+            Panel(body, title=f"[bold yellow]{question.title}[/bold yellow]", border_style="yellow")
+        )
+
+        session: PromptSession[str] = PromptSession()
+        try:
+            if choices:
+                raw = await session.prompt_async(f"Votre choix (1-{len(choices)}) : ")
+                try:
+                    idx = int(raw.strip()) - 1
+                    if 0 <= idx < len(choices):
+                        value, _ = choices[idx]
+                        if value == "__other__":
+                            answer = await session.prompt_async("Votre réponse : ")
+                            return answer.strip() or None
+                        return value
+                except ValueError:
+                    pass
+                return raw.strip() or None
+            answer = await session.prompt_async("Votre réponse : ")
+            return answer.strip() or None
+        except (EOFError, KeyboardInterrupt):
+            return None
