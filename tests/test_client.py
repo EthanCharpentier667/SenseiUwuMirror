@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any
+from typing import Any, Self
 
 import httpx
 import pytest
@@ -626,3 +626,54 @@ async def test_client_chat_sends_client_temperature_and_top_p(
         options={"temperature": 0},
     )
     assert sent.get("options") == {"num_ctx": 4096, "temperature": 0, "top_p": 0.95}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("capabilities", "think", "expected"),
+    [
+        ({"completion", "thinking"}, False, {"think": False}),
+        ({"completion"}, False, {}),
+        ({"completion", "thinking"}, None, {}),
+    ],
+)
+async def test_chat_sends_think_only_to_a_thinking_model(
+    monkeypatch: pytest.MonkeyPatch,
+    capabilities: set[str],
+    think: bool | None,  # noqa: FBT001
+    expected: dict[str, bool],
+) -> None:
+    sent: dict[str, Any] = {}
+
+    class MockResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return {"message": {"content": "ok"}, "done": True}
+
+    class MockAsyncClient:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            pass
+
+        async def post(self, _url: str, **kwargs: Any) -> MockResponse:
+            sent.update(kwargs["json"])
+            return MockResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=None, timeout=TEST_TIMEOUT)
+    client._capabilities["m"] = capabilities  # noqa: SLF001
+
+    await client.chat(
+        messages=[{"role": "user", "content": "hi"}], model="m", stream=False, think=think
+    )
+
+    assert {key: sent[key] for key in sent if key == "think"} == expected

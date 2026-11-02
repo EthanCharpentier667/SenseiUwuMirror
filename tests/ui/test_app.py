@@ -196,3 +196,33 @@ def test_switch_session_updates_the_current_session(db: Database, profile_id: in
     assert app.session is other
     assert get_current_session() is other
     assert app.agent.last_prompt_tokens == 0
+
+
+@pytest.mark.asyncio
+async def test_handle_chat_shows_a_spinner_while_finishing_the_turn(
+    db: Database, profile_id: int
+) -> None:
+    session = new_session(profile_id)
+    app, _client = _chat_app(db, session)
+    spinners: list[str] = []
+    active_during_title: list[bool] = []
+
+    async def start_spinner(message: str) -> None:
+        spinners.append(message)
+
+    async def stop_spinner() -> None:
+        spinners.append("stopped")
+
+    app.agent.ui_handler = SimpleNamespace(start_spinner=start_spinner, stop_spinner=stop_spinner)
+    generate = app._generate_title  # noqa: SLF001
+
+    async def recording_title(model: str) -> None:
+        active_during_title.append(spinners[-1] == "Finishing up...")
+        await generate(model)
+
+    app._generate_title = recording_title  # type: ignore[method-assign]  # noqa: SLF001
+
+    await app._handle_chat("hi")  # noqa: SLF001
+
+    assert active_during_title == [True]
+    assert spinners[-1] == "stopped"

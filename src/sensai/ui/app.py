@@ -146,6 +146,8 @@ class CLIApp:
                 raise ValueError(msg)
 
             self._set_session(updated_session)
+            if self.agent.ui_handler:
+                await self.agent.ui_handler.start_spinner("Finishing up...")
             if features.is_enabled(RAG):
                 await self._ingest_read_documents()
 

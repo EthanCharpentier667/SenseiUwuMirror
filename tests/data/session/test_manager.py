@@ -934,3 +934,23 @@ async def test_generate_session_title_keeps_a_name_given_meanwhile(
     result = await generate_session_title(db, session, client)
 
     assert result.name == "Renamed by hand"
+
+
+@pytest.mark.asyncio
+async def test_title_and_compression_ask_the_model_not_to_think(
+    db: Database, profile_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _titled_session(db, profile_id, ("user", "hi"), ("assistant", "hello"))
+    thinks: list[object] = []
+
+    async def fake_chat(_self: OllamaClient, **kwargs: object) -> Response:
+        thinks.append(kwargs.get("think", "not sent"))
+        return _make_response()
+
+    monkeypatch.setattr(OllamaClient, "chat", fake_chat)
+    client = OllamaClient(base_url=TEST_BASE_URL, token=TEST_TOKEN, timeout=TEST_TIMEOUT)
+
+    await generate_session_title(db, session, client)
+    await compress_session(db, session, client)
+
+    assert thinks == [False, False]

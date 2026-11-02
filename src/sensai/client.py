@@ -285,6 +285,7 @@ class OllamaClient:
         on_chunk: ChunkCallback | None = None,
         response_format: dict[str, Any] | str | None = None,
         options: dict[str, Any] | None = None,
+        think: bool | None = None,
     ) -> Response:
         """Send a chat completion request to Ollama.
 
@@ -300,6 +301,9 @@ class OllamaClient:
                 constrained to.
             options: Extra Ollama model options (e.g. ``temperature``), merged over the
                 client's own (``num_ctx``).
+            think: Ollama's ``think``: whether a thinking model reasons before replying. Only
+                sent to a model with the "thinking" capability. Default is None, which leaves
+                the choice to the model.
 
         Returns:
             Response: The parsed response, including metadata and token usage.
@@ -320,6 +324,8 @@ class OllamaClient:
         }
         if response_format is not None:
             payload["format"] = response_format
+        if think is not None and "thinking" in await self.capabilities(model):
+            payload["think"] = think
         merged_options = {
             **self._default_options(),
             **(options or {}),

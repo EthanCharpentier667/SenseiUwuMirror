@@ -361,7 +361,7 @@ async def compress_session(
         "preserving important facts, decisions and context needed to continue it."
     )
     response = await client.chat(
-        messages=[{"role": "user", "content": prompt}], model=model, stream=False
+        messages=[{"role": "user", "content": prompt}], model=model, stream=False, think=False
     )
 
     last_folded_id = to_fold[-1].id
@@ -420,7 +420,7 @@ async def generate_session_title(
         "Reply with the title only: no quotes, no final punctuation."
     )
     response = await client.chat(
-        messages=[{"role": "user", "content": prompt}], model=model, stream=False
+        messages=[{"role": "user", "content": prompt}], model=model, stream=False, think=False
     )
     title = _clean_title(response.response)
     if title is None:
