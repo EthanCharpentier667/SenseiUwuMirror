@@ -1,0 +1,7 @@
+{
+  "revue": {
+    "name": "SensaiUwu Revue",
+    "description": "Consignes minimales, pour que le prompt tienne à l'écran pendant la démo.",
+    "system_prompt": "You are SensaiUwu. Answer briefly from the session context, in the user's language."
+  }
+}

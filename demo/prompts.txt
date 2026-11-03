@@ -1,0 +1,31 @@
+# ACTE 1 : Camille arrive. Montrer le lancement, la spec jointe, les préférences déjà là.
+sensai --persona tester --model qwen3.5:latest --temperature 0.2 --trust partial --compression-threshold 3000 --files cart-spec.md
+/prefs
+# ACTE 2 : Lancer et diagnostiquer. Approuver avec y. Dire que file_read demande aussi une approbation.
+Lance les tests avec cd cart && python3 -m pytest -q, dis-moi quel comportement échoue et pourquoi, d'après la spécification jointe. Ne modifie rien pour l'instant.
+# ACTE 3 : La règle de Malik. PAY-001 est le cas négatif.
+/mcp add-json atelier '{"url":"http://127.0.0.1:18876/mcp"}'
+Lis la règle CART-EMPTY-001 sur le serveur de règles de Malik, puis la règle PAY-001.
+# ACTE 4 : Corriger. LIRE le file_write : y seulement s'il touche cart/cart.py, n s'il touche le test.
+Le code est dans cart/cart.py. Corrige le défaut, puis relance cd cart && python3 -m pytest -q et donne le nouveau résultat.
+# ACTE 5 : Sandbox. Attendu : AssertionError, correction, puis OK.
+Exécute exactement ce code Python dans le sandbox, sans try/except : def subtotal(p): return sum(p) if p else 1 ; puis assert subtotal([]) == 0 ; puis print('OK'). Si l'exécution échoue, corrige la fonction d'après l'erreur et relance dans le sandbox.
+# ACTE 6 : Documentation. Dire que cette requête sort vers ollama.com, sans approbation.
+Cherche sur le web comment pytest marque un test comme attendu en échec, en une phrase, avec l'URL de la source.
+# NAVIGATEUR : montrer docs/demo_assets/assets/demos/browser.gif. Touches b puis c = version en direct si on la demande (environ 4 min).
+# ACTE 7 : Le livrable pour Malik. Changer de persona garde l'historique. Répondre 1 à la question. Relire le résumé à voix haute et le critiquer.
+/persona switch web_tester
+Demande-moi avec ask_user si je veux un résumé court ou détaillé pour Malik.
+Écris ce résumé pour Malik en cinq lignes, sans tableau ni question : le test qui échouait, la correction, le résultat final et ce qui n'a pas été testé.
+/stats
+/exit
+# ACTE 8 : Le lendemain. Fonctionnalités coupées, session reprise, prompt exact visible. Annoncer la persona courte : elle garde le prompt lisible.
+sensai --model qwen3.5:latest --show-prompt --personas-file personas-revue.json --persona revue --disable tools rag compression
+/session list
+/session switch 1
+Quel test échouait au départ, et qu'as-tu modifié ? Réponds en deux phrases.
+/exit
+# ACTE 9 : Sortie structurée (T5). Schéma transmis à Ollama, sans validation locale.
+sensai --model qwen3.5:latest --disable tools --output-schema '{"type":"object","properties":{"test":{"type":"string"},"verdict":{"type":"string","enum":["pass","fail"]}},"required":["test","verdict"],"additionalProperties":false}'
+Le test test_empty_basket a échoué avec assert 1 == 0. Donne le verdict.
+/exit
