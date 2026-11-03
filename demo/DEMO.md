@@ -21,7 +21,7 @@ Les codes viennent de `features_catalog.pdf`. Le barème additionne les étoiles
 | T5 | Sortie structurée | ★ | Acte 9 | JSON conforme au schéma | Partiel : aucune validation locale |
 | M3 | Mémoire structurée | ★★ | Aucun | Rien à montrer | Non implémentée |
 
-Hors catalogue, donc sans étoile : Bash (actes 2 et 4), navigateur et capture d'écran (GIF, ou en direct sur demande), `/stats` et `--show-prompt` (actes 7 et 8), qui répondent à des critères du barème sur le contexte.
+Hors catalogue, donc sans étoile : Bash (actes 2 et 4), navigateur (entre les actes 6 et 7), `/stats` et `--show-prompt` (actes 7 et 8), qui répondent à des critères du barème sur le contexte.
 
 ## Préparer
 
@@ -38,16 +38,15 @@ demo/souffleur.sh            # second terminal, sur l'écran du présentateur
 | Entrée | Envoie le prompt suivant de `prompts.txt` |
 | `y`, `n`, `1` à `9` | Transmet ta réponse à Sensai (approbation, question) |
 | `r` | Renvoie le dernier prompt |
-| `b` puis `c` | Envoie le prompt navigateur, puis celui de la capture d'écran, sans avancer dans le script (si les examinateurs le demandent) |
 | `q` | Quitte |
 
 Le souffleur ne décide jamais à ta place : chaque approbation reste un choix humain, visible à l'écran.
 
-Avant de commencer : notifications coupées, fenêtres sensibles fermées (le screenshot capture tout l'écran), Docker démarré, `docs/demo_assets/assets/demos/browser.gif` prêt dans un lecteur.
+Avant de commencer : notifications coupées, fenêtres sensibles fermées, Docker démarré.
 
 ## Le déroulé
 
-Durées mesurées lors de la dernière répétition complète, avec des approbations immédiates. Le total atteint environ 5 min sans vos explications ni le GIF.
+Durées mesurées lors de la dernière répétition complète, avec des approbations immédiates. Le total atteint environ 5 min sans vos explications ni l'étape du navigateur.
 
 ### Acte 1 : Camille arrive (M1, A5, R1)
 
@@ -112,22 +111,14 @@ Cherche sur le web comment pytest marque un test comme attendu en échec, en une
 - **Limite à dire :** la requête part vers `ollama.com` sans approbation en mode `partial`, ce qui contredit l'argument « tout reste dans l'entreprise ». L'acte 8 montre comment la couper.
 - **Observé :** l'URL de `docs.pytest.org` est citée lors des trois répétitions du prompt renforcé.
 
-### Entre les actes 6 et 7 : le navigateur en GIF (Browser, Screenshot)
-
-Montrer `docs/demo_assets/assets/demos/browser.gif`, sans lancer le navigateur.
-
-- **À dire :** « Ce GIF montre les outils seuls, sans que le modèle choisisse les actions. En direct, cette étape prend environ 4 min sur notre machine, et on peut la lancer si vous le souhaitez. »
-
-**Si les examinateurs le demandent en direct,** appuie sur `b` dans le souffleur quand Sensai affiche `Vous >`, puis sur `c` pour la capture d'écran. Compte environ 4 min.
+### Entre les actes 6 et 7 : le navigateur (Browser)
 
 ```text
 Avec les outils browser, ouvre http://127.0.0.1:18877/index.html, écris 0 dans le champ Item prices, clique sur Calculate subtotal, puis dis-moi le résultat affiché.
-Prends une capture d'écran et dis-moi quel sous-total tu vois sur la page.
 ```
 
-- **Attendu :** `Subtotal: 0`, en 230 s lors de la répétition.
+- **Attendu :** `Subtotal: 0`.
 - **Limite observée :** quand Chrome a planté, le modèle s'est rabattu sur `xdg-open`, puis a voulu cliquer dans une page qu'il ne contrôlait pas. Lis chaque approbation.
-- **Non répété dans cet enchaînement :** le prompt du screenshot. L'outil a tourné une fois, et le modèle a bien lu la page.
 
 ### Acte 7 : le livrable pour Malik (A5, X4, compression) · 50 s
 
