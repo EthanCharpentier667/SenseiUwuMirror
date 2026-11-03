@@ -14,14 +14,14 @@ Les codes viennent de `features_catalog.pdf`. Le barème additionne les étoiles
 | T3 | Recherche web | ★★ | Acte 6 | `web_search` et sa réponse | Fonctionne ; la requête sort vers `ollama.com` |
 | A3 | Human-in-the-loop | ★ | Actes 2 et 4 | Approbation ou refus avant une action | Fonctionne ; classification par outil entier |
 | M1 | Sessions et profils | ★ | Actes 1 et 8 | Préférences déjà là, session reprise | Fonctionne |
-| A5 | Personas | ★ | Actes 1 et 7 | `--persona`, puis changement sans perdre l'historique | Fonctionne |
+| A5 | Personas | ★ | Acte 1 et navigateur | `--persona`, puis changement sans perdre l'historique | Fonctionne |
 | X4 | Questions et formulaires | ★ | Acte 7 | Question à choix via `ask_user` | Fonctionne, mais fragile selon le prompt |
 | M2 | Budget de tokens et compression | ★★ (★★★ si très bonnes mesures) | Acte 7 | `/stats`, résumé de l'historique | À ne pas revendiquer sur `main` |
 | T4 | Accès aux fichiers avec permissions | ★ | Actes 2 et 4 | `file_read`, `file_write` avec approbation | Partiel : aucune liste de chemins |
 | T5 | Sortie structurée | ★ | Acte 9 | JSON conforme au schéma | Partiel : aucune validation locale |
 | M3 | Mémoire structurée | ★★ | Aucun | Rien à montrer | Non implémentée |
 
-Hors catalogue, donc sans étoile : Bash (actes 2 et 4), navigateur (entre les actes 6 et 7), `/stats` et `--show-prompt` (actes 7 et 8), qui répondent à des critères du barème sur le contexte.
+Hors catalogue, donc sans étoile : Bash (actes 2 et 4), navigateur (entre les actes 6 et 7), `/stats` et `--show-prompt` (actes 7 et 9), qui répondent à des critères du barème sur le contexte.
 
 ## Préparer
 
@@ -111,52 +111,53 @@ Cherche sur le web comment pytest marque un test comme attendu en échec, en une
 - **Limite à dire :** la requête part vers `ollama.com` sans approbation en mode `partial`, ce qui contredit l'argument « tout reste dans l'entreprise ». L'acte 8 montre comment la couper.
 - **Observé :** l'URL de `docs.pytest.org` est citée lors des trois répétitions du prompt renforcé.
 
-### Entre les actes 6 et 7 : le navigateur (Browser)
-
-```text
-Avec les outils browser, ouvre http://127.0.0.1:18877/index.html, écris 0 dans le champ Item prices, clique sur Calculate subtotal, puis dis-moi le résultat affiché.
-```
-
-- **Attendu :** `Subtotal: 0`.
-- **Limite observée :** quand Chrome a planté, le modèle s'est rabattu sur `xdg-open`, puis a voulu cliquer dans une page qu'il ne contrôlait pas. Lis chaque approbation.
-
-### Acte 7 : le livrable pour Malik (A5, X4, compression) · 50 s
+### Entre les actes 6 et 7 : le navigateur (A5, Browser)
 
 ```text
 /persona switch web_tester
+Avec les outils browser, ouvre http://127.0.0.1:18877/index.html, écris 0 dans le champ Item prices, clique sur Calculate subtotal, puis dis-moi le résultat affiché.
+```
+
+- **Attendu :** le persona change sans perdre l'historique, puis `Subtotal: 0`.
+- **À dire :** le persona web est spécialisé dans les tests de pages ; on le prend avant de tester la page, pas après.
+- **Limite observée :** quand Chrome a planté, le modèle s'est rabattu sur `xdg-open`, puis a voulu cliquer dans une page qu'il ne contrôlait pas. Lis chaque approbation.
+
+### Acte 7 : le livrable pour Malik (X4, compression) · 50 s
+
+```text
 Demande-moi avec ask_user si je veux un résumé court ou détaillé pour Malik.
 Écris ce résumé pour Malik en cinq lignes, sans tableau ni question : le test qui échouait, la correction, le résultat final et ce qui n'a pas été testé.
 /stats
 /exit
 ```
 
-- **Attendu :** le persona change sans perdre l'historique, puis une question à choix, à laquelle tu réponds `1`, puis un résumé en cinq lignes. `/stats` indique le remplissage du contexte et `Summary: yes` (21 messages résumés lors des deux derniers passages).
+- **Attendu :** une question à choix, à laquelle tu réponds `1`, puis un résumé en cinq lignes. `/stats` indique le remplissage du contexte et `Summary: yes` (21 messages résumés lors des deux derniers passages).
 - **Limite observée à chaque répétition :** juste après ta réponse à la question, le modèle affiche une phrase sur `ask_user` ou l'appel brut au lieu d'un accusé de réception. Annonce-le, puis envoie le message suivant : c'est pour cela que le résumé est demandé à part.
 - **Limite observée, à relire à voix haute :** le résumé a écrit que `PAY-001` « n'existe pas dans le codebase », alors que la règle est absente du serveur de Malik, et il n'a pas dit que le paiement n'a pas été testé. Une version plus longue a aussi posé la question à Malik et affirmé que seul `test_empty_basket` avait été vérifié. Dites que le résumé se relit avant d'être envoyé.
 - **Sur M2 :** présentez le seuil, le déclenchement et ces limites. Le correctif et la mesure avec baseline sont sur `refactor/token-budgeting`, pas sur `main` : fusionnez avant de citer les chiffres (33 % → 80 % à `num_ctx` 4096, 100 % → 80 % à 16384).
 
-### Acte 8 : le lendemain (M1, A5, désactivation, contexte) · 22 s
+### Acte 8 : le lendemain (M1, désactivation) · 22 s
 
 ```text
-sensai --model qwen3.5:latest --show-prompt --personas-file personas-revue.json --persona revue --disable tools rag compression
+sensai --model qwen3.5:latest --personas-file personas-revue.json --persona revue --disable tools rag compression
 /session list
 /session switch 1
 Quel test échouait au départ, et qu'as-tu modifié ? Réponds en deux phrases.
 /exit
 ```
 
-- **Attendu :** historique repris, système fonctionnel malgré les fonctionnalités coupées, et un seul prompt affiché, d'environ 60 lignes. Dans une fenêtre de 50 lignes, seul le bloc JSON du début sort de l'écran.
-- **À dire :** l'ordre des blocs : préférences et instructions, résumé, historique, cadrage, puis nouvelle demande. Sans RAG, il n'y a pas d'extraits.
-- **À annoncer :** la persona `revue` et `--disable tools` servent à garder le prompt lisible. Avec `tester` et les outils, la même question affiche environ 280 lignes, réparties sur deux requêtes.
+- **Attendu :** historique repris, et le système fonctionne malgré les fonctionnalités coupées.
 - **À vérifier :** avec plusieurs sessions, le numéro `1` peut changer ; lis la liste avant de l'envoyer.
 
-### Acte 9 : sortie structurée (T5) · 10 s
+### Acte 9 : sortie structurée et prompt exact (T5, contexte) · 10 s
 
 ```text
-sensai --model qwen3.5:latest --disable tools --output-schema '{"type":"object","properties":{"test":{"type":"string"},"verdict":{"type":"string","enum":["pass","fail"]}},"required":["test","verdict"],"additionalProperties":false}'
+sensai --model qwen3.5:latest --show-prompt --personas-file personas-revue.json --persona revue --disable tools rag --output-schema '{"type":"object","properties":{"test":{"type":"string"},"verdict":{"type":"string","enum":["pass","fail"]}},"required":["test","verdict"],"additionalProperties":false}'
 Le test test_empty_basket a échoué avec assert 1 == 0. Donne le verdict.
 /exit
 ```
 
 - **Attendu et observé :** `{ "test": "test_empty_basket", "verdict": "fail" }`.
+- **À dire sur `--show-prompt` :** la session est neuve, donc le prompt tient à l'écran : le bloc JSON des réglages avec le schéma dans `format`, puis préférences et instructions, cadrage et la demande. Dans l'acte 8, la session reprise renverrait tout l'historique et pousserait le reste hors de l'écran.
+- **À annoncer :** la persona `revue` et `--disable tools rag` servent à garder le prompt lisible.
 - **Limite à dire :** le schéma est transmis à Ollama, sans validation locale ni nouvelle tentative. Dans l'état, cela peut ne pas valider T5 : posez la question au suivi.

@@ -12,10 +12,10 @@
 | 4 (42 s) | Corriger `cart/cart.py` et relancer les tests | A3, T4 | `else 0`, puis `2 passed` ; refus si le modèle modifie le test | Classification par outil entier |
 | 5 (57 s) | Exécuter un code faux dans le sandbox et le faire corriger | T2 | `AssertionError`, correction, puis `OK` dans Docker | Prompt guidé : avec un prompt libre, le modèle a masqué l'erreur avec un `try/except` |
 | 6 (36 s) | Chercher sur le web comment marquer un test en échec attendu | T3 | `@pytest.mark.xfail` | La requête sort vers `ollama.com` sans approbation |
-| Navigateur | Vérifier le sous-total dans la page avec le navigateur | Hors catalogue | `Subtotal: 0` | Si Chrome plante, le modèle peut se rabattre sur `xdg-open` |
-| 7 (50 s) | Changer de persona, poser une question à choix, écrire le résumé pour Malik | A5, X4, M2 | Historique conservé, question posée, résumé, `/stats` | Résumé parfois faux ; réponse brute juste après `ask_user` |
-| 8 (22 s) | Reprendre la session avec des fonctionnalités coupées et le prompt visible | M1, A5 | Historique repris, prompt exact affiché | Persona courte et outils coupés pour garder le prompt lisible |
-| 9 (10 s) | Demander un verdict au format JSON | T5 | `{ "test": "test_empty_basket", "verdict": "fail" }` | Schéma transmis à Ollama, sans validation locale |
+| Navigateur | Passer au persona web, puis vérifier le sous-total dans la page avec le navigateur | A5, hors catalogue | `Subtotal: 0` | Si Chrome plante, le modèle peut se rabattre sur `xdg-open` |
+| 7 (50 s) | Poser une question à choix, écrire le résumé pour Malik | X4, M2 | Question posée, résumé, `/stats` | Résumé parfois faux ; réponse brute juste après `ask_user` |
+| 8 (22 s) | Reprendre la session avec des fonctionnalités coupées | M1 | Historique repris | Le numéro de session peut changer : lire la liste |
+| 9 (10 s) | Demander un verdict au format JSON, avec le prompt visible | T5 | Prompt exact affiché, puis `{ "test": "test_empty_basket", "verdict": "fail" }` | Schéma transmis à Ollama, sans validation locale ; persona courte pour garder le prompt lisible |
 
 ## Étoiles visées
 
