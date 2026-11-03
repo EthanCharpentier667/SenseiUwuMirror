@@ -28,6 +28,6 @@ launch "/prefs add Pour les projets Python, lance les tests avec python3 -m pyte
 sleep 1; launch "/exit"; sleep 2; tmux send-keys -t sensai C-l
 
 # Précharge le modèle pour éviter l'attente du premier appel.
-curl -s http://localhost:11434/api/generate -d '{"model":"qwen3.5:latest","keep_alive":"60m"}' >/dev/null
-curl -s http://localhost:11434/api/embed -d '{"model":"nomic-embed-text","input":"x"}' >/dev/null
+curl -s http://10.84.107.81:11434/api/generate -d '{"model":"qwen3.5:latest","keep_alive":"60m"}' >/dev/null
+curl -s http://10.84.107.81:11434/api/embed -d '{"model":"nomic-embed-text","input":"x"}' >/dev/null
 echo "Prêt. Projeter : tmux attach -t sensai  |  Piloter : demo/souffleur.sh"

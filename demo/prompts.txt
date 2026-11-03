@@ -1,5 +1,5 @@
 # ACTE 1 : Camille arrive. Montrer le lancement, la spec jointe, les préférences déjà là.
-sensai --persona tester --model qwen3.5:latest --temperature 0.2 --trust partial --compression-threshold 3000 --files cart-spec.md
+sensai --persona tester --model gemma4:cloud --url https://ollama.com/api/chat --token 5c873539e4bc4d5d8bb8919cc731db4a.neyHUAkBRXH5X-SFt94oPKDe --temperature 0.2 --trust partial --compression-threshold 3000 --files cart-spec.md
 /prefs
 # ACTE 2 : Lancer et diagnostiquer. Approuver avec y. Dire que file_read demande aussi une approbation.
 Lance les tests avec cd cart && python3 -m pytest -q, dis-moi quel comportement échoue et pourquoi, d'après la spécification jointe. Ne modifie rien pour l'instant.
@@ -20,12 +20,12 @@ Demande-moi avec ask_user si je veux un résumé court ou détaillé pour Malik.
 /stats
 /exit
 # ACTE 8 : Le lendemain. Fonctionnalités coupées, session reprise, prompt exact visible. Annoncer la persona courte : elle garde le prompt lisible.
-sensai --model qwen3.5:latest --show-prompt --personas-file personas-revue.json --persona revue --disable tools rag compression
+sensai --model gemma4:cloud --url https://ollama.com/api/chat --token 5c873539e4bc4d5d8bb8919cc731db4a.neyHUAkBRXH5X-SFt94oPKDe --show-prompt --personas-file personas-revue.json --persona revue --disable tools rag compression
 /session list
 /session switch 1
 Quel test échouait au départ, et qu'as-tu modifié ? Réponds en deux phrases.
 /exit
 # ACTE 9 : Sortie structurée (T5). Schéma transmis à Ollama, sans validation locale.
-sensai --model qwen3.5:latest --disable tools --output-schema '{"type":"object","properties":{"test":{"type":"string"},"verdict":{"type":"string","enum":["pass","fail"]}},"required":["test","verdict"],"additionalProperties":false}'
+sensai --model gemma4:cloud --url https://ollama.com/api/chat --token 5c873539e4bc4d5d8bb8919cc731db4a.neyHUAkBRXH5X-SFt94oPKDe --disable tools --output-schema '{"type":"object","properties":{"test":{"type":"string"},"verdict":{"type":"string","enum":["pass","fail"]}},"required":["test","verdict"],"additionalProperties":false}'
 Le test test_empty_basket a échoué avec assert 1 == 0. Donne le verdict.
 /exit
